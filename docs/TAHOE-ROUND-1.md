@@ -87,14 +87,40 @@ O caminho foi seguido no código: `tp_event_at()` produz o botão direito (códi
 
 ### 5. Feedback de abertura de aplicativos
 
-- O Dock agora dá feedback imediato e curto ao clique (ícone reduz e retorna em 420 ms), respeitando Reduce Motion. É confirmação da interação, não indica que o aplicativo terminou de abrir.
-- Próxima evolução: estados reais de solicitação, processo iniciado, primeira janela exibida e falha. Não manter animação infinita nem indicar sucesso antes da janela abrir.
+**Caminho auditado**
+
+- `themes/default/components/Dock.jsx` confirma o clique com redução/opacity por 420 ms; é feedback de interação, não estado do processo. O efeito respeita Reduce Motion e limpa o timer ao desmontar.
+- `sdk/dock.js` encaminha o clique sem janelas para `launchDockItem()` e `launchApp()`; quando há janelas, apenas foca/restaura a janela existente.
+- `sdk/apps.js` centraliza os lançamentos: Web App, Flatpak, Linux `.desktop`, pacote `.lpk`, built-in isolado e janela nativa `wm.open()`.
+- Os retornos atuais são heterogêneos: `wm.open()` devolve ID de janela; Linux/Flatpak e `launchPackage()` informam aceitação/recusa do pedido, não o primeiro frame; Web App pode lançar ou lançar exceção. Portanto, não podem ser tratados como um único sinal de "abriu".
+- `sdk/windows.js` mantém o registro de janelas do shell. Uma janela nova pode servir como confirmação visual de que há uma superfície, mas não é um evento universal de processo iniciado nem cobre falhas anteriores à criação da janela.
+- `server/src/app/appspawn.c` registra o processo isolado e seu broker; `server/src/app/appclient.c` cria e gerencia as janelas Wayland desse processo. O caminho examinado não expõe ao tema um evento unificado de início/erro para todas as classes de app.
+
+**Decisão**
+
+- Não criar indicador de carregamento com timeout arbitrário nem tratar retorno de aceitação como sucesso final.
+- Próxima implementação precisa de um contrato de ciclo de vida no servidor/SDK com identificador de lançamento e estados distintos: solicitado, processo iniciado quando aplicável, primeira janela apresentada, falha e cancelamento/encerramento.
+- O contrato deve cobrir Linux, Flatpak, Web Apps, pacotes isolados e apps nativos, com correlação segura entre pedido e janela. O indicador visual termina quando chega evento terminal, com timeout de segurança apenas como fallback e mensagem de estado honesta.
+- Até existir esse contrato, manter o feedback de clique atual como confirmação de interação, sem alegar que o app terminou de abrir.
 
 ### 6. Abrir com e navegador
 
-- Revisar a experiência já existente de Open With e Default Apps.
-- Oferecer escolha pontual e preferência permanente por MIME quando aplicável.
-- Não criar mecanismo paralelo às associações MIME/freedesktop.
+**Achados atuais**
+
+- `apps/files/ops.js` monta os aplicativos compatíveis usando MIME do sistema (`lord.mime.guess`) e a tabela interna do Files; inclui apps Linux e Flatpak que declaram o tipo.
+- O app padrão MIME do usuário/sistema é priorizado e marcado na lista; as associações são mantidas em `~/.config/mimeapps.list`, compartilhadas com `xdg-open` e apps Linux.
+- O menu contextual de arquivos já oferece `Abrir` e submenu `Abrir com`; esse submenu lista os handlers disponíveis, inclusive provedores externos.
+- Duplo clique usa `openEntry()`: abre o handler padrão automaticamente quando existe; se não há app instalado, pode oferecer provedor compatível ou Quick Look. Não há seletor obrigatório em todos os duplos cliques.
+- A escolha de app padrão por categoria está em Configurações → Apps padrão (`apps/settings/DefaultApps.jsx`), com navegador, e-mail, música, vídeo, imagens, PDF, texto, terminal e calendário. A configuração é freedesktop, não uma base paralela.
+- Para provedores externos, Files permite memorizar "Sempre abrir arquivos .ext com…". Para apps Linux/nativos, a escolha permanente é feita pelas associações MIME em Apps padrão; o submenu Abrir com executa uma escolha pontual.
+- `sdk/sysopen.js` encaminha URLs HTTP/HTTPS ao handler padrão. O portal valida pedidos de apps Linux e pede confirmação quando o app solicitante está em segundo plano.
+
+**Conclusão**
+
+- O seletor e as associações já existem; o problema a resolver é de descoberta/clareza da experiência, não ausência total da função.
+- Melhorias Tahoe devem deixar visível a opção de escolha pontual e o caminho para definir padrão, sem substituir `mimeapps.list` nem criar outra associação de arquivos.
+- Revisar se o seletor "Abrir com" deve ser acessível também por duplo clique em modo "Perguntar sempre" (preferência opcional por MIME), mantendo o comportamento automático padrão atual.
+- Revisar a apresentação de navegadores candidatos e uma opção "Perguntar sempre" sem alterar a política de segurança do portal.
 
 ## Estado desta rodada
 
