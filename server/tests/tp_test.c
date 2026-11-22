@@ -263,6 +263,7 @@ static void t_clicks(void) {
     /* A touchpad with discrete physical buttons must not use clickpad corner mapping. */
     TpCaps discrete = sim_caps(TP_KIND_TOUCHPAD);
     discrete.clickpad = 0;
+    discrete.has_right = 1;       /* BTN_RIGHT is present: this is not a clickpad */
     run_caps("click-bottom-right", TP_KIND_TOUCHPAD, &area, &discrete);
     s = summary();
     print_sum("discrete-buttons", &s);
