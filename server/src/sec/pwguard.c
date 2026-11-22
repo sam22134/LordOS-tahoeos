@@ -59,6 +59,8 @@ typedef struct {
     char fpid[64];              /* pipewire.access.portal.app_id: the Flatpak app pipewire-pulse says it is (checked) */
     char app[FW_APP_MAX];
     uint32_t want, applied;     /* restrictions (FW_R_NO_MIC | FW_R_NO_CAMERA | FW_R_NO_SCREEN) to apply / applied */
+    int identity_pid;            /* resolved process whose identity this PipeWire connection was bound to */
+    uint64_t identity_start;     /* /proc/<pid>/stat starttime: prevents PID reuse from inheriting identity */
     int live;
 } PgClient;
 
@@ -648,10 +650,45 @@ static int in_user_manager(int pid) {
     return 1;
 }
 
+/* Linux /proc/<pid>/stat field 22. The command name is parenthesized and may itself
+ * contain spaces or ')', so parse from the final ')' rather than splitting the whole line. */
+static uint64_t process_start_time(int pid) {
+    if (pid <= 0) return 0;
+    char path[64], line[4096];
+    snprintf(path, sizeof path, "/proc/%d/stat", pid);
+    FILE *f = fopen(path, "re");
+    if (!f) return 0;
+    int ok = fgets(line, sizeof line, f) != NULL;
+    fclose(f);
+    if (!ok) return 0;
+    char *p = strrchr(line, ')');
+    if (!p) return 0;
+    p++;
+    while (*p == ' ' || *p == '\\t') p++;
+    /* field 3 (state) */
+    while (*p && *p != ' ' && *p != '\\t') p++;
+    for (int field = 4; field <= 22; field++) {
+        while (*p == ' ' || *p == '\\t') p++;
+        if (!*p) return 0;
+        char *end;
+        unsigned long long value = strtoull(p, &end, 10);
+        if (end == p) return 0;
+        if (field == 22) return (uint64_t)value;
+        p = end;
+    }
+    return 0;
+}
+
 static void resolve(PgClient *c) {
     c->app[0] = 0;
     c->unverified = 0;
     c->resolved = 1;
+    /* A PID is not a durable process identity. If the process that originally established this
+     * client has exited, never let a later process reusing its PID inherit the connection's app. */
+    if (c->identity_pid > 0 && process_start_time(c->identity_pid) != c->identity_start) {
+        c->unverified = 1;
+        return;
+    }
     int pid = c->pid_sec;                           /* the socket's credentials: always the start */
     /* Verify PulseAudio clients even when no restriction is armed: this identity also feeds the
      * microphone privacy indicator, which must never trust application.process.id on its own. */
@@ -687,6 +724,16 @@ static void resolve(PgClient *c) {
         /* escaped to the user's service manager while restricted apps run: treated as restricted
          * (like lord-netperm's per-user union) */
         if (guard_armed && in_user_manager(pid)) c->unverified = 1;
+    }
+    if (!c->unverified) {
+        uint64_t start = process_start_time(pid);
+        if (!start || (c->identity_pid > 0 && (c->identity_pid != pid || c->identity_start != start))) {
+            c->unverified = 1;
+            c->app[0] = 0;
+        } else if (!c->identity_pid) {
+            c->identity_pid = pid;
+            c->identity_start = start;
+        }
     }
 }
 
@@ -986,7 +1033,9 @@ void pwguard_tick(void) {
     for (int i = 0; i < MAX_CLIENTS; i++) {
         PgClient *c = &P.cl[i];
         if (!c->live || !c->resolved) continue;
-        if (c->pulse || c->unverified || !c->app[0]) resolve(c);   /* also: did it escape to user@ meanwhile? */
+        /* Re-read every client's cgroup, not just PulseAudio/unverified clients: a native app may
+         * migrate into user@ after its first identification. resolve() also pins PID starttime. */
+        resolve(c);
         evaluate(c);
     }
     kill_streams();
