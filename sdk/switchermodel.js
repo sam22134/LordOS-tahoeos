@@ -15,7 +15,9 @@ export const SWITCHER_DEFAULTS = {
 
 export function switcherPrefs(saved) {
   const p = { ...SWITCHER_DEFAULTS, ...(saved && typeof saved === 'object' ? saved : {}) };
-  if (!['theme', 'meta', 'alt', 'both'].includes(p.keys)) p.keys = 'theme';
+  // An invalid/stale preference must fall back to Tahoe's Alt+Tab default, not the theme's
+  // historical modifier (which may be Super+Tab in Lord Flow).
+  if (!['theme', 'meta', 'alt', 'both'].includes(p.keys)) p.keys = SWITCHER_DEFAULTS.keys;
   if (!['all', 'desktop', 'display'].includes(p.scope)) p.scope = 'all';
   if (!['s', 'm', 'l'].includes(p.size)) p.size = 'm';
   if (!['system', 'glass', 'solid', 'contrast', 'custom'].includes(p.skin)) p.skin = 'system';
