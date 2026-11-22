@@ -92,6 +92,26 @@ static double now_ms(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &
 
 static uint32_t rd32(const uint8_t *p) { uint32_t v; memcpy(&v, p, 4); return v; }
 
+/* PipeWire publishes these identifiers as decimal strings. Reject prefixes, signs,
+ * whitespace and overflow instead of accepting atoi()/strtoul() partial parses. */
+int pwguard_parse_u32(const char *s, uint32_t *value) {
+    if (!s || !*s || !value) return -1;
+    uint32_t v = 0;
+    for (const unsigned char *p = (const unsigned char *)s; *p; p++) {
+        if (*p < '0' || *p > '9') return -1;
+        uint32_t digit = (uint32_t)(*p - '0');
+        if (v > (UINT32_MAX - digit) / 10) return -1;
+        v = v * 10 + digit;
+    }
+    *value = v;
+    return 0;
+}
+
+int pwguard_parse_pid(const char *s) {
+    uint32_t pid;
+    return !pwguard_parse_u32(s, &pid) && pid > 0 && pid <= INT_MAX ? (int)pid : 0;
+}
+
 static int pwpod_long(PwPod p, int64_t *v) {
     if (p.n < 16 || rd32(p.p + 4) != SPA_LONG || rd32(p.p) != 8) return -1;
     memcpy(v, p.p + 8, 8);
@@ -836,7 +856,8 @@ static void on_global(PwPod body) {
         if (!nd) {
             /* fail closed: a capture stream, or a capture node of a client that is restricted or
              * not tracked, that we can't follow is destroyed */
-            PgClient *oc = cid ? client_by_id((uint32_t)strtoul(cid, NULL, 10)) : NULL;
+            uint32_t client_id = 0;
+            PgClient *oc = !pwguard_parse_u32(cid, &client_id) ? client_by_id(client_id) : NULL;
             if (guard_armed && (stream || !oc || oc->want)) {
                 fprintf(stderr, "pwguard: too many capture nodes: node %d was destroyed\n", (int)id);
                 destroy_global((uint32_t)id);
@@ -847,7 +868,8 @@ static void on_global(PwPod body) {
         nd->id = (uint32_t)id;
         nd->flag = flag;
         nd->stream = stream;
-        nd->client = cid ? (uint32_t)strtoul(cid, NULL, 10) : 0;
+        nd->client = 0;
+        (void)pwguard_parse_u32(cid, &nd->client);
         /* A stream can be announced before its owner's client.info response. Recheck the
          * running restrictions and temporarily restrict that unresolved client before kill_streams. */
         if (stream) {
@@ -888,7 +910,8 @@ static void on_global(PwPod body) {
     } else if (!strcmp(type, "PipeWire:Interface:Port") && has_props) {
         const char *nid = dict_get(props, "node.id");
         if (!nid) return;
-        uint32_t node = (uint32_t)strtoul(nid, NULL, 10);
+        uint32_t node;
+        if (pwguard_parse_u32(nid, &node)) return;
         PgNode *nd = node_by_id(node);
         if (!nd || !nd->flag) return;
         PgPort *pt = NULL;
@@ -953,8 +976,8 @@ static void on_client_info(uint32_t proxy, PwPod body) {
     if (!(change_mask & 1)) return;
     if (pwpod_struct_field(body, 2, &props)) return;
     const char *sp = dict_get(props, "pipewire.sec.pid"), *ap = dict_get(props, "application.process.id");
-    c->pid_sec = sp ? atoi(sp) : 0;
-    c->pid_app = ap ? atoi(ap) : 0;
+    c->pid_sec = pwguard_parse_pid(sp);
+    c->pid_app = pwguard_parse_pid(ap);
     const char *fp = dict_get(props, "pipewire.access.portal.app_id");
     snprintf(c->fpid, sizeof c->fpid, "%s", fp && strlen(fp) < sizeof c->fpid ? fp : "");
     /* a pulse client only if the connection really comes from the session's pipewire-pulse; the
