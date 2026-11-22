@@ -275,6 +275,24 @@ uint32_t pwguard_node_flag(const char *mc, const char *role, const char *name) {
 
 int pwguard_link_state_active(int state) { return state == 4; }
 
+
+uint32_t pwguard_stream_flag(const char *mc) {
+    if (!mc) return 0;
+    if (!strcmp(mc, "Stream/Input/Audio")) return FW_R_NO_MIC;
+    if (!strcmp(mc, "Stream/Input/Video")) return FW_R_NO_CAMERA;
+    return 0;
+}
+
+static PgClient *client_by_id(uint32_t id) {
+    for (int i = 0; i < MAX_CLIENTS; i++) if (P.cl[i].live && P.cl[i].id == id) return &P.cl[i];
+    return NULL;
+}
+
+static PgNode *node_by_id(uint32_t id) {
+    for (int i = 0; i < MAX_NODES; i++) if (P.node[i].live && P.node[i].id == id) return &P.node[i];
+    return NULL;
+}
+
 /* Current real capture users: only ACTIVE links from a source node to an app input stream.
  * App identity comes from the client resolver above, never from node/application display strings.
  * Caller owns the returned JSON buffer. */
@@ -282,14 +300,14 @@ static void pw_json_string(char *out, size_t cap, size_t *at, const char *s) {
     if (*at + 1 >= cap) return;
     out[(*at)++] = '"';
     for (const unsigned char *p = (const unsigned char *)(s ? s : ""); *p && *at + 7 < cap; p++) {
-        if (*p == '"' || *p == '\\\\') { out[(*at)++] = '\\\\'; out[(*at)++] = (char)*p; }
-        else if (*p < 0x20) { int n = snprintf(out + *at, cap - *at, "\\\\u%04x", *p); if (n > 0) *at += (size_t)n; }
+        if (*p == '"' || *p == '\\') { out[(*at)++] = '\\'; out[(*at)++] = (char)*p; }
+        else if (*p < 0x20) { int n = snprintf(out + *at, cap - *at, "\\u%04x", *p); if (n > 0) *at += (size_t)n; }
         else out[(*at)++] = (char)*p;
     }
     if (*at + 1 < cap) out[(*at)++] = '"';
 }
 char *pwguard_device_users_json(void) {
-    size_t cap = 65536, at = 0;
+    size_t cap = (size_t)MAX_LINKS * (FW_APP_MAX * 6u + 128u) + 2u, at = 0;
     char *out = malloc(cap);
     if (!out) return NULL;
     out[at++] = '[';
@@ -333,23 +351,6 @@ char *pwguard_device_users_json(void) {
     out[at++] = ']';
     out[at] = 0;
     return out;
-}
-
-uint32_t pwguard_stream_flag(const char *mc) {
-    if (!mc) return 0;
-    if (!strcmp(mc, "Stream/Input/Audio")) return FW_R_NO_MIC;
-    if (!strcmp(mc, "Stream/Input/Video")) return FW_R_NO_CAMERA;
-    return 0;
-}
-
-static PgClient *client_by_id(uint32_t id) {
-    for (int i = 0; i < MAX_CLIENTS; i++) if (P.cl[i].live && P.cl[i].id == id) return &P.cl[i];
-    return NULL;
-}
-
-static PgNode *node_by_id(uint32_t id) {
-    for (int i = 0; i < MAX_NODES; i++) if (P.node[i].live && P.node[i].id == id) return &P.node[i];
-    return NULL;
 }
 
 #define GUARDED (FW_R_NO_MIC | FW_R_NO_CAMERA | FW_R_NO_SCREEN)
