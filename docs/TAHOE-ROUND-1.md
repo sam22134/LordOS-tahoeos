@@ -48,11 +48,11 @@ Não inferir clickpad apenas pela ausência de BTN_RIGHT. Essa regra pode classi
 - `tp_open()` agora consulta `EVIOCGPHYS` e `EVIOCGUNIQ` e publica `id` + `identityStable` em `lord.input.devices()`. O ID é um fingerprint FNV-1a dos dados físicos/únicos e do hardware; não usa `/dev/input/eventN`.
 - Quando o kernel não fornece identidade física nem serial, o fingerprint usa bus/vendor/product/nome e `identityStable` fica falso. Esse fallback serve para diagnóstico, não deve ser usado para gravar overrides persistentes, pois dispositivos iguais podem colidir.
 - `server/src/input.c` só chamava `tp_open()` depois de classificar o dispositivo como mouse ou ponteiro absoluto. Um touchpad multitouch que anuncie apenas `ABS_MT_POSITION_X/Y/SLOT`, sem `ABS_X/Y`, podia ser descartado antes do driver.
-- Foi adicionada uma classificação explícita para esse conjunto de capabilities, alinhada aos critérios de `tp_open()`, e testes no `inputkind_test.c`. A suíte ainda precisa ser executada.
+- Foi adicionada uma classificação explícita para esse conjunto de capabilities, alinhada aos critérios de `tp_open()`, e testes no `inputkind_test.c`. O teste foi compilado e executado no GitHub Actions.
 - A API `lord.input.configureDevice(id, mode)` agora aceita `auto`, `clickpad` e `buttons`. O servidor aplica o modo somente ao dispositivo conectado com o ID informado; modos forçados são recusados quando `identityStable` é falso.
 - `sdk/trackpad.js` persiste os overrides em `settings.trackpadDevices`, reaplica quando os dispositivos são reenumerados e atualiza a lista após a mudança. O `eventN` nunca é usado como chave.
 - Configurações agora apresenta um seletor por touchpad. Dispositivos sem identidade física única exibem o motivo e não permitem persistência individual.
-- Foram adicionados testes unitários para os três modos e para rejeitar override em identidade ambígua. Os testes ainda precisam ser compilados e executados.
+- Foram adicionados testes unitários para os três modos e para rejeitar override em identidade ambígua. O `tp-test` compilou e passou com 98/98 casos no GitHub Actions.
 
 **Caminho do botão direito já existente**
 
@@ -111,7 +111,7 @@ O caminho foi seguido no código: `tp_event_at()` produz o botão direito (códi
 - [ ] Executar build e testes no ambiente de desenvolvimento (ainda não executados: o ambiente desta sessão não conseguiu acessar GitHub para clonar o repositório).
 - [ ] Validar em hardware físico.
 
-**Importante:** os testes de touchpad foram escritos, mas ainda não foram compilados nem executados nesta rodada. O teste de ícones teve execução independente no GitHub Actions. A inspeção do código e os testes simulados não substituem a validação no notebook real. A correção do touchpad permanece pendente até a execução da suíte e o teste no hardware.
+**Importante:** `tp-test` (98/98), `inputkind-test` e `iconfind-test` passaram no GitHub Actions, e o instalador passou em `bash -n`. Isso valida os testes automatizados em Linux, mas não substitui a validação do touchpad no notebook real nem a suíte completa/build integral do LordOS. A correção do touchpad permanece pendente até a execução da suíte e o teste no hardware.
 
 ### 3. Alt + Tab
 
@@ -131,4 +131,4 @@ O caminho foi seguido no código: `tp_event_at()` produz o botão direito (códi
 - [x] Compilar e executar `iconfind-test` no GitHub Actions; validar a sintaxe do instalador com `bash -n`.
 - [ ] Adicionar teste automatizado específico para a troca de ícone no Settings portal; compilar e executar a suíte completa do servidor.
 
-A implementação e o guia estão em `packaging/icons/` e `docs/ICONS.md`. A revisão upstream está fixada em `839848b9a8a38a92a6936e30c4abe35cc6f2546d`; o repositório original informa licença GPL-3.0. CI do commit `4f44feb5979e109a3138a308a7e3bf03647d5350`: `iconfind-test` passou e `bash -n packaging/icons/install-mactahoe.sh` passou. A suíte completa do servidor, os testes do portal e a validação em hardware ainda não foram executados.
+A implementação e o guia estão em `packaging/icons/` e `docs/ICONS.md`. A revisão upstream está fixada em `839848b9a8a38a92a6936e30c4abe35cc6f2546d`; o repositório original informa licença GPL-3.0. CI do commit `bd1be104e1bcad8086a61dd0dc12d99bce03b7bf`: `iconfind-test` passou, `tp-test` passou com 98/98, `inputkind-test` passou e `bash -n packaging/icons/install-mactahoe.sh` passou. A suíte completa do servidor, os testes do portal e a validação em hardware ainda não foram executados.
