@@ -252,6 +252,24 @@ const TpCaps *tp_caps(const TpDevice *d) { return &d->c; }
 #define NLONGS(n) (((n) + LONG_BITS - 1) / LONG_BITS)
 #define HAS(bits, n) (((bits)[(n) / LONG_BITS] >> ((n) % LONG_BITS)) & 1UL)
 
+/* A device path such as /dev/input/event4 changes between boots. Prefer the kernel's
+ * physical topology and unique serial; fall back to hardware ID + name but mark it
+ * non-stable so Settings can avoid persisting an ambiguous per-device override. */
+static void tp_identity(TpCaps *c, int fd) {
+    char phys[256] = {0}, uniq[256] = {0}, key[640];
+    ioctl(fd, EVIOCGPHYS(sizeof phys), phys);
+    ioctl(fd, EVIOCGUNIQ(sizeof uniq), uniq);
+    c->identity_stable = phys[0] || uniq[0];
+    snprintf(key, sizeof key, "%04x:%04x:%04x|%s|%s|%s",
+             c->bus, c->vendor, c->product, c->name, phys, uniq);
+    unsigned long long hash = 14695981039346656037ULL;
+    for (const unsigned char *p = (const unsigned char *)key; *p; p++) {
+        hash ^= *p;
+        hash *= 1099511628211ULL;
+    }
+    snprintf(c->id, sizeof c->id, "tp-%016llx", hash);
+}
+
 TpDevice *tp_open(int fd, const char *name) {
     unsigned long ev[NLONGS(EV_MAX + 1)] = {0}, keys[NLONGS(KEY_MAX + 1)] = {0}, abs[NLONGS(ABS_MAX + 1)] = {0};
     unsigned long props[NLONGS(INPUT_PROP_MAX + 1)] = {0};
@@ -286,6 +304,7 @@ TpDevice *tp_open(int fd, const char *name) {
     c.vendor = id.vendor;
     c.product = id.product;
     snprintf(c.name, sizeof c.name, "%s", name ? name : "");
+    tp_identity(&c, fd);
     TpDevice *d = tp_new(&c);
     if (!d) return NULL;
     d->fd = fd;
@@ -311,8 +330,8 @@ int tp_list_json(char *out, int size) {
         int k = 0;
         for (const char *p = d->c.name; *p && k < 78; p++) if (*p != '"' && *p != '\\' && (unsigned char)*p >= 32) name[k++] = *p;
         name[k] = 0;
-        o += snprintf(out + o, (size_t)(size - o), "%s{\"name\":\"%s\",\"kind\":\"%s\",\"clickpad\":%d,\"hasRight\":%d,\"width\":%.0f,\"height\":%.0f,\"fingers\":%d}",
-                      i ? "," : "", name, d->c.kind == TP_KIND_TOUCHSCREEN ? "touchscreen" : "touchpad", d->c.clickpad, d->c.has_right, d->wmm, d->hmm, d->c.max_fingers);
+        o += snprintf(out + o, (size_t)(size - o), "%s{\"id\":\"%s\",\"identityStable\":%s,\"name\":\"%s\",\"kind\":\"%s\",\"clickpad\":%d,\"hasRight\":%d,\"width\":%.0f,\"height\":%.0f,\"fingers\":%d}",
+                      i ? "," : "", d->c.id, d->c.identity_stable ? "true" : "false", name, d->c.kind == TP_KIND_TOUCHSCREEN ? "touchscreen" : "touchpad", d->c.clickpad, d->c.has_right, d->wmm, d->hmm, d->c.max_fingers);
     }
     if (o < size - 1) o += snprintf(out + o, (size_t)(size - o), "]");
     return o;
