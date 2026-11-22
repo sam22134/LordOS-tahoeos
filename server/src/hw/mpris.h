@@ -32,8 +32,9 @@ int  mpris_wants_write(void);
 void mpris_dispatch(void);
 /* Every pass of the main loop: forgets calls that timed out and sends the list if it changed. */
 void mpris_tick(void);
-/* The list as JSON (malloc, the caller frees it): [{ name, identity, status, title, artist, album, art,
- * length, pos, canPlay, canPause, canNext, canPrev, canSeek }], times in ms, pos estimated now. */
+/* The list as JSON (malloc, the caller frees it): [{ name, owner, identity, status, title, artist, album, art,
+ * length, pos, canPlay, canPause, canNext, canPrev, canSeek }], times in ms, pos estimated now.
+ * owner is the current unique D-Bus name and lets the SDK detect an app restart under the same well-known name. */
 char *mpris_json(void);
 /* A control for the player that owns name: cmd MPRIS_*; for MPRIS_SEEK, ms is the position, clamped to
  * the track's length. 0 sent, -1 no such player or it can't do that. */
