@@ -38,8 +38,8 @@ export const monitorSamples = createStore([]);
 export const monitorProcesses = createStore(null);
 export const monitorConnections = createStore(null);
 export const monitorDevices = createStore([]);  // verified apps on active PipeWire microphone/camera links
-// PipeWire's PulseAudio compatibility server reports each recording stream with its owning PID,
-// application ID and source. Only real input sources count: monitor-of-output streams are not microphones.
+// PipeWire's PulseAudio compatibility server supplies microphone source labels. Its app/PID metadata
+// is not trusted for indicator ownership; pwguard independently verifies the client and its process scope.
 function soundDeviceUsers(st) {
   if (!st?.connected) return [];
   const sources = new Map((st.sources || []).filter((x) => x.monitorOf === -1).map((x) => [x.index, x]));
