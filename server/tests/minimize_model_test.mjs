@@ -23,5 +23,10 @@ eq('reduce motion: none starts', ids(minimizeStarts([{ id: 1, minimized: true },
 eq('reduce motion: the state is kept', [...prev], [[1, true], [2, true]]);
 eq('reduce motion off again: a later minimize animates', (minimizeStarts([{ id: 1 }], prev), ids(minimizeStarts([{ id: 1, minimized: true }], prev))), [1]);
 
+// Closed windows are removed from the history map to avoid stale IDs accumulating.
+prev = new Map([[1, false], [99, true]]);
+minimizeStarts([{ id: 1, minimized: false }], prev);
+eq('closed window history is discarded', [...prev.keys()], [1]);
+
 console.log(`minimize-model-test: ${ok} ok, ${bad} failures`);
 process.exit(bad ? 1 : 0);
