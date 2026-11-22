@@ -253,14 +253,15 @@ static void on_signal(const DMsg *m) {
         const char *iface = dr_str(&r, NULL);
         if (r.err || (strcmp(iface, ROOT_IFACE) && strcmp(iface, PLAYER_IFACE))) continue;
         int got = apply_props(pl, &r);
-        /* Ignore unrelated properties: they must not invalidate an initial GetAll snapshot. */
-        if (got > 0) {
+        /* Invalidation also supersedes an older snapshot, even when no changed value was supplied. */
+        size_t end = dr_arr(&r, 4);
+        int invalidated = !r.err && dr_more(&r, end);
+        /* Ignore unrelated changes, but never let an older GetAll undo a real change/invalidation. */
+        if (got > 0 || invalidated) {
             if (!strcmp(iface, ROOT_IFACE)) pl->root_revision++;
             else pl->player_revision++;
         }
-        /* properties it says changed without their value: read them all again */
-        size_t end = dr_arr(&r, 4);
-        if (!r.err && dr_more(&r, end)) get_all(pl, iface, !strcmp(iface, ROOT_IFACE) ? Q_ROOT : Q_PLAYER);
+        if (invalidated) get_all(pl, iface, !strcmp(iface, ROOT_IFACE) ? Q_ROOT : Q_PLAYER);
     }
 }
 
