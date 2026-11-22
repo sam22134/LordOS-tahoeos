@@ -83,7 +83,12 @@ static JSValue f_want(JSContext *c, JSValueConst t, int argc, JSValueConst *argv
     return JS_TRUE;
 }
 
-static JSValue f_device_users(JSContext *c, JSValueConst t, int argc, JSValueConst *argv) {\n    (void)t; (void)argc; (void)argv;\n    return parse(c, pwguard_device_users_json(), "<monitor.deviceUsers>");\n}\n\nstatic JSValue f_sample(JSContext *c, JSValueConst t, int argc, JSValueConst *argv) {
+static JSValue f_device_users(JSContext *c, JSValueConst t, int argc, JSValueConst *argv) {
+    (void)t; (void)argc; (void)argv;
+    return parse(c, pwguard_device_users_json(), "<monitor.deviceUsers>");
+}
+
+static JSValue f_sample(JSContext *c, JSValueConst t, int argc, JSValueConst *argv) {
     (void)t; (void)argc; (void)argv;
     return parse(c, mon_sample_json(&seq_sample), "<monitor.sample>");
 }
@@ -575,7 +580,8 @@ static const JSCFunctionListEntry monitor_funcs[] = {
     JS_CFUNC_DEF("start", 0, f_start),
     JS_CFUNC_DEF("stop", 0, f_stop),
     JS_CFUNC_DEF("want", 3, f_want),
-    JS_CFUNC_DEF("sample", 0, f_sample),\n    JS_CFUNC_DEF("deviceUsers", 0, f_device_users),
+    JS_CFUNC_DEF("sample", 0, f_sample),
+    JS_CFUNC_DEF("deviceUsers", 0, f_device_users),\n    JS_CFUNC_DEF("deviceUsers", 0, f_device_users),
     JS_CFUNC_DEF("processes", 1, f_processes),
     JS_CFUNC_DEF("connections", 1, f_connections),
     JS_CFUNC_DEF("info", 0, f_info),
