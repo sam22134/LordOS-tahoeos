@@ -22,8 +22,8 @@ DESTDIR=/tmp/lordos-root bash packaging/icons/install-mactahoe.sh
 
 The C icon resolver searches the MacTahoe variants before system Adwaita and retains the
 user's `~/.local/share/icons/hicolor` overrides. GTK's system fallback is set to
-`MacTahoe-blue` in `assets/gtk/settings.ini`; a user's GTK settings or GSettings preference
-can still override it.
+`MacTahoe-blue-dark` in `assets/gtk/settings.ini`; the Settings portal changes the selected light/dark
+variant with the desktop appearance, while a user's GTK settings can still override it.
 
 ## License and attribution
 
