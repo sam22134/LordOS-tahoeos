@@ -182,10 +182,17 @@ function WifiTile({ t, onClose, w, onChanged }) {
       .then(() => { setWant(null); setNetworks([]); onChanged(); }, (er) => { setWant(null); setErr(er.message); });
   };
   const join = (n, secret = '') => {
+    if (n.security !== 'open' && !n.known && !secret) {
+      setErr(tr('network.wifi.password'));
+      return;
+    }
     setPasswordFor(null); setPassword('');
-    if (secret && n.ssid) keyring.set('settings', { service: `wifi:${n.ssid}`, secret, label: `Wi-Fi ${n.ssid}` }).catch(() => {});
-    admin.run('net-wifi-connect', `${w.name}\\n${n.ssid}\\n${secret}`, undefined, { quiet: true })
-      .then(() => { setNetworks((list) => markCurrent(list, n.ssid)); setErr(tr('network.wifi.connecting', { ssid: n.ssid })); }, (e) => setErr(e.message));
+    admin.run('net-wifi-connect', `${w.name}\n${n.ssid}\n${secret}`, undefined, { quiet: true })
+      .then(() => {
+        if (secret && n.ssid) keyring.set('settings', { service: `wifi:${n.ssid}`, secret, label: `Wi-Fi ${n.ssid}` }).catch(() => {});
+        setNetworks((list) => markCurrent(list, n.ssid));
+        setErr(tr('network.wifi.connecting', { ssid: n.ssid }));
+      }, (e) => setErr(e.message));
   };
   const on = v.on, fg = on ? '#ffffff' : t.text, dim = on ? 'rgba(255,255,255,0.8)' : t.textDim;
   const detail = err || v.ssid || tr(v.key);
@@ -235,11 +242,19 @@ function BluetoothTile({ t, onClose, bt }) {
   const [expanded, setExpanded] = useState(false);
   const [search, setSearch] = useState(false);
   useEffect(() => {
-    if (!expanded || !adapter.powered) return undefined;
+    if (!expanded || !adapter.powered) { setSearch(false); return undefined; }
+    if (typeof lord === 'undefined' || !lord.bt) { setSearch(false); return undefined; }
     setSearch(true);
-    lord.bt.discover(true);
-    const stop = setTimeout(() => { lord.bt.discover(false); setSearch(false); }, 40000);
-    return () => { clearTimeout(stop); lord.bt.discover(false); setSearch(false); };
+    try { lord.bt.discover(true); }
+    catch (e) { setSearch(false); return undefined; }
+    const stop = setTimeout(() => {
+      try { lord.bt.discover(false); } catch (e) { /* adapter may have disappeared */ }
+      setSearch(false);
+    }, 40000);
+    return () => {
+      clearTimeout(stop);
+      try { lord.bt.discover(false); } catch (e) { /* adapter may have disappeared */ }
+    };
   }, [expanded, adapter.powered, adapter.path]);
   const devices = bt.devices || [];
   const paired = devices.filter((d) => d.paired);
