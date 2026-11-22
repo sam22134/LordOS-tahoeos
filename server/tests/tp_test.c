@@ -98,7 +98,7 @@ static TpCaps sim_caps(int kind) {
 }
 
 static TpConfig defaults(void) {
-    return (TpConfig){ .speed = 0.5, .tap = 1, .tap_drag = 1, .natural = 1, .three_drag = 0, .dwt = 1, .scroll = 1,
+    return (TpConfig){ .speed = 0.5, .tap = 1, .tap_drag = 1, .natural = 1, .secondary = TP_CLICK_BOTTOM_RIGHT, .three_drag = 0, .dwt = 1, .scroll = 1,
                        .kinetic = 1, .pinch = 1, .swipe3 = 1, .swipe4 = 0, .scroll_speed = 0.5, .sensitivity = TP_SENS_MEDIUM };
 }
 
