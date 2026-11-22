@@ -653,20 +653,45 @@ static int unix_peers(uint32_t *ino, uint32_t *peer, int max) {
     req.r.udiag_show = UDIAG_SHOW_PEER;
     if (send(fd, &req, sizeof req, 0) != (ssize_t)sizeof req) { close(fd); return -1; }
     static uint8_t buf[32768];
-    int n = 0, done = 0;
-    while (!done) {
-        ssize_t r = recv(fd, buf, sizeof buf, 0);
-        if (r <= 0) break;
-        for (struct nlmsghdr *h = (struct nlmsghdr *)buf; NLMSG_OK(h, (size_t)r); h = NLMSG_NEXT(h, r)) {
-            if (h->nlmsg_type == NLMSG_DONE || h->nlmsg_type == NLMSG_ERROR) { done = 1; break; }
+    int n = 0, done = 0, failed = 0;
+    while (!done && !failed) {
+        ssize_t r;
+        do { r = recv(fd, buf, sizeof buf, 0); } while (r < 0 && errno == EINTR);
+        if (r <= 0) { failed = 1; break; }
+        int rem = (int)r;
+        for (struct nlmsghdr *h = (struct nlmsghdr *)buf; NLMSG_OK(h, rem); h = NLMSG_NEXT(h, rem)) {
+            if (h->nlmsg_type == NLMSG_DONE) {
+                if (h->nlmsg_len >= NLMSG_LENGTH(sizeof(int))) {
+                    int dump_error;
+                    memcpy(&dump_error, NLMSG_DATA(h), sizeof dump_error);
+                    if (dump_error) failed = 1;
+                }
+                done = 1;
+                break;
+            }
+            if (h->nlmsg_type == NLMSG_ERROR) {
+                if (h->nlmsg_len < NLMSG_LENGTH(sizeof(struct nlmsgerr))) { failed = 1; break; }
+                const struct nlmsgerr *e = NLMSG_DATA(h);
+                if (e->error) { failed = 1; break; }
+                continue; /* a successful ACK is not the end of a multipart dump */
+            }
+            if (h->nlmsg_type != SOCK_DIAG_BY_FAMILY ||
+                h->nlmsg_len < NLMSG_LENGTH(sizeof(struct unix_diag_msg))) { failed = 1; break; }
             struct unix_diag_msg *m = NLMSG_DATA(h);
             int len = (int)h->nlmsg_len - (int)NLMSG_LENGTH(sizeof *m);
-            for (struct rtattr *a = (struct rtattr *)(m + 1); len > 0 && RTA_OK(a, len); a = RTA_NEXT(a, len))
-                if (a->rta_type == UNIX_DIAG_PEER && RTA_PAYLOAD(a) >= 4 && n < max) { ino[n] = m->udiag_ino; memcpy(&peer[n], RTA_DATA(a), 4); n++; }
+            for (struct rtattr *a = (struct rtattr *)(m + 1); RTA_OK(a, len); a = RTA_NEXT(a, len)) {
+                if (a->rta_type != UNIX_DIAG_PEER) continue;
+                if (RTA_PAYLOAD(a) < sizeof(uint32_t) || n >= max) { failed = 1; break; }
+                ino[n] = m->udiag_ino;
+                memcpy(&peer[n], RTA_DATA(a), sizeof peer[n]);
+                n++;
+            }
+            if (failed || len != 0) { failed = 1; break; }
         }
+        if (rem != 0 && !done) failed = 1; /* malformed/truncated netlink datagram */
     }
     close(fd);
-    return n;
+    return done && !failed ? n : -1;
 }
 
 /* How many distinct connections to pipewire-pulse (process pp) process pid holds; -1 if unknown.
