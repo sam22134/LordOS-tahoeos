@@ -125,7 +125,7 @@ export function Window({ win, app, t, focused, fx }) {
       boxShadow: focused ? '0 24px 56px rgba(0,0,0,0.55)' : '0 10px 28px rgba(0,0,0,0.32)',
       ...fxs,
     }}>
-      <View onMouseDown={(e) => { if (!wm.beginMove(win.id)) drag.current = { x0: e.x, y0: e.y, rel: geo.w ? (e.x - geo.x) / geo.w : 0.5, moving: false }; }}
+      <View onMouseDown={(e) => { if (e.button !== 0) return; if (!wm.beginMove(win.id)) drag.current = { x0: e.x, y0: e.y, rel: geo.w ? (e.x - geo.x) / geo.w : 0.5, moving: false }; }}
         onContextMenu={(e) => { e.stopPropagation(); setTitleMenu({ x: e.x, y: e.y }); }}
         onDoubleClick={() => wm.toggleMaximize(win.id)}
         style={{ height: TITLE_H, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, backgroundColor: t.titleBg }}>
