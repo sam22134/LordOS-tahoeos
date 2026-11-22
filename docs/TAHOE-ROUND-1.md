@@ -72,9 +72,11 @@ O caminho foi seguido no código: `tp_event_at()` produz o botão direito (códi
 
 ### 3. Alternador de janelas
 
-- Definir Alt+Tab como padrão do tema Tahoe.
-- Preservar configuração do usuário e inibição apropriada em fullscreen.
-- Manter App Switcher (alternância rápida) separado do Mission Control (visão geral).
+- [x] `sdk/switchermodel.js` define `Alt+Tab` como padrão Tahoe, inclusive quando a preferência salva está ausente ou contém um valor inválido/obsoleto; o usuário continua podendo escolher `theme`, `meta`, `alt` ou `both`.
+- `sdk/appswitcher.jsx` agrupa janelas por aplicativo, ordena os grupos por uso recente, permite navegar entre apps e entre janelas do app selecionado e restaura a janela escolhida.
+- O switcher não abre sobre aplicativos em fullscreen, preservando o comportamento de inibição documentado.
+- O App Switcher continua separado do Overview/Mission Control.
+- Foi adicionada regressão em `tests/switcher_model_test.mjs` para preferência inválida cair em `alt`, mesmo em tema cujo atalho próprio é `meta`. Teste ainda precisa ser executado localmente ou confirmado em CI.
 
 ### 4. Dock e janelas minimizadas
 
