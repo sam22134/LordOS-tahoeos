@@ -91,6 +91,19 @@ static void test_well_formed_events_keep_connection(void) {
     rmdir(dir);
 }
 
+static void test_permission_error_sequence_matching(void) {
+    const uint32_t seqs[] = { 7u, 0x80000001u, UINT32_MAX };
+    CHECK(pwguard_error_matches(23, 91, seqs, 3, 23, 7));
+    CHECK(pwguard_error_matches(23, 91, seqs, 3, 23, (int32_t)0x80000001u));
+    CHECK(pwguard_error_matches(23, 91, seqs, 3, 23, -1));
+    CHECK(pwguard_error_matches(23, 91, seqs, 3, 0, 91));
+    CHECK(!pwguard_error_matches(23, 91, seqs, 3, 23, 8));
+    CHECK(!pwguard_error_matches(23, 91, seqs, 3, 24, 7));
+    CHECK(!pwguard_error_matches(23, 91, seqs, 3, 0, 90));
+    CHECK(!pwguard_error_matches(23, 91, NULL, 3, 23, 7));
+    CHECK(!pwguard_error_matches(23, 91, seqs, 0, 23, 7));
+}
+
 static void test_malformed_event_resets_connection(uint32_t opcode) {
     char dir[] = "/tmp/lordos-pwguard-XXXXXX";
     if (!mkdtemp(dir)) { CHECK(0); return; }
@@ -213,6 +226,7 @@ int main(void) {
     CHECK(pwguard_node_flag("Video/Source", NULL, NULL) == FW_R_NO_CAMERA);
     CHECK(pwguard_node_flag("Audio/Source", "Screen", "lordos-screencast-0") == FW_R_NO_MIC);   /* only a video source is a screen */
     CHECK(pwguard_node_flag("Audio/Sink", NULL, NULL) == 0);
+    test_permission_error_sequence_matching();
     test_well_formed_events_keep_connection();
     test_malformed_event_resets_connection(1); /* Core::Done */
     test_malformed_event_resets_connection(3); /* Core::Error */
