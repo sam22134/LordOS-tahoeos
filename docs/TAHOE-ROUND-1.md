@@ -118,3 +118,16 @@ O caminho foi seguido no código: `tp_event_at()` produz o botão direito (códi
 - `sdk/switchermodel.js` agora define `alt` como padrão do alternador de aplicativos. A configuração continua permitindo `theme`, `meta`, `alt` e `both`; uma preferência já salva pelo usuário continua sendo respeitada.
 - O SDK gera o perfil `flow+tab-alt`, reconhecido pelo `server/src/wl/keygrab.c`, que captura Alt+Tab como combinação de retenção e entrega a navegação ao App Switcher até soltar Alt. O atalho Meta+Tab deixa de ser o padrão, mas continua selecionável nas Configurações.
 - Adicionado teste de modelo para o padrão Alt e para o perfil de captura. Ainda precisa executar os testes no ambiente de build e confirmar em sessão Wayland real.
+
+### 7. Iconografia e integração MacTahoe
+
+- [x] Fixar uma revisão upstream do [MacTahoe-icon-theme](https://github.com/vinceliuice/MacTahoe-icon-theme) e adicionar instalador reproduzível para o sistema/imagem.
+- [x] Instalar variantes azul, clara e escura preservando COPYING e AUTHORS do projeto original.
+- [x] Fazer o resolvedor C procurar ícones MacTahoe de usuário e do sistema antes do fallback Adwaita, mantendo overrides hicolor do usuário.
+- [x] Expor `MacTahoe-blue` como tema de ícones padrão para GTK por settings.ini, GSettings keyfile e Settings portal.
+- [x] Adicionar regressões de ordem de resolução para ícones SVG e symbolic MacTahoe.
+- [ ] Integrar o pacote ao pipeline final da ISO/.deb (a estrutura Debian ainda é placeholder e não produz imagem/pacote).
+- [ ] Criar a família de ícones nativos Tahoe para os aplicativos LordOS; os apps nativos continuam usando componentes React próprios, não os ícones genéricos do tema upstream.
+- [ ] Compilar e executar `iconfind-test` e os testes do portal em ambiente de build.
+
+A implementação e o guia estão em `packaging/icons/` e `docs/ICONS.md`. A revisão upstream está fixada em `839848b9a8a38a92a6936e30c4abe35cc6f2546d`; o repositório original informa licença GPL-3.0. Ainda não houve build nem execução dos testes.
