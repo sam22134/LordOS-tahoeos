@@ -477,9 +477,10 @@ its own section (see connections per app, locate them on the map) through
 
 A **green** dot in the menu bar while the camera is in use and an **orange** one for the
 microphone (`default` and `classic` themes); tapping it shows which app is using it. The broker
-reports isolated apps. For external Linux applications, active microphone recording streams are
-currently derived from PipeWire's PulseAudio compatibility data in `sdk/monitor.js`; camera and
-screen-capture process attribution still need a native PipeWire/portal lifecycle integration.
+reports isolated apps. For external Linux applications, `pwguard` follows native PipeWire `Link::Info`
+objects and attributes only `ACTIVE` source-to-input-stream connections to verified app clients. This
+covers microphones and cameras, including direct PipeWire clients; PulseAudio compatibility data adds
+microphone source labels. Screen sharing continues to use the ScreenCast portal's session attribution.
 
 | | |
 |---|---|
