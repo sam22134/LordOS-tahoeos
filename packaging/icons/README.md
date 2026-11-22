@@ -5,6 +5,8 @@ for freedesktop/GTK icon names used by Linux apps, tray items and status icons.
 
 ## Install
 
+`tools/iso/mkdeb.sh` runs this installer while building the LordOS `.deb`; the live ISO installs that package, so the icon theme is included in normal images. For manual development installs, use:
+
 ```sh
 sudo bash packaging/icons/install-mactahoe.sh
 ```
