@@ -22,6 +22,6 @@ The icon resolver understands both the MacTahoe layout (for example, `apps/scala
 
 ## Tahoe-native app icons
 
-The upstream theme is a system icon theme, not a replacement for LordOS's custom app artwork. Native apps currently export React components (some in `apps/<id>/icons.jsx`, others from their app entry point); these are rendered in the Dock, launcher, switcher and app surfaces. The Tahoe theme will provide a coherent set of native app icons for Files, Settings, Terminal, Photos, Calendar, Mail, Notes, Store and the other bundled apps, while preserving each app's recognizable purpose.
+The upstream theme is a system icon theme, not a replacement for LordOS's custom app artwork. Native apps currently export React components (some in `apps/<id>/icons.jsx`, others from their app entry point); these are rendered in the Dock, launcher, switcher and app surfaces. The Tahoe theme renders each bundled app's own React icon artwork in the Dock and Launchpad. The small emoji map in `themes/tahoe/components/AppIcon.jsx` is only a fallback for legacy entries that do not export an icon component.
 
 Do not replace all native app icons with generic symbolic icons. Use the upstream theme for Linux desktop entries, standard actions, devices, MIME types, folders and status icons; use Tahoe-native artwork for the built-in apps.
