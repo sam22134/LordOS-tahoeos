@@ -183,7 +183,9 @@ static void on_reply(const DMsg *m) {
         break;
     }
     case Q_OWNER: {
-        if (!pl || strcmp(m->sig, "s")) return;
+        /* NameOwnerChanged may have supplied a newer owner while this lookup was in flight.
+         * Never let the older bus reply replace the owner already learned from a signal. */
+        if (!pl || pl->owner[0] || strcmp(m->sig, "s")) return;
         const char *o = dr_str(&r, NULL);
         if (r.err || !owner_ok(o)) { remove_player(pl->name); return; }
         snprintf(pl->owner, sizeof pl->owner, "%s", o);
