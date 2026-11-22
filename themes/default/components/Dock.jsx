@@ -197,8 +197,8 @@ export function Dock({ t, items: list, running, onOpen, onRestoreWindow, onConte
   const [activating, setActivating] = useState(null);
   const activationTimer = useRef(null);
   useEffect(() => () => clearTimeout(activationTimer.current), []);
-  const activateItem = (id) => {
-    if (dockDragJustEnded()) return;
+  const activateItem = (id, e) => {
+    if (dockDragJustEnded(e)) return;
     setActivating(id);
     clearTimeout(activationTimer.current);
     // This is acknowledgement of the click, not a claim that the app has finished launching.
@@ -420,7 +420,7 @@ export function Dock({ t, items: list, running, onOpen, onRestoreWindow, onConte
             : { position: 'absolute', left: c, width: 1, height: BASE * 0.7, bottom: PAD + BASE * 0.15, backgroundColor: t.dockBorder }} />
         ))}
         {items.map((app, i) => (app.trash ? (
-          <View key={TRASH} dropTrash onClick={() => { if (!dockDragJustEnded()) onTrash?.(); }}
+          <View key={TRASH} dropTrash onClick={(e) => { if (!dockDragJustEnded(e)) onTrash?.(); }}
             onContextMenu={() => onTrashContext?.(anchor(i))}
             onMouseEnter={() => setTrashHover(true)} onMouseLeave={() => setTrashHover(false)}
             onMouseUp={() => setTimeout(refreshTrash, 60)}
@@ -429,7 +429,7 @@ export function Dock({ t, items: list, running, onOpen, onRestoreWindow, onConte
             <TrashIcon size={sizes[i]} full={trashFull} />
           </View>
         ) : app.windowThumb ? (
-          <View key={app.id} onClick={() => { if (!dockDragJustEnded()) onRestoreWindow?.(app.window.id); }}
+          <View key={app.id} onClick={(e) => { if (!dockDragJustEnded(e)) onRestoreWindow?.(app.window.id); }}
             onContextMenu={() => onContext?.(app.parentId, anchor(i))}
             style={{ position: 'absolute', ...place(i), width: sizes[i], height: sizes[i], alignItems: 'center', justifyContent: 'center' }}>
             <View style={{ width: sizes[i] * 0.86, height: sizes[i] * 0.76, borderRadius: 5, overflow: 'hidden',
@@ -447,7 +447,7 @@ export function Dock({ t, items: list, running, onOpen, onRestoreWindow, onConte
             </View>
           </View>
         ) : (
-          <View key={app.id} onClick={() => activateItem(app.id)} onContextMenu={() => onContext?.(app.id, anchor(i))}
+          <View key={app.id} onClick={(e) => activateItem(app.id, e)} onContextMenu={() => onContext?.(app.id, anchor(i))}
             onMouseDown={(e) => { if (!e.button) beginDockDrag({ id: app.id, Icon: app.Icon, x: e.x, y: e.y, source: 'dock' }); }}
             style={{ position: 'absolute', ...place(i), width: sizes[i], height: sizes[i],
               transform: !reduce && activating === app.id ? 'scale(0.9)' : 'scale(1)',
