@@ -920,8 +920,17 @@ static void on_global_remove(uint32_t id) {
 static void on_client_info(uint32_t proxy, PwPod body) {
     PgClient *c = NULL;
     for (int i = 0; i < MAX_CLIENTS && !c; i++) if (P.cl[i].live && P.cl[i].proxy == proxy) c = &P.cl[i];
-    PwPod props;
-    if (!c || pwpod_struct_field(body, 2, &props)) return;
+    PwPod f, props;
+    int32_t id;
+    int64_t change_mask;
+    if (!c || pwpod_struct_field(body, 0, &f) || pwpod_int(f, &id) ||
+        (uint32_t)id != c->id || pwpod_struct_field(body, 1, &f) ||
+        pwpod_long(f, &change_mask)) return;
+    /* Client::Info only carries properties when CHANGE_MASK_PROPS (bit 0) is set.
+     * PipeWire sends the complete current property dictionary for that bit, not a patch;
+     * keep the last identity untouched for other/future info fields. */
+    if (!(change_mask & 1)) return;
+    if (pwpod_struct_field(body, 2, &props)) return;
     const char *sp = dict_get(props, "pipewire.sec.pid"), *ap = dict_get(props, "application.process.id");
     c->pid_sec = sp ? atoi(sp) : 0;
     c->pid_app = ap ? atoi(ap) : 0;
