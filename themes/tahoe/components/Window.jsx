@@ -6,7 +6,7 @@
 // Settings → Desktop & Dock → Title bars puts the buttons on that side (useWindowButtons, issue #58).
 import { View, Text, addListener, wm, snapZoneAt, AppHost, windowTitle, windowAccent, WindowShell, moveToDesktopItems, t as tr, solidOver, useWindowButtons, SeamCover } from '@lordos/sdk';
 import { useEffect, useRef, useState } from 'react';
-import { Menu } from '../../default/components/Menu.jsx';
+import { Menu } from './Menu.jsx';
 
 const TITLE_H = 46;
 const DRAG_START = 6;      // px the pointer moves before a maximized window is dragged out
