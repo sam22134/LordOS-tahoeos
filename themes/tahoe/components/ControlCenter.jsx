@@ -10,7 +10,7 @@
 // The panel scrolls when a short screen can't hold it all.
 import {
   View, Text, Image, Slider, useSettings, settings, useCpuUsage, useSystemInfo, memUsedKB, formatBytes, wm, session, addListener, t as tr,
-  useSound, defaultSink, sound, NowPlayingTile, findWallpaper, wallpaperThumb, wallpaperIdFor, wallpaperPatch, screenDisplays, menuBarPrefs, SoundOutputList, useSoundOutputs, useBluetooth, setBluetoothPower,
+  useSound, useSoundError, defaultSink, sound, NowPlayingTile, findWallpaper, wallpaperThumb, wallpaperIdFor, wallpaperPatch, screenDisplays, menuBarPrefs, SoundOutputList, useSoundOutputs, useBluetooth, setBluetoothPower,
   panelLeft, inBar, ScrollView, screen, nightActive, setNightManual, notifyPrefs, dndActive, useBacklight, wifiTile, wifiTileView, admin, onBluetoothResult, btErrorKey, DisclosureGlyph,
   MoonGlyph, SunGlyph, ContrastGlyph, LayersGlyph, BluetoothGlyph, SignalGlyph, wifiBars, keyring, TextInput, Button, nearbyDevices,
 } from '@lordos/sdk';
@@ -109,6 +109,7 @@ const clampLevel = (value) => Number.isFinite(Number(value)) ? Math.max(0, Math.
 
 function SoundTile({ t, onClose }) {
   const st = useSound();
+  const error = useSoundError();
   const out = defaultSink(st);
   const outputs = useSoundOutputs();
   const [pick, setPick] = useState(false);
@@ -135,6 +136,7 @@ function SoundTile({ t, onClose }) {
           </View>
         ) : null}
       </View>
+      {error ? <Text style={{ fontSize: 10, color: t.textDim }}>{tr('settings.sound.commandFailed', { code: error.code })}</Text> : null}
       {many && pick ? <SoundOutputList onPick={() => setPick(false)} /> : null}
     </Tile>
   );
