@@ -6,6 +6,7 @@ import { View, Text, TextInput, ScrollView, screen, t as tr, appName, refreshApp
   beginDockDrag, dockDragJustEnded } from '@lordos/sdk';
 import { useEffect, useRef, useState } from 'react';
 import { Menu } from './Menu.jsx';
+import { TahoeIconForApp } from './AppIcon.jsx';
 
 const COLS = 6, CELL = 130, ICON = 72;
 
@@ -55,7 +56,7 @@ export function Launchpad({ t, apps, onOpen, onClose, area = { x: 0, y: 0, w: sc
                 onMouseDown={(e) => { if (!e.button && dockIdOf(a)) beginDockDrag({ id: dockIdOf(a), Icon: a.Icon, x: e.x, y: e.y, source: 'launcher', onStart: onClose }); }}
                 onContextMenu={(e) => { e.stopPropagation(); setCtx({ app: a, x: e.x, y: e.y }); }}
                 style={{ width: CELL, alignItems: 'center', gap: 10 }}>
-                <View style={{ width: 88, height: 88, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.16)', boxShadow: '0 8px 24px rgba(0,0,0,0.18)' }}><a.Icon size={ICON} /></View>
+                <View style={{ width: 88, height: 88, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.16)', boxShadow: '0 8px 24px rgba(0,0,0,0.18)' }}><TahoeIconForApp app={a} size={ICON} /></View>
                 <Text style={{ fontSize: 13, fontWeight: 500, color: '#fff', whiteSpace: 'nowrap', maxWidth: CELL - 10, overflow: 'hidden' }}>{appName(a)}</Text>
               </View>
             ))}
