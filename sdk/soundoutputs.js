@@ -19,7 +19,10 @@ export const useSoundOutputs = () => outputChoices(useSound());
 function Row({ th, o, onPick }) {
   const [hover, setHover] = useState(false);
   return h(View, {
-    onClick: () => { if (!o.default) sound.setDefault('sink', o.name); onPick?.(o); },
+    onClick: () => {
+      const accepted = o.default || sound.setDefault('sink', o.name);
+      if (accepted) onPick?.(o);
+    },
     onMouseEnter: () => setHover(true), onMouseLeave: () => setHover(false),
     style: { minHeight: 28, paddingHorizontal: 8, borderRadius: 6, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: hover ? th.hover : 'transparent' },
   },
