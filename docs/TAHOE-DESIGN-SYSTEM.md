@@ -15,7 +15,7 @@ The first Tahoe desktop theme lives in `themes/tahoe/` and is independently sele
 - `components/Launchpad.jsx`: Tahoe app launcher with a frosted search field, rounded category chips and individual elevated icon tiles; app discovery, search, drag-to-Dock and context actions remain the SDK implementations.
 - `components/Menu.jsx`: Tahoe menu surface with 27 px rows, larger rounded highlights, popup material and theme-driven shadow. Keyboard navigation, safe submenu placement, focus restoration and accessibility behavior remain unchanged.
 
-The shell now has Tahoe-specific presentation for its Menu Bar, Dock, window frame, Control Center, Notification Center, Launchpad and menus. Minimized-window Dock previews now also use the Tahoe mapped icon where available, with the original app icon as fallback, so the icon treatment stays consistent between regular Dock items and window tiles. These components retain LordOS's existing interaction and window-management paths instead of forking system behavior.
+The shell now has Tahoe-specific presentation for its Menu Bar, Dock, window frame, Control Center, Notification Center, Launchpad and menus. Minimized-window Dock previews now also use the Tahoe mapped icon where available, with the original app icon as fallback, so the icon treatment stays consistent between regular Dock items and window tiles. Notification Center app-group headers use the same mapping and fallback, keeping native app identity consistent across the Dock and notification history. These components retain LordOS's existing interaction and window-management paths instead of forking system behavior.
 
 ## Visual contract
 
