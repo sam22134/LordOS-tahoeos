@@ -119,8 +119,9 @@ O caminho foi seguido no código: `tp_event_at()` produz o botão direito (códi
 
 - O seletor e as associações já existem; o problema a resolver é de descoberta/clareza da experiência, não ausência total da função.
 - Melhorias Tahoe devem deixar visível a opção de escolha pontual e o caminho para definir padrão, sem substituir `mimeapps.list` nem criar outra associação de arquivos.
-- Revisar se o seletor "Abrir com" deve ser acessível também por duplo clique em modo "Perguntar sempre" (preferência opcional por MIME), mantendo o comportamento automático padrão atual.
-- Revisar a apresentação de navegadores candidatos e uma opção "Perguntar sempre" sem alterar a política de segurança do portal.
+- **Lacuna de UX confirmada:** para handlers MIME comuns, não há preferência "Perguntar sempre" por tipo. O duplo clique abre o padrão automaticamente; o menu contextual permite escolher pontualmente; Apps padrão permite fixar uma associação. A opção "Ask Each Time" documentada em Files aplica-se aos provedores externos por extensão, não aos handlers MIME freedesktop.
+- Evolução proposta: acrescentar preferência opcional "Perguntar sempre" por MIME/tipo, com diálogo que ofereça abrir uma vez ou definir como padrão. O modo automático continua sendo o padrão inicial e a associação permanente continua em `mimeapps.list`.
+- Revisar a apresentação de navegadores candidatos e uma opção "Perguntar sempre" sem alterar a política de segurança do portal. Para links HTTP/HTTPS solicitados por apps Linux, manter a confirmação existente quando o solicitante está em segundo plano.
 
 ## Estado desta rodada
 
