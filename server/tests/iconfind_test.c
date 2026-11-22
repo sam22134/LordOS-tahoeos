@@ -106,8 +106,8 @@ static void test_app(void) {
         "/usr/share/icons/MacTahoe-blue-dark/apps/32/ed.png",
         "/usr/share/icons/MacTahoe-blue/apps/32/ed.png",
         "/usr/share/icons/MacTahoe-blue-light/apps/32/ed.png",
-        "/usr/share/icons/hicolor/64x64/apps/ed.png",
         "/usr/share/icons/hicolor/256x256/apps/ed.png",
+        "/usr/share/icons/hicolor/64x64/apps/ed.png",
         "/usr/share/pixmaps/ed.png",
         "/home/.local/share/icons/MacTahoe-blue-dark/apps/32/ed.svg",
         "/home/.local/share/icons/MacTahoe-blue-dark/apps/scalable/ed.svg",
@@ -129,7 +129,7 @@ static void test_app(void) {
         "/usr/share/icons/hicolor/symbolic/apps/ed-symbolic.svg",
         NULL };
     for (int i = 0; files[i]; i++) touch(files[i]);
-    /* the user's tree comes first at every size, then the system's (64 is the first size) */
+    /* the user's tree comes first; within each theme, higher-resolution PNGs are preferred. */
     for (int i = 0; files[i]; i++) expect(0, "ed", files[i]);
     expect(0, "ed", "");
     /* an absolute Icon= path: a PNG or an SVG that is there */
