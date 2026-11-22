@@ -30,6 +30,7 @@ eq('normalize: local art kept', normalize(P('b', 'paused', { art: '/tmp/a.png' }
 let list = mergePlayers([], [P('a', 'paused'), P('b', 'playing')], 1000);
 eq('merge: a paused player has no activity yet', list[0].active, 0);
 eq('merge: a playing one is active from now', list[1].active, 1000);
+eq('merge: owner restart resets prior activity', mergePlayers(lp([P('restart', 'paused', { owner: ':1.10' })]), [P('restart', 'playing', { owner: ':1.11' })], 1500)[0].active, 1500);
 list = mergePlayers(list, [P('a', 'playing'), P('b', 'playing')], 2000);
 eq('merge: starting to play moves it', list[0].active, 2000);
 eq('merge: still playing keeps when it started', list[1].active, 1000);
