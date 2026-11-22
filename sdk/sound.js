@@ -14,6 +14,7 @@ const has = () => typeof lord.sound !== 'undefined';
 const EMPTY = { connected: false, sinks: [], sources: [], inputs: [], outputs: [] };
 export const soundState = createStore(has() ? { ...EMPTY, ...lord.sound.state() } : EMPTY);
 export const soundPeak = createStore({ source: -1, level: 0 });
+export const soundError = createStore(null);
 
 const call = (fn, ...a) => (has() && typeof lord.sound[fn] === 'function' ? lord.sound[fn](...a) : false);
 
@@ -43,8 +44,9 @@ function onState(st) {
 }
 
 globalThis.__lordSound = (type, data) => {
-  if (type === 'state') { soundState.set({ ...EMPTY, ...data }); onState(soundState.get()); }
+  if (type === 'state') { soundState.set({ ...EMPTY, ...data }); soundError.set(null); onState(soundState.get()); }
   else if (type === 'peak') soundPeak.set(data);
+  else if (type === 'error') soundError.set({ ...data, at: Date.now() });
 };
 if (has()) onState(soundState.get());
 
@@ -64,6 +66,7 @@ export const sound = {
 
 export const useSound = () => useStore(soundState);
 export const useSoundPeak = () => useStore(soundPeak);
+export const useSoundError = () => useStore(soundError);
 export const defaultSink = (s) => s.sinks.find((x) => x.default) || s.sinks[0] || null;
 // Real microphones (not the outputs' monitors).
 export const microphones = (s) => s.sources.filter((x) => x.monitorOf === -1);
