@@ -368,6 +368,7 @@
   "sound.balanceLeft": "Esquerda {pct} %",
   "sound.balanceRight": "Direita {pct} %",
   "sound.balanceReset": "Centralizar",
+  "sound.commandFailed": "Não foi possível aplicar a alteração de áudio (código {code}).",
   "style.hint": "Todos os estilos de área de trabalho têm os mesmos apps. A mudança é aplicada na hora, sem sair da sessão; as janelas abertas voltam.",
   "style.title": "Estilo da área de trabalho",
   "style.search": "Pesquisar estilos da área de trabalho",
