@@ -641,8 +641,9 @@ static void resolve(PgClient *c) {
     c->unverified = 0;
     c->resolved = 1;
     int pid = c->pid_sec;                           /* the socket's credentials: always the start */
-    if (c->pulse && !guard_armed) pid = c->pid_app;  /* no restricted app runs: nothing to verify */
-    else if (c->pulse) {
+    /* Verify PulseAudio clients even when no restriction is armed: this identity also feeds the
+     * microphone privacy indicator, which must never trust application.process.id on its own. */
+    if (c->pulse) {
         /* a pulse client of the real pipewire-pulse: the app's own pid is what it reported, so it
          * counts only if that process really holds as many connections to pipewire-pulse as
          * there are clients claiming it */
