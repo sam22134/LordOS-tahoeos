@@ -69,19 +69,22 @@ static void settle(Player *pl, double now) {
 /* An asynchronous call whose reply goes to on_reply as kind; 0 if it could not be sent (no free slot). */
 static uint32_t call(const char *dest, const char *path, const char *iface, const char *member, const char *sig,
                      const DBuf *body, int kind, uint32_t player) {
-    uint32_t generation = 0;
-    Player *target = by_id(player);
-    if (target) {
-        if (kind == Q_POS) { generation = ++target->pos_query; if (!generation) generation = ++target->pos_query; }
-        else if (kind == Q_ROOT) generation = target->root_revision;
-        else if (kind == Q_PLAYER) generation = target->player_revision;
-    }
     int slot = -1;
     for (int i = 0; i < MPRIS_MAX_PENDING && slot < 0; i++) if (!pending[i].serial) slot = i;
     if (slot < 0) return 0;
+    uint32_t generation = 0;
+    Player *target = by_id(player);
+    if (target) {
+        if (kind == Q_POS) { generation = target->pos_query + 1; if (!generation) generation++; }
+        else if (kind == Q_ROOT) generation = target->root_revision;
+        else if (kind == Q_PLAYER) generation = target->player_revision;
+    }
     DHdr h = { .type = DBUS_CALL, .path = path, .iface = iface, .member = member, .dest = dest, .sig = sig };
     uint32_t s = dbus_send(&conn, &h, body);
-    if (s) pending[slot] = (Pending){ .serial = s, .player = player, .generation = generation, .kind = kind, .since = mono_ms() };
+    if (s) {
+        if (target && kind == Q_POS) target->pos_query = generation;
+        pending[slot] = (Pending){ .serial = s, .player = player, .generation = generation, .kind = kind, .since = mono_ms() };
+    }
     return s;
 }
 
