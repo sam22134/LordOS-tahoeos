@@ -4,10 +4,14 @@
 import { View, Text, Button, ScrollView, useTheme, useWindows, runningApps, forceQuit, windowIcon, errorText, typeScale, t as tr } from '@lordos/sdk';
 import { useState } from 'react';
 
-export function Icon({ size }) {
+export function Icon({ size: s }) {
   return (
-    <View style={{ width: size, height: size, borderRadius: size * 0.22, backgroundColor: '#ff453a', alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ fontSize: size * 0.55, fontWeight: 700, color: '#fff' }}>!</Text>
+    <View style={{ width: s, height: s, borderRadius: s * 0.225, background: 'linear-gradient(155deg, #ff6b63 0%, #e32636 58%, #b91c2c 100%)',
+      boxShadow: `0 ${s * 0.04}px ${s * 0.12}px rgba(0,0,0,0.35)`, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+      <View style={{ width: s * 0.58, height: s * 0.58, borderRadius: s * 0.18, background: 'linear-gradient(145deg, #fff 0%, #f2f2f7 100%)',
+        alignItems: 'center', justifyContent: 'center', boxShadow: `0 ${s * 0.025}px ${s * 0.06}px rgba(80,0,0,0.28)` }}>
+        <Text style={{ fontSize: s * 0.62, lineHeight: s * 0.66, fontWeight: 700, color: '#d92335' }}>×</Text>
+      </View>
     </View>
   );
 }
