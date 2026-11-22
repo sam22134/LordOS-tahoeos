@@ -32,7 +32,7 @@ function DeviceIcon({ icon }) {
   );
 }
 
-function Device({ d, tr }) {
+function Device({ d, tr, onAction, pending }) {
   const t = useTheme();
   const status = d.busy ? tr('prefs.bt.working') : d.connected ? tr('prefs.bt.connected') : tr('prefs.bt.notConnected');
   const battery = d.battery >= 0 ? ` · ${tr('prefs.bt.battery', { pct: d.battery })}` : '';
@@ -42,18 +42,17 @@ function Device({ d, tr }) {
     const hint = le ? tr('prefs.bt.leSideHint', { name: le }) : d.rssi != null ? tr('prefs.bt.signal', { dbm: d.rssi }) : '';
     return (
       <SettingRow icon={<DeviceIcon icon={d.icon} />} label={d.name} hint={hint}>
-        {d.busy ? <Text style={{ fontSize: 12, color: t.textDim }}>{tr('prefs.bt.pairing')}</Text>
-          : <Button small label={tr('prefs.bt.connect')} onClick={() => lord.bt.pair(d.path)} />}
+        {d.busy || pending ? <Text style={{ fontSize: 12, color: t.textDim }}>{tr('prefs.bt.working')}</Text>
+          : <Button small label={tr('prefs.bt.connect')} onClick={() => onAction(d, 'pair')} />}
       </SettingRow>
     );
   }
   return (
     <SettingRow icon={<DeviceIcon icon={d.icon} />} label={d.name} hint={`${status}${battery}`}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        {!d.busy && <Button small label={d.connected ? tr('prefs.bt.disconnect') : tr('prefs.bt.connect')}
-          onClick={() => (d.connected ? lord.bt.disconnect(d.path) : lord.bt.connect(d.path))} />}
-        {/* MenuButton's menu would sit under the next group (zIndex only orders siblings) */}
-        <Button small plain destructive label={tr('prefs.bt.forget')} onClick={() => lord.bt.forget(d.path)} />
+        {!d.busy && !pending && <Button small label={d.connected ? tr('prefs.bt.disconnect') : tr('prefs.bt.connect')}
+          onClick={() => onAction(d, d.connected ? 'disconnect' : 'connect')} />}
+        <Button small plain destructive label={tr('prefs.bt.forget')} disabled={!!(d.busy || pending)} onClick={() => onAction(d, 'forget')} />
       </View>
     </SettingRow>
   );
@@ -68,20 +67,46 @@ export function BluetoothSettings() {
   const [err, setErr] = useState('');
   const a = st?.adapter;
   const devices = useRef([]);
+  const pending = useRef(null); // { path, op }; pairing is followed by a separate Connect result
   devices.current = st?.devices || [];
   // a search of its own, for a while: the kernel doesn't listen for paired devices coming back while one runs
   const [search, setSearch] = useState(0);
   useEffect(() => {
-    if (!a?.powered) return undefined;
-    lord.bt.discover(true);
-    const stop = setTimeout(() => lord.bt.discover(false), SEARCH_MS);
-    return () => { clearTimeout(stop); lord.bt.discover(false); };
+    if (!a?.powered || typeof lord === 'undefined' || !lord.bt) return undefined;
+    let accepted = false;
+    try { accepted = !!lord.bt.discover(true); } catch (e) { accepted = false; }
+    if (!accepted) return undefined;
+    const stop = setTimeout(() => { try { lord.bt.discover(false); } catch (e) { /* adapter may have disappeared */ } }, SEARCH_MS);
+    return () => { clearTimeout(stop); try { lord.bt.discover(false); } catch (e) { /* adapter may have disappeared */ } };
   }, [a?.powered, a?.path, search]);
   useEffect(() => onBluetoothResult((r) => {
-    if (r.ok || r.op === 'stop') { if (r.ok && r.op !== 'stop') setErr(''); return; }
-    const key = btErrorKey(r, devices.current);
-    if (key) setErr(key);
+    const p = pending.current;
+    if (p && r?.path === p.path && r.op === p.op) {
+      if (r.op === 'pair' && r.ok) { p.op = 'connect'; setErr(''); return; }
+      pending.current = null;
+      if (r.ok) { setErr(''); return; }
+      const key = btErrorKey(r, devices.current);
+      setErr(key || 'failed');
+      return;
+    }
+    if (r?.op === 'power' && !r.ok) { setErr(btErrorKey(r, devices.current) || 'failed'); return; }
+    if (r?.op === 'discover' && !r.ok) setErr(btErrorKey(r, devices.current) || 'failed');
   }), []);
+  useEffect(() => {
+    if (a?.powered) return;
+    pending.current = null;
+  }, [a?.powered, a?.path]);
+  const runDeviceAction = (d, op) => {
+    if (pending.current || d.busy || !a?.powered) return;
+    setErr('');
+    pending.current = { path: d.path, op };
+    try {
+      if (!lord?.bt?.[op] || !lord.bt[op](d.path)) {
+        pending.current = null;
+        setErr('failed');
+      }
+    } catch (e) { pending.current = null; setErr('failed'); }
+  };
   if (!st || !st.available || !a) {
     return (
       <Stack>
@@ -93,7 +118,7 @@ export function BluetoothSettings() {
   const near = nearbyDevices(st.devices);
   const togglePower = (on) => {
     setErr('');
-    setBluetoothPower(on);
+    if (!setBluetoothPower(on)) setErr('failed');
   };
   return (
     <Stack>
@@ -110,12 +135,12 @@ export function BluetoothSettings() {
       ) : err ? <Note tone="warn">{tr(`prefs.bt.err.${err}`) || err}</Note> : null}
       {a.powered && (
         <GroupBox title={tr('prefs.bt.myDevices')}>
-          {mine.length ? mine.map((d) => <Device key={d.path} d={d} tr={tr} />) : <SettingRow label={tr('prefs.bt.noDevices')} />}
+          {mine.length ? mine.map((d) => <Device key={d.path} d={d} tr={tr} onAction={runDeviceAction} pending={pending.current?.path === d.path} />) : <SettingRow label={tr('prefs.bt.noDevices')} />}
         </GroupBox>
       )}
       {a.powered && (
         <GroupBox title={a.discovering ? tr('prefs.bt.nearbySearching') : tr('prefs.bt.nearby')} footer={tr('prefs.bt.nearbyHint')}>
-          {near.length ? near.map((d) => <Device key={d.path} d={d} tr={tr} />)
+          {near.length ? near.map((d) => <Device key={d.path} d={d} tr={tr} onAction={runDeviceAction} pending={pending.current?.path === d.path} />)
             : <SettingRow label={a.discovering ? tr('prefs.bt.searching') : tr('prefs.bt.noneNearby')} />}
         </GroupBox>
       )}
