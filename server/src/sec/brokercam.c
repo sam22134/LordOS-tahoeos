@@ -81,7 +81,7 @@ static void cam_free(Cam *c, int kill_helper) {
     }
     if (c->ringfd >= 0) close(c->ringfd);
     if (app && !c->live) brokersrv_device(app, "camera", 0);
-    if (app && c->live && mic_on) brokersrv_device(app, "microphone", 0);
+    if (app && mic_on) brokersrv_device(app, "microphone", 0);
     memset(c, 0, sizeof *c);
     c->ringfd = -1;
 }
@@ -94,7 +94,7 @@ int brokercam_device_active(const char *app, const char *kind) {
         const char *owner = c->used ? brokersrv_conn_app(c->conn) : NULL;
         if (!owner || strcmp(owner, app)) continue;
         if (!strcmp(kind, "camera") && !c->live) return 1;
-        if (!strcmp(kind, "microphone") && c->live) {
+        if (!strcmp(kind, "microphone")) {
             MediaSrc *s = media_src_get(c->sid);
             if (s && s->mic) return 1;
         }
@@ -185,10 +185,21 @@ static int on_helper_msg(void *src, const MediaMsg *m, const char *payload, int 
         const char *name = m->id == 1 ? c->photo_name : c->video_name;
         json_quote(esc, sizeof esc, ok ? name : "");
         cam_event(c, "event %d %s {\"ok\":%s,\"path\":%s}", c->sid, m->id == 1 ? "photo" : "video", ok ? "true" : "false", esc);
-        if (m->id == 2 && s->mic) { maudio_close(s->mic); s->mic = NULL; }
+        if (m->id == 2 && s->mic) {
+            maudio_close(s->mic);
+            s->mic = NULL;
+            const char *app = brokersrv_conn_app(c->conn);
+            if (app) brokersrv_device(app, "microphone", 0);
+        }
         return 1;
     }
     case MM_ERROR:
+        if (s->mic) {
+            maudio_close(s->mic);
+            s->mic = NULL;
+            const char *app = brokersrv_conn_app(c->conn);
+            if (app) brokersrv_device(app, "microphone", 0);
+        }
         cam_event(c, "event %d error {\"message\":\"camera.failed\"}", c->sid);
         return 1;
     default:
@@ -461,12 +472,21 @@ int brokercam_pick_result(uint32_t reqid, const char *path) {
         } else {
             int ring = -1;
             if (c->pick_mic && restrict_perm_pkg(app, PERM_MICROPHONE) == PERM_ALLOW) {
-                maudio_close(s->mic);
+                if (s->mic) {
+                    maudio_close(s->mic);
+                    s->mic = NULL;
+                    brokersrv_device(app, "microphone", 0);
+                }
                 s->mic = maudio_open(1, app, "Video", "", &ring);
             }
             int64_t v[6] = { c->pick_mirror, 0, 0, 0, 0, 0 };
             int fds[2] = { f, ring };
             r = mp_send(s->sock, MM_RECORD, 2, v, NULL, 0, fds, ring >= 0 ? 2 : 1);
+            if (!r && s->mic) brokersrv_device(app, "microphone", 1);
+            else if (s->mic) {
+                maudio_close(s->mic);
+                s->mic = NULL;
+            }
         }
         close(f);
         if (r) cam_event(c, "event %d %s {\"ok\":false,\"path\":\"\"}", c->sid, kind == 1 ? "photo" : "video");
