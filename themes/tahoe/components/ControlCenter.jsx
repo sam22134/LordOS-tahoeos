@@ -39,6 +39,7 @@ function Tile({ t, children, style }) {
 }
 
 function Meter({ t, label, value, detail }) {
+  const level = clampLevel(value);
   return (
     <View style={{ gap: 6 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
@@ -46,7 +47,7 @@ function Meter({ t, label, value, detail }) {
         <Text style={{ fontSize: 12, color: t.textDim }}>{detail}</Text>
       </View>
       <View style={{ height: 6, borderRadius: 3, backgroundColor: t.control }}>
-        <View style={{ width: `${Math.round(value * 100)}%`, height: 6, borderRadius: 3, backgroundColor: t.accent }} />
+        <View style={{ width: `${Math.round(level * 100)}%`, height: 6, borderRadius: 3, backgroundColor: t.accent }} />
       </View>
     </View>
   );
