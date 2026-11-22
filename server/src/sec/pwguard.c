@@ -540,14 +540,14 @@ static int pulse_connections(int pp, int pid) {
     int np = unix_peers(ino, peer, 65536);
     if (np < 0) return -1;
     char d[64], l[320], t[64];
-    static uint32_t clients[4096];
+    static uint32_t clients[4096], seen[4096];
     int nc = 0;
     for (int pass = 0; pass < 2; pass++) {
         snprintf(d, sizeof d, "/proc/%d/fd", pass ? pid : pp);
         DIR *dir = opendir(d);
         if (!dir) return -1;
         struct dirent *e;
-        int count = 0;
+        int count = 0, nseen = 0;
         while ((e = readdir(dir))) {
             if (e->d_name[0] == '.') continue;
             snprintf(l, sizeof l, "%s/%s", d, e->d_name);
@@ -557,11 +557,31 @@ static int pulse_connections(int pp, int pid) {
             t[k] = 0;
             if (sscanf(t, "socket:[%lu]", &v) != 1) continue;
             if (!pass) {
-                /* a socket of pipewire-pulse: its peer is a client's end */
-                for (int i = 0; i < np; i++) if (ino[i] == (uint32_t)v) { if (peer[i] && nc < 4096) clients[nc++] = peer[i]; break; }
+                /* a socket of pipewire-pulse: its peer is a client's end.
+                 * Count socket inodes, not FDs: dup()/fork() may expose one connection
+                 * through several descriptors, but it is still only one connection. */
+                for (int i = 0; i < np; i++) if (ino[i] == (uint32_t)v) {
+                    uint32_t p = peer[i];
+                    if (!p) break;
+                    int duplicate = 0;
+                    for (int j = 0; j < nc; j++) if (clients[j] == p) { duplicate = 1; break; }
+                    if (!duplicate) {
+                        if (nc == 4096) { closedir(dir); return -1; }
+                        clients[nc++] = p;
+                    }
+                    break;
+                }
                 continue;
             }
-            for (int i = 0; i < nc; i++) if (clients[i] == (uint32_t)v) { count++; break; }
+            for (int i = 0; i < nc; i++) if (clients[i] == (uint32_t)v) {
+                int duplicate = 0;
+                for (int j = 0; j < nseen; j++) if (seen[j] == (uint32_t)v) { duplicate = 1; break; }
+                if (!duplicate) {
+                    seen[nseen++] = (uint32_t)v;
+                    count++;
+                }
+                break;
+            }
         }
         closedir(dir);
         if (pass) return count;
