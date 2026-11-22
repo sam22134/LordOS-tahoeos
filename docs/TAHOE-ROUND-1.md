@@ -196,3 +196,10 @@ A especificação da fundação está em `docs/TAHOE-DESIGN-SYSTEM.md`. A criaç
 - Added a Tahoe app-icon component for a starter set of built-in app IDs.
 - Launchpad and Dock use it while retaining the app-icon fallback for unmapped/third-party apps.
 - This is an initial visual pass; dedicated vector artwork and wider coverage remain follow-up work.
+
+
+### Wallpapers — first Tahoe-specific pass
+
+- Tahoe's theme tokens now curate and reorder the shared wallpaper collection to lead with calmer abstract and light-friendly selections.
+- The implementation reuses the original wallpaper records/assets and does not introduce a parallel wallpaper renderer or selection store.
+- Per-display choices, animated wallpapers and user images remain on the shared SDK path. Dedicated Tahoe artwork is still pending.
