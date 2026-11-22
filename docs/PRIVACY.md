@@ -476,9 +476,10 @@ its own section (see connections per app, locate them on the map) through
 ### Camera and microphone indicators
 
 A **green** dot in the menu bar while the camera is in use and an **orange** one for the
-microphone (`default` and `classic` themes); tapping it shows which app is using it. Sources: the
-broker (isolated apps) and, for Linux apps, the Monitor's `sdk/monitor.js` (via PipeWire, phase 2)
-through `globalThis.__lordos.monitorDevices`.
+microphone (`default` and `classic` themes); tapping it shows which app is using it. The broker
+reports isolated apps. For external Linux applications, active microphone recording streams are
+currently derived from PipeWire's PulseAudio compatibility data in `sdk/monitor.js`; camera and
+screen-capture process attribution still need a native PipeWire/portal lifecycle integration.
 
 | | |
 |---|---|
@@ -902,7 +903,9 @@ lord-server --app (ui/js_brokercam.c) — maps it PROT_READ, draws it with <Medi
   the **system's save dialog** (the powerbox, reqids with the high bit set), opens the chosen
   file itself (`O_NOFOLLOW`, regular file only) and gives that fd to `lord-media` (`MM_PHOTO`,
   `MM_RECORD`). The app only gets the file's name back (event `photo`/`video`). Recording with
-  sound also needs the `microphone` permission; the PipeWire stream is `lord-server`'s.
+  sound also needs the `microphone` permission; the PipeWire stream is `lord-server`'s. The orange
+  microphone indicator is raised only after the server successfully hands the recording stream to
+  `lord-media`, and is cleared when the recording ends, fails or the camera session closes.
 - **Revoke:** Settings → Privacy → Camera → Deny calls `brokersrv_revoke`, which sends `revoke`
   to the app, kills its `lord-media` (`SIGKILL`) and closes the source: the stream stops at once
   and the green dot goes off. The app gets `closed` (`revoked: true`) and blanks its view.
