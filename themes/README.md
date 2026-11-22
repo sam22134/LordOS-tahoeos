@@ -7,6 +7,7 @@ their own. `lord-server` runs the theme with QuickJS and paints it with its C en
 | Theme | Style |
 |---|---|
 | `default` | Lord Flow: menu bar, dock with magnification, app launcher, Control Center |
+| `tahoe` | Tahoe: translucent materials, rounded shared controls and `Alt+Tab`, reusing LordOS's native Flow shell services |
 | `classic` | Lord Classic: a centered taskbar, start menu with search, tray with quick settings and notifications, window snapping and the SDK's Overview (0.8.3) |
 | `celeste` | Lord Celeste (community, in development): a mirrored display frame, edge drawers, dashboard, launcher and sidebar |
 | `workspaces` | Lord Workspaces (in development): activities with their own apps and layouts, a Context Spine, tiling per display, Search and a Control Center, three effects styles (Opaque, Translucent, Crystal); see [`docs/WORKSPACES.md`](../docs/WORKSPACES.md) |
