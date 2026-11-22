@@ -52,7 +52,7 @@ static int only_web;                        /* another program serves the portal
 /* valores actuales */
 static int dark = 1;
 static double acc[3] = { 0.04, 0.52, 1.0 };
-static char acc_name[16] = "blue", buttons[64] = "close,minimize,maximize:", gtk_theme[64] = "Adwaita-dark";
+static char acc_name[16] = "blue", buttons[64] = "close,minimize,maximize:", gtk_theme[64] = "Adwaita-dark", icon_theme[64] = "MacTahoe-blue";
 
 enum { V_U, V_S, V_RGB };
 typedef struct { const char *ns, *key; int type; } Key;
@@ -63,6 +63,7 @@ static const Key keys[] = {
     { "org.gnome.desktop.interface", "color-scheme", V_S },
     { "org.gnome.desktop.interface", "accent-color", V_S },
     { "org.gnome.desktop.interface", "gtk-theme", V_S },
+    { "org.gnome.desktop.interface", "icon-theme", V_S },
     { "org.gnome.desktop.wm.preferences", "button-layout", V_S },
     /* GTK 4 on Wayland takes its input-method module from this setting before it looks for one itself, and when the
      * portal leaves it out GTK uses its own default, "simple": LordOS's input methods then never reach a GTK 4 field.
@@ -79,8 +80,9 @@ static const char *str_of(int i) {
     case 3: return dark ? "prefer-dark" : "default";
     case 4: return acc_name;
     case 5: return gtk_theme;
-    case 6: return buttons;
-    case 7: return "wayland";
+    case 6: return icon_theme;
+    case 7: return buttons;
+    case 8: return "wayland";
     }
     return "";
 }
@@ -2189,6 +2191,8 @@ static void keyfile_write(void) {
     char v[96];
     snprintf(v, sizeof v, "'%s'", gtk_theme);
     keyfile_set(&buf, "org/gnome/desktop/interface", "gtk-theme", v);
+    snprintf(v, sizeof v, "'%s'", icon_theme);
+    keyfile_set(&buf, "org/gnome/desktop/interface", "icon-theme", v);
     keyfile_set(&buf, "org/gnome/desktop/interface", "color-scheme", dark ? "'prefer-dark'" : "'default'");
     snprintf(v, sizeof v, "'%s'", acc_name);
     keyfile_set(&buf, "org/gnome/desktop/interface", "accent-color", v);
@@ -2231,7 +2235,7 @@ void portal_set(int is_dark, const double rgb[3], const char *accent_name, const
     if (memcmp(old, acc, sizeof old)) changed(1);
     if (strcmp(old_name, acc_name)) changed(4);
     if (strcmp(old_theme, gtk_theme)) changed(5);
-    if (strcmp(old_buttons, buttons)) changed(6);
+    if (strcmp(old_buttons, buttons)) changed(7);
     if (up) dbus_flush(&conn);
     static int written;
     if (!written || old_dark != dark || strcmp(old_name, acc_name) || strcmp(old_theme, gtk_theme) || strcmp(old_buttons, buttons)) {
