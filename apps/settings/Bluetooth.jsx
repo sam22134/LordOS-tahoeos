@@ -101,7 +101,7 @@ export function BluetoothSettings() {
     setErr('');
     pending.current = { path: d.path, op };
     try {
-      if (!lord?.bt?.[op] || !lord.bt[op](d.path)) {
+      if (typeof lord === 'undefined' || !lord.bt || typeof lord.bt[op] !== 'function' || !lord.bt[op](d.path)) {
         pending.current = null;
         setErr('failed');
       }
