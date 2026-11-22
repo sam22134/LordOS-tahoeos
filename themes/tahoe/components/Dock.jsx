@@ -523,7 +523,7 @@ export function Dock({ t, items: list, running, onOpen, onRestoreWindow, onConte
                     bottom: screen.height - (AB - MARGIN - hide) + bar + 14 }
                 : position === 'left'
                   ? { left: AX + MARGIN + bar + 14 - hide, top: Math.max(area.y + 8, Math.min(area.y + area.h - previewHeight - 8, preview.at.y - previewHeight / 2)) }
-                  : { right: screen.width - (AR - MARGIN - bar - 14 + hide), top: Math.max(area.y + 8, Math.min(area.y + area.h - 112 - 8, preview.at.y - 56)) }),
+                  : { right: screen.width - (AR - MARGIN - bar - 14 + hide), top: Math.max(area.y + 8, Math.min(area.y + area.h - previewHeight - 8, preview.at.y - previewHeight / 2)) }),
               width: previewWidth, maxWidth: area.w - 16,
               padding: 8, borderRadius: 14, flexDirection: 'row', flexWrap: 'wrap', gap: 8,
               backgroundColor: t.panelBg, backdropFilter: `blur(${t.blur}px)`,
