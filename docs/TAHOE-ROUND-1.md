@@ -73,10 +73,10 @@ O caminho foi seguido no código: `tp_event_at()` produz o botão direito (códi
 
 ### 4. Dock e janelas minimizadas
 
-- Exibir miniaturas individuais das janelas minimizadas ao lado da Lixeira.
-- Restaurar a janela exata ao clicar na miniatura.
-- Atualizar miniaturas ao minimizar, restaurar e encerrar.
-- Limitar memória/cache e respeitar Reduce Motion e perfil econômico.
+- [x] Exibir tiles individuais das janelas minimizadas ao lado da Lixeira no Lord Flow.
+- [x] Restaurar a janela exata ao clicar no tile, inclusive trocando para o desktop correspondente.
+- [x] Atualizar a lista automaticamente a partir do estado de janelas: minimizar, restaurar e encerrar.
+- [ ] Evoluir os tiles atuais (moldura, ícone e título) para snapshots reais do conteúdo, quando houver fonte de captura segura e barata; a implementação atual não duplica raster nem mantém cache de imagens.
 
 ### 5. Feedback de abertura de aplicativos
 
@@ -106,6 +106,7 @@ O caminho foi seguido no código: `tp_event_at()` produz o botão direito (códi
 - [x] Persistir preferências individuais e reaplicar na reenumeração.
 - [x] Expor controles individuais em Configurações e adicionar testes unitários de modo e segurança.
 - [ ] Corrigir e testar menus contextuais no caminho completo.
+- A auditoria confirmou que `runtime/events.js` só dispara `onContextMenu` para o botão 2 no `pointerup`, e o evento percorre os ancestrais comuns entre pressionar e soltar; `stopPropagation()` interrompe o restante do caminho. Files (itens, cabeçalho e fundo), Dock, Lixeira e papel de parede já possuem handlers. A inspeção não encontrou um defeito universal no dispatcher; faltam validação do botão emitido pelo hardware e teste funcional em cada alvo.
 - [ ] Implementar as demais melhorias da Rodada 1.
 - [ ] Executar build e testes no ambiente de desenvolvimento (ainda não executados: o ambiente desta sessão não conseguiu acessar GitHub para clonar o repositório).
 - [ ] Validar em hardware físico.
