@@ -8,6 +8,7 @@ import {
   openCalendarApp, panelLeft, inBar,
 } from '@lordos/sdk';
 import { useEffect, useRef, useState } from 'react';
+import { TahoeIconForApp } from './AppIcon';
 
 const W = 340;
 
@@ -144,7 +145,7 @@ export function NotificationCenter({ t, top, onClose, area, at = null }) {
                   return (
                     <View key={g.key || '-'} style={{ gap: 6 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4 }}>
-                        {app?.Icon ? <app.Icon size={16} /> : null}
+                        {app ? <TahoeIconForApp app={app} size={16} /> : null}
                         <Text style={{ fontSize: 12, fontWeight: 600, color: t.textDim, textAlign: 'start' }}>{app ? appName(app) : g.items[0].label || ''}</Text>
                       </View>
                       {g.items.slice(0, 6).map((n) => <Item key={n.id} t={t} n={n} onRemove={() => remove(n.id)} />)}
