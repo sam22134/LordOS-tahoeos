@@ -21,7 +21,7 @@ import { Dock, LaunchpadIcon, dockThickness } from './components/Dock.jsx';
 import { Window } from './components/Window.jsx';
 import { Launchpad } from '../default/components/Launchpad.jsx';
 import { ControlCenter } from './components/ControlCenter.jsx';
-import { NotificationCenter } from '../default/components/NotificationCenter.jsx';
+import { NotificationCenter } from './components/NotificationCenter.jsx';
 import { Menu, menuHasKeys } from '../default/components/Menu.jsx';
 
 const MENU_H = 32;
