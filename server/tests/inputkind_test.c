@@ -21,6 +21,26 @@ int main(void) {
     reset(); set(ev, EV_KEY); set(keys, BTN_LEFT); set(props, INPUT_PROP_ACCELEROMETER); CHECK(!IS());
     memset(ab, 0, sizeof ab); set(ev, EV_KEY); set(keys, BTN_LEFT); memset(props, 0, sizeof props); CHECK(!IS());
 
+    /* Multitouch touchpad admission: some devices expose ABS_MT_* but no legacy ABS_X/Y.
+     * These must reach tp_open(), which has the same capability predicate. */
+    memset(ev, 0, sizeof ev); memset(ab, 0, sizeof ab); memset(keys, 0, sizeof keys); memset(props, 0, sizeof props);
+    set(ev, EV_ABS); set(ev, EV_KEY);
+    set(ab, ABS_MT_POSITION_X); set(ab, ABS_MT_POSITION_Y); set(ab, ABS_MT_SLOT);
+    set(keys, BTN_TOOL_FINGER);
+    CHECK(!input_is_multitouch_touchpad(ev, ab, keys, props)); /* MT alone is insufficient */
+    set(props, INPUT_PROP_POINTER);
+    CHECK(input_is_multitouch_touchpad(ev, ab, keys, props)); /* pointer property, no ABS_X/Y */
+    memset(props, 0, sizeof props); set(keys, BTN_LEFT);
+    CHECK(input_is_multitouch_touchpad(ev, ab, keys, props)); /* BTN_LEFT, no BUTTONPAD */
+    memset(keys, 0, sizeof keys); set(keys, BTN_TOOL_FINGER);
+    memset(props, 0, sizeof props); set(props, INPUT_PROP_BUTTONPAD);
+    CHECK(input_is_multitouch_touchpad(ev, ab, keys, props)); /* explicit clickpad */
+    memset(props, 0, sizeof props); set(props, INPUT_PROP_DIRECT);
+    CHECK(input_is_multitouch_touchpad(ev, ab, keys, props)); /* touchscreen: tp_open decides DIRECT */
+    memset(props, 0, sizeof props); memset(keys, 0, sizeof keys);
+    set(keys, BTN_TOOL_FINGER); set(props, INPUT_PROP_ACCELEROMETER);
+    CHECK(!input_is_multitouch_touchpad(ev, ab, keys, props)); /* no pointer/button property */
+
     /* system keys (issue #131) */
 #define SK() input_is_system_keys(ev, keys)
     memset(ev, 0, sizeof ev); memset(keys, 0, sizeof keys);
