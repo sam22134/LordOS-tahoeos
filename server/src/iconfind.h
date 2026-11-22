@@ -5,7 +5,7 @@
  * PNGs first: the user's MacTahoe variants and hicolor, then the system's MacTahoe variants and hicolor,
  * at the sizes asked for, then /usr/share/pixmaps. Then SVG, which lord-media draws (media/svgicon.c): scalable/
  * of those themes, then Adwaita and /usr/share/pixmaps; an app's AppStream PNG; and last symbolic/ icons, which
- * the bar recolors to its text color. 
+ * the bar recolors to its text color. */
 #ifndef LORD_ICONFIND_H
 #define LORD_ICONFIND_H
 
