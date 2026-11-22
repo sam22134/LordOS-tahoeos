@@ -14,7 +14,7 @@ const ICONS = {
   imager: ['🖼️','#8e8cf0'], scanner: ['📄','#4d9bf7'], help: ['❔','#6a9de8'],
   sysinfo: ['ℹ️','#3f84d5'], sysprobe: ['📈','#354454'], backup: ['🗄️','#64748b'],
   cleaner: ['🧹','#60a5fa'], installer: ['📦','#3d8bdb'], databases: ['🗃️','#5c6b7d'],
-  characters: ['😀','#f4c34e'], machines: ['🖥️','#39465b'], remote-desk: ['🧑‍💻','#4f8fcf'],
+  characters: ['😀','#f4c34e'], machines: ['🖥️','#39465b'], 'remote-desk': ['🧑‍💻','#4f8fcf'],
   logs: ['📋','#586476'], forcequit: ['⏹️','#414852'],
 };
 export function TahoeAppIcon({ id, Base, size = 32 }) {
