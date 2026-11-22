@@ -11,7 +11,7 @@ The first Tahoe desktop theme lives in `themes/tahoe/` and is independently sele
 - `components/Window.jsx`: Tahoe's 46 px title bar, 16 px frame corners, compact traffic lights and theme-driven active/inactive window shadows. Window movement, resizing, focus, CSD integration and title context menus remain the LordOS implementations.
 - `components/Dock.jsx`: Tahoe glass Dock with its own elevated shadow token; magnification, drag/reorder, minimized-window tiles, context menus and multi-edge placement remain shared behavior.
 
-The first slice deliberately reuses Lord Flow's existing native shell components from `themes/default/components/` instead of copying or forking their event handling. This keeps window management, Dock interactions, context menus, Control Center, notifications, multi-display behavior, widgets and system prompts on the existing tested paths while Tahoe establishes its own visual token layer.
+The shell now has Tahoe-specific presentation for its Menu Bar, Dock and window frame. These components retain LordOS's existing interaction and window-management paths; the remaining panels and menus are still shared from Lord Flow. This avoids forking system behavior while allowing the visual layer to evolve independently.
 
 ## Visual contract
 
