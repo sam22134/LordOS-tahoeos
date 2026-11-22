@@ -420,14 +420,14 @@ static uint32_t client_restrictions(PgClient *c) {
  * every other client. In chunks: PipeWire merges successive update_permissions, so a list longer
  * than one message is never dropped (that would leave the client with every permission). */
 #define PERM_CHUNK 400
-static int send_perm_chunk(PgClient *c, const int32_t *pairs, int32_t n) {
+static int send_perm_chunk(PgClient *c, const int32_t *pairs, int32_t n, uint32_t *sent_seq) {
     Pb b = { .n = 0 };
     size_t s = pb_begin(&b);
     pb_int(&b, n);
     for (int32_t i = 0; i < n; i++) { pb_int(&b, pairs[2 * i]); pb_int(&b, pairs[2 * i + 1]); }
     pb_end(&b, s);
     if (b.err) { fprintf(stderr, "pwguard: permission chunk too long for %s\n", c->app); drop(); return -1; }
-    return send_msg(c->proxy, 4, &b);                           /* client.update_permissions */
+    return send_msg_seq(c->proxy, 4, &b, sent_seq);             /* client.update_permissions */
 }
 
 /* A permission update is not considered applied until Core::Done confirms that every
@@ -450,9 +450,7 @@ static void apply_permissions(PgClient *c, uint32_t flags) {
         pairs[2 * n] = (int32_t)(id_); pairs[2 * n + 1] = (int32_t)(perm_); \
         if (++n == PERM_CHUNK) { \
             uint32_t sent = 0; \
-            if (send_perm_chunk(c, pairs, n)) { c->pending = 0; return; } \
-            /* send_perm_chunk uses the ordinary sender; its header sequence is the last one. */ \
-            sent = P.seq - 1; \
+            if (send_perm_chunk(c, pairs, n, &sent)) { c->pending = 0; return; } \
             if (c->pending_count >= PERM_MAX_CHUNKS) { drop(); return; } \
             c->pending_seq[c->pending_count++] = sent; n = 0; \
             if (P.fd < 0) return; \
@@ -1113,13 +1111,14 @@ static void on_message(uint32_t id, uint32_t opcode, PwPod body) {
         for (int i = 0; i < MAX_CLIENTS; i++) {
             PgClient *c = &P.cl[i];
             if (!c->live || !c->pending) continue;
-            if ((resource_id == (int32_t)c->proxy && request_seq >= 0 &&
-                 ({ int found = 0; for (unsigned k = 0; k < c->pending_count; k++)
-                        if (c->pending_seq[k] == (uint32_t)request_seq) found = 1; found; })) ||
-                (resource_id == 0 && request_seq >= 0 &&
-                 c->pending_sync_header == (uint32_t)request_seq)) {
-                c->pending_failed = 1;
+            int matched = 0;
+            if (request_seq >= 0 && resource_id == (int32_t)c->proxy) {
+                for (unsigned k = 0; k < c->pending_count; k++)
+                    if (c->pending_seq[k] == (uint32_t)request_seq) { matched = 1; break; }
             }
+            if (request_seq >= 0 && resource_id == 0 &&
+                c->pending_sync_header == (uint32_t)request_seq) matched = 1;
+            if (matched) c->pending_failed = 1;
         }
     } else if (id == 0 && opcode == 4) {                        /* core.remove_id */
         if (!pwpod_struct_field(body, 0, &f) && !pwpod_int(f, &a) && a > 2 && a < MAX_PROXY) {
