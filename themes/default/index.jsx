@@ -217,6 +217,7 @@ function App() {
         {!ga && <Layer name="dock">
         <Dock t={t} items={entries} running={entries.filter((e) => e.running).map((e) => e.id)}
           onOpen={(id) => byId.has(id) && dockActivate(byId.get(id))}
+          onRestoreWindow={(id) => wm.focus(id)}
           onContext={(id, at) => byId.has(id) && setDockCtx({ entry: byId.get(id), at })}
           onTrash={openTrash} onTrashContext={(at) => setTrashCtx(at)} trashFull={trash.full}
           position={dp.dockPosition} size={dp.dockSize} magnify={dp.dockMagnify} maxSize={dp.dockMagnifySize}
