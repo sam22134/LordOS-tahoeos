@@ -17,6 +17,20 @@ remote desktop is a row of its own and blocking an app cuts the connections it h
 components and the system's services got rows of their own, and the menu bar network item and the
 blocklists arrived ("Network, second generation").
 
+## Microphone and camera activity
+
+The menu-bar privacy indicators and the Monitor's device-user store combine two sources:
+the PulseAudio compatibility view (which provides source names for recording streams) and
+the native PipeWire graph. The latter follows `Link::Info` and reports only `ACTIVE`
+connections from a microphone or camera source to an application's input stream. The application
+identity comes from `pwguard`'s verified PipeWire client resolution (process credentials and
+the app's session scope), not from a display name supplied by the stream. Duplicate microphone
+rows are merged by app and device kind. Generic video nodes are not treated as screen shares;
+screen sharing continues to use the ScreenCast portal's session attribution.
+
+This is live graph attribution, not a claim that a paused stream is capturing. If PipeWire has
+not supplied a complete link or client identity, the row is omitted rather than guessed.
+
 ## Tabs
 
 | Tab | What it shows |
