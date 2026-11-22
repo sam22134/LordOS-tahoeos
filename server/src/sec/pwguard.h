@@ -51,6 +51,7 @@ int  pwguard_error_matches(uint32_t proxy, uint32_t sync_header,
 /* Strict decimal parsing for PipeWire's string-valued IDs and process IDs (0 = invalid PID). */
 int  pwguard_parse_u32(const char *s, uint32_t *value);
 int  pwguard_parse_u64(const char *s, uint64_t *value);
+uint32_t pwguard_next_sync_token(uint32_t current, const uint32_t *pending, unsigned count);
 int  pwguard_parse_pid(const char *s);
 /* Which restriction makes a node a capture node to hide ("Audio/Source" → FW_R_NO_MIC...), 0 none. */
 uint32_t pwguard_capture_flag(const char *media_class);
