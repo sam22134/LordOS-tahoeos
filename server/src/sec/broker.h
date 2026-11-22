@@ -133,6 +133,8 @@ const char *brokersrv_probe_result(void);
  * serviced in the main loop. */
 int  brokersrv_audio_pollfds(struct pollfd *pfd, int max);
 void brokersrv_audio_dispatch(struct pollfd *pfd, int n);
+/* True while this app owns an active brokered camera or live-call microphone stream. */
+int brokercam_device_active(const char *app, const char *kind);
 
 
 #endif
