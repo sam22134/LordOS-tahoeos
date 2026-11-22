@@ -273,6 +273,8 @@ uint32_t pwguard_node_flag(const char *mc, const char *role, const char *name) {
     return pwguard_capture_flag(mc);
 }
 
+int pwguard_link_state_active(int state) { return state == 4; }
+
 uint32_t pwguard_stream_flag(const char *mc) {
     if (!mc) return 0;
     if (!strcmp(mc, "Stream/Input/Audio")) return FW_R_NO_MIC;
