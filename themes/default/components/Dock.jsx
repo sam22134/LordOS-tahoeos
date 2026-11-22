@@ -358,7 +358,7 @@ export function Dock({ t, items: list, running, onOpen, onRestoreWindow, onConte
     : position === 'left' ? { x: AX + MARGIN + bar + 8, y: start + iconC[i] } : { x: AR - MARGIN - bar - 8, y: start + iconC[i] });
   const hit = hovered >= 0 ? items[hovered] : null;
   const showTip = hovered >= 0 && !keepOpen;
-  const label = !hit ? '' : hit.trash ? tr('shell.trash.name') : hit.launcher ? tr('shell.menu.apps') : appName(hit);
+  const label = !hit ? '' : hit.trash ? tr('shell.trash.name') : hit.windowThumb ? (hit.window.title || hit.name) : hit.launcher ? tr('shell.menu.apps') : appName(hit);
   const tip = (
     <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 7, backgroundColor: t.panelBg,
       backdropFilter: `blur(${t.blur}px)`, border: `1px solid ${t.windowBorder}` }}>
