@@ -368,6 +368,7 @@
   "sound.balanceLeft": "Left {pct} %",
   "sound.balanceRight": "Right {pct} %",
   "sound.balanceReset": "Center",
+  "sound.commandFailed": "Could not apply the audio change (error {code}).",
   "style.hint": "Every desktop style has the same apps. The change is applied right away, without logging out; open windows come back.",
   "style.title": "Desktop style",
   "style.search": "Search desktop styles",
