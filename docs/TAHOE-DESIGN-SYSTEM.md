@@ -7,6 +7,9 @@ The first Tahoe desktop theme lives in `themes/tahoe/` and is independently sele
 - `theme.json`: registers the theme as **Tahoe**.
 - `index.jsx`: owns the complete desktop composition, window work area, menu-bar/Dock layers, app switcher, overview, launchpad and system panels. It starts the shell through the same supported SDK entry point as the bundled themes.
 - `tokens.js`: defines Tahoe's color, material, border, shadow, blur and shared-control shape tokens.
+- `components/MenuBar.jsx`: Tahoe's 32 px translucent top bar, with softer rounded menu-item highlights, a subtle lower edge and shadow.
+- `components/Window.jsx`: Tahoe's 46 px title bar, 16 px frame corners, compact traffic lights and theme-driven active/inactive window shadows. Window movement, resizing, focus, CSD integration and title context menus remain the LordOS implementations.
+- `components/Dock.jsx`: Tahoe glass Dock with its own elevated shadow token; magnification, drag/reorder, minimized-window tiles, context menus and multi-edge placement remain shared behavior.
 
 The first slice deliberately reuses Lord Flow's existing native shell components from `themes/default/components/` instead of copying or forking their event handling. This keeps window management, Dock interactions, context menus, Control Center, notifications, multi-display behavior, widgets and system prompts on the existing tested paths while Tahoe establishes its own visual token layer.
 
@@ -23,7 +26,7 @@ The first slice deliberately reuses Lord Flow's existing native shell components
 
 - This is a new theme, not a replacement for Lord Flow or Lord Classic.
 - No compositor, Wayland, window-manager, application runtime, MIME or security code is changed by this visual slice.
-- Native components are shared with Lord Flow for now. Tahoe-specific implementations of the menu bar, Dock, window chrome and Control Center can be introduced one at a time after visual review, without duplicating their system behavior.
+- The menu bar, Dock and window chrome now have Tahoe-specific presentation components. Launchpad, Control Center, Notification Center and the general menu remain shared with Lord Flow until their visual passes are implemented.
 - Tahoe-specific wallpapers, icon artwork and sound assets have not yet been added. The theme currently offers the LordOS wallpaper collection.
 - A source-level registration is not a build or runtime validation. Run `npm run build`, switch to Tahoe in Settings → Appearance → Desktop style, and test multi-display, RTL, Reduce Motion, fullscreen and low-effects configurations before calling the theme validated.
 - Themes not present in the signed release manifest remain development-build-only, as described in `docs/THEMES-GUIDE.md`. A release must include the new theme in the verified-code signing pipeline.
