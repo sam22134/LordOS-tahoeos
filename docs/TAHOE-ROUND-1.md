@@ -40,6 +40,14 @@ Executar `tp-test --live /dev/input/eventN 10` no dispositivo real, com o touchp
 
 Não inferir clickpad apenas pela ausência de BTN_RIGHT. Essa regra pode classificar incorretamente dispositivos com botão físico único. A detecção adicional deve ser baseada em capabilities consistentes e, quando necessário, quirks específicos identificados por fabricante/modelo, com override explícito nas configurações.
 
+**Lacuna confirmada na implementação atual**
+
+- Se `INPUT_PROP_BUTTONPAD` não estiver presente, `tp_open()` mantém `clickpad = 0`, mesmo quando o dispositivo tem `BTN_LEFT` e é reconhecido como touchpad.
+- Nesse caso, `BTN_LEFT` é encaminhado como botão físico esquerdo (`btn_pending[0]`); `click_button()` não aplica a lógica de cantos.
+- `TpCaps.has_right` já é coletado, mas não era exposto em `lord.input.devices()` nem mostrado na lista de dispositivos das Configurações.
+- Próximo passo de UX: expor capabilities sem inferência arriscada e implementar override por dispositivo (Auto / Clickpad / Botões separados), persistido por identidade estável do hardware. Não usar override global.
+- O override ainda não foi implementado; `hasRight` será apenas diagnóstico.
+
 ### 2. Menus contextuais
 
 - Reutilizar `sdk/contextmenu.jsx` e `sdk/layers.js`.
