@@ -13,8 +13,9 @@ void snd_stop(void);
 int  snd_fd(void);                      /* for poll (the socket, or a timer while reconnecting) */
 void snd_dispatch(void);
 
-/* Events for JS: "state" (something changed; json = the full state, like snd_state_json) and
- * "peak" ({"source":n,"level":x}, 25 per second while the meter is on). */
+/* Events for JS: "state" (something changed; json = the full state, like snd_state_json),
+ * "peak" ({"source":n,"level":x}, while the meter is on), and "error"
+ * ({"command":n,"code":n,"index":n}: PipeWire rejected an asynchronous command). */
 typedef void (*SndEventFn)(const char *type, const char *json);
 void snd_events(SndEventFn fn);
 
