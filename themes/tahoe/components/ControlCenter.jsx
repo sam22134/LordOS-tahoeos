@@ -78,7 +78,7 @@ function SwitchTile({ t, on, label, detail, glyph, onToggle, onSettings }) {
   const dim = on ? 'rgba(255,255,255,0.8)' : t.textDim;
   return (
     <View onClick={onToggle} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
-      style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 9, paddingHorizontal: 9, borderRadius: 12,
+      style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 9, paddingHorizontal: 9, borderRadius: 14,
         backgroundColor: on ? t.accent : t.hover, border: `1px solid ${on ? t.accent : t.separator}`, opacity: hover ? 0.9 : 1 }}>
       <TileIcon t={t} on={on}>{glyph}</TileIcon>
       <View style={{ flex: 1, minWidth: 0, gap: 1 }}>
