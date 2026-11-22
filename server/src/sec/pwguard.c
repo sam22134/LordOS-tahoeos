@@ -321,7 +321,7 @@ char *pwguard_device_users_json(void) {
         uint32_t kind = src->flag & (FW_R_NO_MIC | FW_R_NO_CAMERA);
         if (!kind || !(dst->stream & kind)) continue;
         PgClient *c = client_by_id(dst->client);
-        if (!c || !c->resolved || c->unverified || c->daemon || c->pulse || !c->app[0]) continue;
+        if (!c || !c->resolved || c->unverified || c->daemon || !c->app[0]) continue;
         /* One app/device pair is enough even when PipeWire fans a stream across channels. */
         int duplicate = 0;
         for (int k = 0; k < i; k++) {
@@ -330,7 +330,7 @@ char *pwguard_device_users_json(void) {
             PgNode *os = node_by_id(old->out_node), *od = node_by_id(old->in_node);
             PgClient *oc = od ? client_by_id(od->client) : NULL;
             if (os && od && (os->flag & kind) && (od->stream & kind) && oc && oc->resolved &&
-                !oc->unverified && !oc->daemon && !oc->pulse && !strcmp(oc->app, c->app)) { duplicate = 1; break; }
+                !oc->unverified && !oc->daemon && !strcmp(oc->app, c->app)) { duplicate = 1; break; }
         }
         if (duplicate) continue;
         if (!first) out[at++] = ',';
@@ -343,7 +343,7 @@ char *pwguard_device_users_json(void) {
         pw_json_string(out, cap, &at, c->app);
         out[at++] = ',';
         memcpy(out + at, "\"pid\":", 6); at += 6;
-        at += (size_t)snprintf(out + at, cap - at, "%d", c->pid_sec > 0 ? c->pid_sec : c->pid_app);
+        at += (size_t)snprintf(out + at, cap - at, "%d", c->pulse && c->pid_app > 0 ? c->pid_app : (c->pid_sec > 0 ? c->pid_sec : c->pid_app));
         out[at++] = '}';
     }
     out[at++] = ']';
