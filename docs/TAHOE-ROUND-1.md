@@ -126,7 +126,7 @@ O caminho foi seguido no código: `tp_event_at()` produz o botão direito (códi
 - [x] Fazer o resolvedor C priorizar a variante MacTahoe ativa (dark/light), procurar variantes do usuário e do sistema, manter overrides hicolor e aceitar `apps/32`, `apps/scalable` e `status/symbolic` além do formato hicolor.
 - [x] Expor as variantes MacTahoe dark/light como tema de ícones GTK por settings.ini, GSettings keyfile e Settings portal, acompanhando a aparência do sistema.
 - [x] Adicionar regressões de ordem de resolução para PNG, SVG e symbolic MacTahoe, sem quebrar os caminhos hicolor e Adwaita.
-- [ ] Integrar o pacote ao pipeline final da ISO/.deb (a estrutura Debian ainda é placeholder e não produz imagem/pacote).
+- [x] Integrar o instalador ao `tools/iso/mkdeb.sh`; o pacote `.deb` inclui os temas e cursores e o ISO os recebe ao instalar o pacote.
 - [ ] Criar a família de ícones nativos Tahoe para os aplicativos LordOS; os apps nativos continuam usando componentes React próprios, não os ícones genéricos do tema upstream.
 - [x] Compilar e executar `iconfind-test` no GitHub Actions; validar a sintaxe do instalador com `bash -n`.
 - [ ] Adicionar teste automatizado específico para a troca de ícone no Settings portal; compilar e executar a suíte completa do servidor.
