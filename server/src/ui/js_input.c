@@ -2,7 +2,7 @@
  * (tp/tp.c). It only reads and changes the driver's in-memory configuration: it opens no devices and
  * touches no files (settings are saved to settings.json from the SDK, sdk/trackpad.js).
  *
- *   lord.input.devices()      → [{ name, kind: 'touchpad'|'touchscreen', clickpad, width, height, fingers }]
+ *   lord.input.devices()      → [{ id, identityStable, name, kind: 'touchpad'|'touchscreen', clickpad, hasRight, width, height, fingers }]
  *   lord.input.config()       → { speed, mouseSpeed, mouseNatural, mouseLeftHanded, scrollSpeed,
  *                                 sensitivity: 'low'|'medium'|'high', pointerSize, tap, tapDrag,
  *                                 natural, secondary, threeDrag, dwt, scroll, kinetic, pinch,
