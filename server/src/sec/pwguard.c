@@ -473,8 +473,7 @@ static void apply_permissions(PgClient *c, uint32_t flags) {
 #undef PERM_ADD
     if (n) {
         uint32_t sent = 0;
-        if (send_perm_chunk(c, pairs, n)) { c->pending = 0; return; }
-        sent = P.seq - 1;
+        if (send_perm_chunk(c, pairs, n, &sent)) { c->pending = 0; return; }
         if (c->pending_count >= PERM_MAX_CHUNKS) { drop(); return; }
         c->pending_seq[c->pending_count++] = sent;
     }
