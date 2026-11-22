@@ -1249,3 +1249,10 @@ It runs outside the frame. While it draws, the screen shows the previous frame s
   - Source used: `dbip-country-lite-2026-10`.
 - **Country outlines and names:** Natural Earth (<https://www.naturalearthdata.com>), public
   domain.
+
+
+## Device privacy activity
+
+The Monitor SDK exposes monitor.deviceUsers() and the monitorDevices store. Active microphone recordings are derived from PipeWire's source-output streams, matched to real input sources (not speaker-monitor sources), and include the reported application ID, process ID and source name. Corked streams and disconnected audio sessions are not reported as active. This currently covers applications using PipeWire's PulseAudio compatibility server, including ordinary Linux applications.
+
+Camera and screen-capture users are not yet included in this list. Their process ownership needs a separate native PipeWire/portal event integration; a permission grant alone is not treated as proof of an active capture.
