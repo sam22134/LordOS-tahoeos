@@ -29,20 +29,39 @@ static int try_path(char *out, size_t n, const char *ext, const char *fmt, ...) 
     return w > 0 && (size_t)w < n && is_file(out, ext);
 }
 
+static const char *const mac_variants[] = { "MacTahoe-blue-dark", "MacTahoe-blue", "MacTahoe-blue-light" };
+static char active_variant[32] = "MacTahoe-blue-dark";
+
+void iconfind_set_variant(const char *variant) {
+    if (!variant) return;
+    for (size_t i = 0; i < sizeof mac_variants / sizeof *mac_variants; i++)
+        if (!strcmp(variant, mac_variants[i])) {
+            snprintf(active_variant, sizeof active_variant, "%s", variant);
+            return;
+        }
+}
+
+static void add_icon_variants(IconRoots *r, const char *base) {
+    snprintf(r->themes[r->nthemes++], PATH_MAX, "%s/%s", base, active_variant);
+    for (size_t i = 0; i < sizeof mac_variants / sizeof *mac_variants; i++)
+        if (strcmp(mac_variants[i], active_variant))
+            snprintf(r->themes[r->nthemes++], PATH_MAX, "%s/%s", base, mac_variants[i]);
+}
+
 void iconfind_roots(IconRoots *r, const char *home, const char *prefix) {
     memset(r, 0, sizeof *r);
     if (home && *home) {
-        snprintf(r->themes[r->nthemes++], PATH_MAX, "%s/.local/share/icons/MacTahoe-blue", home);
-        snprintf(r->themes[r->nthemes++], PATH_MAX, "%s/.local/share/icons/MacTahoe-blue-dark", home);
-        snprintf(r->themes[r->nthemes++], PATH_MAX, "%s/.local/share/icons/MacTahoe-blue-light", home);
-        snprintf(r->themes[r->nthemes++], PATH_MAX, "%s/.local/share/icons/hicolor", home);
+        char base[PATH_MAX];
+        snprintf(base, sizeof base, "%s/.local/share/icons", home);
+        add_icon_variants(r, base);
+        snprintf(r->themes[r->nthemes++], PATH_MAX, "%s/hicolor", base);
     }
-    snprintf(r->themes[r->nthemes++], PATH_MAX, "%s/usr/share/icons/MacTahoe-blue", prefix);
-    snprintf(r->themes[r->nthemes++], PATH_MAX, "%s/usr/share/icons/MacTahoe-blue-dark", prefix);
-    snprintf(r->themes[r->nthemes++], PATH_MAX, "%s/usr/share/icons/MacTahoe-blue-light", prefix);
-    snprintf(r->themes[r->nthemes++], PATH_MAX, "%s/usr/share/icons/hicolor", prefix);
+    char base[PATH_MAX];
+    snprintf(base, sizeof base, "%s/usr/share/icons", prefix);
+    add_icon_variants(r, base);
+    snprintf(r->themes[r->nthemes++], PATH_MAX, "%s/hicolor", base);
     r->npng = r->nthemes;
-    snprintf(r->themes[r->nthemes++], PATH_MAX, "%s/usr/share/icons/Adwaita", prefix);
+    snprintf(r->themes[r->nthemes++], PATH_MAX, "%s/Adwaita", base);
     snprintf(r->pixmaps, PATH_MAX, "%s/usr/share/pixmaps", prefix);
     snprintf(r->appstream, PATH_MAX, "%s/var/lib/lordos/pkg/icons/64", prefix);
 }
