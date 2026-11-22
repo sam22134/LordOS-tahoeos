@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 /* pwguard_test.c — the PipeWire guard's pieces that don't need PipeWire (src/sec/pwguard.c): the
  * SPA POD reader on well-formed, truncated and lying input, and which nodes and streams each
  * restriction covers. The guard against a real PipeWire: tests/fwlinux/mic.sh. */
@@ -139,6 +140,6 @@ int main(void) {
     CHECK(pwguard_node_flag("Audio/Source", "Screen", "lordos-screencast-0") == FW_R_NO_MIC);   /* only a video source is a screen */
     CHECK(pwguard_node_flag("Audio/Sink", NULL, NULL) == 0);
     test_malformed_done_resets_connection();
-    printf("pwguard-test: %d/%d passed\n", total - fails, total - fails + fails);
+    printf("pwguard-test: %d/%d passed\n", total - fails, total);
     return fails ? 1 : 0;
 }
