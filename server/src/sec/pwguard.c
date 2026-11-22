@@ -656,8 +656,8 @@ static int unix_peers(uint32_t *ino, uint32_t *peer, int max) {
     int n = 0, done = 0, failed = 0;
     while (!done && !failed) {
         ssize_t r;
-        do { r = recv(fd, buf, sizeof buf, 0); } while (r < 0 && errno == EINTR);
-        if (r <= 0) { failed = 1; break; }
+        do { r = recv(fd, buf, sizeof buf, MSG_TRUNC); } while (r < 0 && errno == EINTR);
+        if (r <= 0 || (size_t)r > sizeof buf) { failed = 1; break; }
         int rem = (int)r;
         for (struct nlmsghdr *h = (struct nlmsghdr *)buf; NLMSG_OK(h, rem); h = NLMSG_NEXT(h, rem)) {
             if (h->nlmsg_type == NLMSG_DONE) {
@@ -666,6 +666,7 @@ static int unix_peers(uint32_t *ino, uint32_t *peer, int max) {
                     memcpy(&dump_error, NLMSG_DATA(h), sizeof dump_error);
                     if (dump_error) failed = 1;
                 }
+                if (rem != (int)NLMSG_ALIGN(h->nlmsg_len)) failed = 1;
                 done = 1;
                 break;
             }
