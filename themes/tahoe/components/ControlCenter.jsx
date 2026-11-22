@@ -104,13 +104,16 @@ function Chevron({ color, open }) {
 
 // Volume of the default output (PipeWire). Click on the speaker: mute. With more than one output, the button at the
 // end lists them; choosing one makes it the default, and its own volume comes back with it.
+const clampLevel = (value) => Number.isFinite(Number(value)) ? Math.max(0, Math.min(1, Number(value))) : 0;
+
 function SoundTile({ t, onClose }) {
   const st = useSound();
   const out = defaultSink(st);
   const outputs = useSoundOutputs();
   const [pick, setPick] = useState(false);
   if (!st.connected || !out) return null;
-  const pct = Math.round(Math.max(0, Math.min(1, out.level)) * 100);
+  const level = clampLevel(out.level);
+  const pct = Math.round(level * 100);
   const many = outputs.length > 1;
   return (
     <Tile t={t} style={{ gap: 8 }}>
@@ -122,7 +125,7 @@ function SoundTile({ t, onClose }) {
         <View onClick={() => sound.setMute('sink', out.index, !out.mute)} style={{ width: 26, alignItems: 'center' }}>
           <Text style={{ fontSize: 15 }}>{out.mute || pct === 0 ? '🔇' : pct < 40 ? '🔈' : pct < 75 ? '🔉' : '🔊'}</Text>
         </View>
-        <Slider value={Math.max(0, Math.min(1, out.level))} min={0} max={1} width={many ? 168 : 196} onChange={(v) => sound.setVolume('sink', out.index, v)} />
+        <Slider value={level} min={0} max={1} width={many ? 168 : 196} onChange={(v) => sound.setVolume('sink', out.index, v)} />
         <Text style={{ fontSize: 11, color: t.textDim, width: 34, textAlign: 'end' }}>{out.mute ? '—' : `${pct} %`}</Text>
         {many ? (
           <View onClick={() => setPick((v) => !v)} title={tr('shell.cc.output')}
@@ -286,13 +289,14 @@ function BluetoothTile({ t, onClose, bt }) {
 // The screen's brightness (issue #114), only when LordOS can set it (a laptop's or tablet's own panel): the same
 // action as the brightness keys. The name opens Settings → Displays.
 function BrightnessTile({ t, onClose, bl }) {
+  const level = clampLevel(bl.fraction);
   return (
     <Tile t={t} style={{ gap: 8 }}>
       <TileTitle t={t} onClick={() => openSettings(onClose, 'displays')}>{tr('prefs.display.brightness')}</TileTitle>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, direction: 'ltr' }}>
         <View style={{ width: 26, alignItems: 'center' }}><SunGlyph color={t.textDim} size={13} /></View>
-        <Slider value={Math.max(0, Math.min(1, bl.fraction))} min={0} max={1} width={196} onChange={bl.set} />
-        <Text style={{ fontSize: 11, color: t.textDim, width: 34, textAlign: 'end' }}>{`${Math.round(bl.fraction * 100)} %`}</Text>
+        <Slider value={level} min={0} max={1} width={196} onChange={bl.set} />
+        <Text style={{ fontSize: 11, color: t.textDim, width: 34, textAlign: 'end' }}>{`${Math.round(level * 100)} %`}</Text>
       </View>
     </Tile>
   );
