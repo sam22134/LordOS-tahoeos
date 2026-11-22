@@ -10,7 +10,12 @@ const ICONS = {
   reminders: ['☑️','#f5f5f5'], passwords: ['🔑','#b7b8c2'], pdf: ['📕','#f2f2f2'],
   editor: ['✍️','#32343b'], screenshots: ['🖼️','#9c8cf0'], recorder: ['🎙️','#f35b62'],
   player: ['▶️','#2d3440'], disks: ['💽','#8b929b'], monitor: ['📊','#414754'],
-  fonts: ['🔤','#b5c7e8'], calculator: ['🧮','#4a515d'], about: ['','#454954'],
+  fonts: ['🔤','#b5c7e8'], appabout: ['','#454954'], about: ['','#454954'],
+  imager: ['🖼️','#8e8cf0'], scanner: ['📄','#4d9bf7'], help: ['❔','#6a9de8'],
+  sysinfo: ['ℹ️','#3f84d5'], sysprobe: ['📈','#354454'], backup: ['🗄️','#64748b'],
+  cleaner: ['🧹','#60a5fa'], installer: ['📦','#3d8bdb'], databases: ['🗃️','#5c6b7d'],
+  characters: ['😀','#f4c34e'], machines: ['🖥️','#39465b'], remote-desk: ['🧑‍💻','#4f8fcf'],
+  logs: ['📋','#586476'], forcequit: ['⏹️','#414852'],
 };
 export function TahoeAppIcon({ id, Base, size = 32 }) {
   const data = ICONS[id];
