@@ -234,6 +234,14 @@ int main(void) {
     CHECK(pwguard_parse_pid("0") == 0);
     CHECK(pwguard_parse_pid("2147483648") == 0);
     CHECK(pwguard_parse_pid("123junk") == 0);
+    CHECK(pwguard_parse_nspid("NSpid:\t123\n") == 123);
+    CHECK(pwguard_parse_nspid("NSpid: 2147483647\n") == INT32_MAX);
+    CHECK(pwguard_parse_nspid("NSpid: 123 45\n") == 0); /* nested PID namespace */
+    CHECK(pwguard_parse_nspid("NSpid: 123junk\n") == 0);
+    CHECK(pwguard_parse_nspid("NSpid: 123 45junk\n") == 0);
+    CHECK(pwguard_parse_nspid("NSpid: 0\n") == 0);
+    CHECK(pwguard_parse_nspid("NSpid: 2147483648\n") == 0);
+    CHECK(pwguard_parse_nspid("Pid: 123\n") == 0);
 
     CHECK(pwguard_link_state_active(-2) == 0);       /* ERROR */
     CHECK(pwguard_link_state_active(-1) == 0);       /* UNLINKED */
