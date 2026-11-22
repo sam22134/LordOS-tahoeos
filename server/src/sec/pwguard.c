@@ -62,7 +62,7 @@ typedef struct {
     int live;
 } PgClient;
 
-typedef struct { uint32_t id, client, flag, stream; int live; } PgNode;   /* flag: capture node; stream: capture stream */
+typedef struct { uint32_t id, client, flag, stream, port_overflow; int live; } PgNode; /* port_overflow: ports couldn't be tracked; fail closed for matching clients */
 typedef struct { uint32_t id, node; int live; } PgPort;
 typedef struct { uint32_t id, proxy, out_node, out_port, in_node, in_port; int state, live, info; } PgLink;
 
@@ -78,6 +78,7 @@ static struct {
     PgPort port[MAX_PORTS];
     PgLink link[MAX_LINKS];
     uint8_t proxy_used[MAX_PROXY];
+    uint32_t port_overflow;
     double next_try, next_tick;
     int up, connecting;
 } P = { .fd = -1 };
@@ -179,6 +180,7 @@ static void drop(void) {
     memset(P.port, 0, sizeof P.port);
     memset(P.link, 0, sizeof P.link);
     memset(P.proxy_used, 0, sizeof P.proxy_used);
+    P.port_overflow = 0;
     P.next_try = now_ms() + 2000;
 }
 
@@ -440,6 +442,14 @@ static void kill_streams(void) {
 
 static void evaluate(PgClient *c) {
     c->want = client_restrictions(c);
+    /* If a capture node has more ports than we can track, don't leave a matching client with
+     * partial visibility. Disconnect it rather than risk a port bypass. */
+    if (c->want & P.port_overflow) {
+        fprintf(stderr, "pwguard: capture-port tracking overflow: disconnecting restricted client %s\n", c->app[0] ? c->app : "(unresolved)");
+        destroy_global(c->id);
+        c->live = 0;
+        return;
+    }
     if (c->daemon) return;              /* only its module streams are closed: it serves every pulse client */
     if (c->want != c->applied) apply_permissions(c, c->want);
 }
@@ -793,7 +803,20 @@ static void on_global(PwPod body) {
         if (!nd || !nd->flag) return;
         PgPort *pt = NULL;
         for (int i = 0; i < MAX_PORTS && !pt; i++) if (!P.port[i].live) pt = &P.port[i];
-        if (!pt) return;
+        if (!pt) {
+            /* A missing port permission could bypass the node's restriction. Mark the affected
+             * restriction and disconnect current/future matching clients until this node vanishes. */
+            nd->port_overflow = nd->flag;
+            P.port_overflow |= nd->flag;
+            for (int i = 0; i < MAX_CLIENTS; i++) {
+                PgClient *cl = &P.cl[i];
+                if (!cl->live || !(cl->want & nd->flag)) continue;
+                fprintf(stderr, "pwguard: capture-port tracking overflow: disconnecting restricted client %s\n", cl->app[0] ? cl->app : "(unresolved)");
+                destroy_global(cl->id);
+                cl->live = 0;
+            }
+            return;
+        }
         pt->live = 1;
         pt->id = (uint32_t)id;
         pt->node = node;
@@ -811,6 +834,11 @@ static void on_global_remove(uint32_t id) {
         }
     }
     for (int i = 0; i < MAX_PORTS; i++) if (P.port[i].live && P.port[i].id == id) P.port[i].live = 0;
+    if (removed_node) {
+        P.port_overflow = 0;
+        for (int i = 0; i < MAX_NODES; i++)
+            if (P.node[i].live) P.port_overflow |= P.node[i].port_overflow;
+    }
     for (int i = 0; i < MAX_LINKS; i++) {
         PgLink *ln = &P.link[i];
         if (!ln->live) continue;
