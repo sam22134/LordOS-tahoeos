@@ -337,6 +337,8 @@ char *mpris_json(void) {
         int c = p->can_control;
         hb_printf(&b, "%s{\"name\":", first ? "" : ",");
         hb_str(&b, pl->name);
+        hb_printf(&b, ",\"owner\":");
+        hb_str(&b, pl->owner);
         hb_printf(&b, ",\"identity\":");
         hb_str(&b, p->identity);
         hb_printf(&b, ",\"status\":\"%s\",\"title\":", status_name(p->status));
