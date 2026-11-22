@@ -55,6 +55,8 @@ uint32_t pwguard_next_sync_token(uint32_t current, const uint32_t *pending, unsi
 int  pwguard_parse_pid(const char *s);
 /* Parse exactly one positive PID from a /proc/<pid>/status NSpid line. */
 int  pwguard_parse_nspid(const char *line);
+/* Parse the exact socket:[inode] format from a /proc/<pid>/fd symlink. */
+int  pwguard_parse_socket_inode(const char *link, uint32_t *inode);
 /* Which restriction makes a node a capture node to hide ("Audio/Source" → FW_R_NO_MIC...), 0 none. */
 uint32_t pwguard_capture_flag(const char *media_class);
 /* The same for a stream an app creates to capture ("Stream/Input/Audio" → FW_R_NO_MIC). */
