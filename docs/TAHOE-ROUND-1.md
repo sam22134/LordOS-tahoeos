@@ -88,6 +88,7 @@ Não inferir clickpad apenas pela ausência de BTN_RIGHT. Essa regra pode classi
 - [x] Adicionar gestos simulados para clique físico no canto direito, canto esquerdo e centro.
 - [x] Adicionar testes para mapeamento de botão direito nos dois cantos, centro como botão esquerdo e preservação do modo de dois dedos.
 - [x] Adicionar teste de regressão para touchpad com botões físicos separados.
+- [x] Fortalecer a regressão: o dispositivo simulado anuncia explicitamente BTN_RIGHT, evitando que o teste represente por engano um touchpad sem botão direito físico.
 - [ ] Fechar estratégia de detecção adicional com base em capabilities reais.
 - [ ] Corrigir e testar menus contextuais no caminho completo.
 - [ ] Implementar as demais melhorias da Rodada 1.
