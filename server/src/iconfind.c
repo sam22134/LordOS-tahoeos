@@ -50,8 +50,11 @@ void iconfind_roots(IconRoots *r, const char *home, const char *prefix) {
 /* the SVGs of a name in these kinds of folder: every theme's scalable/ first, then /usr/share/pixmaps */
 static int find_svg(const IconRoots *r, const char *const *kinds, const char *name, char *out, size_t n) {
     for (int k = 0; kinds[k]; k++)
-        for (int t = 0; t < r->nthemes; t++)
-            if (try_path(out, n, ".svg", "%s/scalable/%s/%s.svg", r->themes[t], kinds[k], name)) return 1;
+        for (int t = 0; t < r->nthemes; t++) {
+            /* Freedesktop themes use both layouts: hicolor's scalable/apps and MacTahoe's apps/scalable. */
+            if (try_path(out, n, ".svg", "%s/%s/scalable/%s.svg", r->themes[t], kinds[k], name) ||
+                try_path(out, n, ".svg", "%s/scalable/%s/%s.svg", r->themes[t], kinds[k], name)) return 1;
+        }
     return try_path(out, n, ".svg", "%s/%s.svg", r->pixmaps, name);
 }
 
@@ -60,8 +63,11 @@ static int find_symbolic(const IconRoots *r, const char *const *kinds, const cha
     const char *suffix = ends_with(name, "-symbolic") ? "" : "-symbolic";
     for (int k = 0; kinds[k]; k++)
         for (int t = 0; t < r->nthemes; t++) {
-            if (try_path(out, n, ".svg", "%s/symbolic/%s/%s%s.svg", r->themes[t], kinds[k], name, suffix)) return 1;
-            if (*suffix && try_path(out, n, ".svg", "%s/scalable/%s/%s%s.svg", r->themes[t], kinds[k], name, suffix)) return 1;
+            /* MacTahoe stores status/symbolic; hicolor commonly stores symbolic/status. */
+            if (try_path(out, n, ".svg", "%s/%s/symbolic/%s%s.svg", r->themes[t], kinds[k], name, suffix) ||
+                try_path(out, n, ".svg", "%s/symbolic/%s/%s%s.svg", r->themes[t], kinds[k], name, suffix)) return 1;
+            if (*suffix && (try_path(out, n, ".svg", "%s/%s/scalable/%s%s.svg", r->themes[t], kinds[k], name, suffix) ||
+                            try_path(out, n, ".svg", "%s/scalable/%s/%s%s.svg", r->themes[t], kinds[k], name, suffix))) return 1;
         }
     return 0;
 }
@@ -94,7 +100,9 @@ int iconfind_app(const IconRoots *r, const char *name, char *out, size_t n) {
     }
     for (int t = 0; t < r->npng; t++)
         for (size_t s = 0; s < sizeof sizes / sizeof *sizes; s++)
-            if (try_path(out, n, ".png", "%s/%dx%d/apps/%s.png", r->themes[t], sizes[s], sizes[s], name)) return 1;
+            if (try_path(out, n, ".png", "%s/apps/%d/%s.png", r->themes[t], sizes[s], name) ||
+                try_path(out, n, ".png", "%s/apps/%dx%d/%s.png", r->themes[t], sizes[s], sizes[s], name) ||
+                try_path(out, n, ".png", "%s/%dx%d/apps/%s.png", r->themes[t], sizes[s], sizes[s], name)) return 1;
     if (try_path(out, n, ".png", "%s/%s.png", r->pixmaps, name)) return 1;
     if (find_svg(r, kinds, name, out, n) || find_appstream(r, name, out, n) || find_symbolic(r, kinds, name, out, n)) return 1;
     out[0] = 0;
@@ -111,7 +119,9 @@ int iconfind_status(const IconRoots *r, const char *name, char *out, size_t n) {
     for (int k = 0; kinds[k]; k++)
         for (int t = 0; t < r->npng; t++)
             for (size_t s = 0; s < sizeof sizes / sizeof *sizes; s++)
-                if (try_path(out, n, ".png", "%s/%dx%d/%s/%s.png", r->themes[t], sizes[s], sizes[s], kinds[k], name)) return 1;
+                if (try_path(out, n, ".png", "%s/%s/%d/%s.png", r->themes[t], kinds[k], sizes[s], name) ||
+                    try_path(out, n, ".png", "%s/%s/%dx%d/%s.png", r->themes[t], kinds[k], sizes[s], sizes[s], name) ||
+                    try_path(out, n, ".png", "%s/%dx%d/%s/%s.png", r->themes[t], sizes[s], sizes[s], kinds[k], name)) return 1;
     if (try_path(out, n, ".png", "%s/%s.png", r->pixmaps, name)) return 1;
     if (find_svg(r, kinds, name, out, n) || find_symbolic(r, kinds, name, out, n)) return 1;
     out[0] = 0;
