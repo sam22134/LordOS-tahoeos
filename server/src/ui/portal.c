@@ -16,6 +16,7 @@
 #include "../hw/hw.h"
 #include "../hw/jbuf.h"
 #include "../fsops.h"
+#include "../iconfind.h"
 #include "../fplend.h"
 #include "../sec/appid.h"
 #include "../sec/pathcanon.h"
@@ -2227,6 +2228,7 @@ void portal_set(int is_dark, const double rgb[3], const char *accent_name, const
     snprintf(old_icon_theme, sizeof old_icon_theme, "%s", icon_theme);
     dark = !!is_dark;
     snprintf(icon_theme, sizeof icon_theme, "%s", dark ? "MacTahoe-blue-dark" : "MacTahoe-blue-light");
+    iconfind_set_variant(icon_theme);
     for (int i = 0; i < 3; i++) acc[i] = rgb[i] < 0 ? 0 : rgb[i] > 1 ? 1 : rgb[i];
     if (accent_name) snprintf(acc_name, sizeof acc_name, "%s", accent_name);
     if (button_layout) snprintf(buttons, sizeof buttons, "%s", button_layout);
