@@ -77,11 +77,13 @@ Não inferir clickpad apenas pela ausência de BTN_RIGHT. Essa regra pode classi
 - [x] Branch de trabalho criada: `tahoe/round-1-functional-fixes`.
 - [x] Auditoria do código de detecção do clickpad e da lógica de clique físico.
 - [x] Identificada lacuna de cobertura dos testes para clique físico nos cantos.
-- [ ] Implementar testes automatizados para canto direito, canto esquerdo e centro.
+- [x] Adicionar gestos simulados para clique físico no canto direito, canto esquerdo e centro.
+- [x] Adicionar testes para mapeamento de botão direito nos dois cantos, centro como botão esquerdo e preservação do modo de dois dedos.
+- [x] Adicionar teste de regressão para touchpad com botões físicos separados.
 - [ ] Fechar estratégia de detecção adicional com base em capabilities reais.
 - [ ] Corrigir e testar menus contextuais no caminho completo.
 - [ ] Implementar as demais melhorias da Rodada 1.
-- [ ] Executar build e testes no ambiente de desenvolvimento.
+- [ ] Executar build e testes no ambiente de desenvolvimento (ainda não executados: o ambiente desta sessão não conseguiu acessar GitHub para clonar o repositório).
 - [ ] Validar em hardware físico.
 
-**Importante:** a inspeção do código e os testes simulados não substituem a validação no notebook real. Até a execução dos testes, a correção do touchpad permanece pendente.
+**Importante:** os casos de teste foram escritos, mas ainda não foram compilados nem executados. A inspeção do código e os testes simulados não substituem a validação no notebook real. A correção do touchpad permanece pendente até a execução da suíte e o teste no hardware.
