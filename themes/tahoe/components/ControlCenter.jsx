@@ -268,9 +268,11 @@ function BluetoothTile({ t, onClose, bt }) {
   useEffect(() => {
     if (!expanded || !adapter.powered) { setSearch(false); return undefined; }
     if (typeof lord === 'undefined' || !lord.bt) { setSearch(false); return undefined; }
+    let accepted = false;
+    try { accepted = !!lord.bt.discover(true); }
+    catch (e) { accepted = false; }
+    if (!accepted) { setSearch(false); return undefined; }
     setSearch(true);
-    try { lord.bt.discover(true); }
-    catch (e) { setSearch(false); return undefined; }
     const stop = setTimeout(() => {
       try { lord.bt.discover(false); } catch (e) { /* adapter may have disappeared */ }
       setSearch(false);
