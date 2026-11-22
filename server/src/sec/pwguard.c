@@ -672,11 +672,11 @@ static int inner_pid(int pid) {
         char *s = line + 6;
         int last = -1, count = 0;
         while (*s) {
-            while (*s == ' ' || *s == '\\t' || *s == '\\r' || *s == '\\n') s++;
+            while (*s == ' ' || *s == '\t' || *s == '\r' || *s == '\n') s++;
             if (!*s) break;
             char *end = s;
             while (*end >= '0' && *end <= '9') end++;
-            if (end == s || (*end && *end != ' ' && *end != '\\t' && *end != '\\r' && *end != '\\n')) {
+            if (end == s || (*end && *end != ' ' && *end != '\t' && *end != '\r' && *end != '\n')) {
                 last = -1; count = 0; break;
             }
             char saved = *end;
