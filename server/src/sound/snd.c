@@ -675,7 +675,7 @@ void snd_events(SndEventFn fn) {
     if (S.error_ready) {
         S.error_ready = 0;
         char j[160];
-        snprintf(j, sizeof j, "{\\"command\\":%d,\\"code\\":%u,\\"index\\":%u}",
+        snprintf(j, sizeof j, "{\"command\":%d,\"code\":%u,\"index\":%u}",
                  S.error_command, S.error_code, S.error_index);
         fn("error", j);
     }
