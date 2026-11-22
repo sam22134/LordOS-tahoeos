@@ -553,13 +553,28 @@ static void on_reply(Pending p, TsIn *t) {
     }
 }
 
+static int user_sound_command(int cmd) {
+    switch (cmd) {
+    case PA_CMD_SET_SINK_VOLUME: case PA_CMD_SET_SOURCE_VOLUME:
+    case PA_CMD_SET_SINK_INPUT_VOLUME: case PA_CMD_SET_SOURCE_OUTPUT_VOLUME:
+    case PA_CMD_SET_SINK_MUTE: case PA_CMD_SET_SOURCE_MUTE:
+    case PA_CMD_SET_SINK_INPUT_MUTE: case PA_CMD_SET_SOURCE_OUTPUT_MUTE:
+    case PA_CMD_SET_DEFAULT_SINK: case PA_CMD_SET_DEFAULT_SOURCE:
+    case PA_CMD_SET_SINK_PORT: case PA_CMD_SET_SOURCE_PORT:
+    case PA_CMD_SET_CARD_PROFILE:
+    case PA_CMD_MOVE_SINK_INPUT: case PA_CMD_MOVE_SOURCE_OUTPUT:
+        return 1;
+    default: return 0;
+    }
+}
+
 static void on_error(Pending p, uint32_t code) {
     if (p.kind == R_ONE) return;                    /* it disappeared between the notice and the request */
     if (p.kind == R_RECORD) S.meter_pending = 0;
     if (p.kind == R_SPEC) { S.spec_pending = S.spec_again = 0; S.spec_source = S.spec_direct = PA_INVALID_INDEX; S.dirty = 1; }
     snprintf(S.last_error, sizeof S.last_error, "comando %d: error %u", p.what, code);
     fprintf(stderr, "sonido: %s\n", S.last_error);
-    if (p.kind == R_ACK) {
+    if (p.kind == R_ACK && user_sound_command(p.what)) {
         S.error_command = p.what;
         S.error_code = code;
         S.error_index = p.arg;
