@@ -25,6 +25,8 @@ typedef struct {
 /* MacTahoe-blue variants plus hicolor in the user's and system icon directories, then system Adwaita.
  * prefix is the filesystem root ("" outside tests). */
 void iconfind_roots(IconRoots *r, const char *home, const char *prefix);
+/* The active MacTahoe variant follows the system's dark/light appearance. Invalid names are ignored. */
+void iconfind_set_variant(const char *variant);
 
 /* A .desktop's Icon=: a name (no "..") or an absolute .png/.svg path. A tray's IconName: a plain name of
  * [A-Za-z0-9._+-], at most 128 characters, looked for in status/ before apps/ at the bar's sizes. 1 if found
