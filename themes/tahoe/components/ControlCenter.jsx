@@ -110,19 +110,19 @@ function SoundTile({ t, onClose }) {
   const outputs = useSoundOutputs();
   const [pick, setPick] = useState(false);
   if (!st.connected || !out) return null;
-  const pct = Math.round(out.level * 100);
+  const pct = Math.round(Math.max(0, Math.min(1, out.level)) * 100);
   const many = outputs.length > 1;
   return (
     <Tile t={t} style={{ gap: 8 }}>
-      <View onClick={() => openSettings(onClose, 'sound')} style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+      <View onClick={() => openSettings(onClose, 'sound')} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <Text style={{ fontSize: 12, fontWeight: 600, color: t.text }}>{tr('shell.cc.sound')}</Text>
-        <Text style={{ fontSize: 11, color: t.textDim, whiteSpace: 'nowrap', maxWidth: 200, overflow: 'hidden' }}>{out.description}</Text>
+        <Text style={{ fontSize: 11, color: t.textDim, whiteSpace: 'nowrap', maxWidth: 200, overflow: 'hidden' }}>{out.description || out.name}</Text>
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, direction: 'ltr' }}>
-        <View onClick={() => sound.setMute('sink', out.index, !out.mute)} style={{ width: 26, alignItems: 'center' }}>
+        <View onClick={() => sound.setMute('sink', out.index, !out.mute)} title={out.mute ? tr('settings.sound.unmute') : tr('settings.sound.mute')} style={{ width: 26, alignItems: 'center' }}>
           <Text style={{ fontSize: 15 }}>{out.mute || pct === 0 ? '🔇' : pct < 40 ? '🔈' : pct < 75 ? '🔉' : '🔊'}</Text>
         </View>
-        <Slider value={Math.min(1, out.level)} width={many ? 168 : 196} onChange={(v) => sound.setVolume('sink', out.index, v)} />
+        <Slider value={Math.max(0, Math.min(1, out.level))} min={0} max={1} width={many ? 168 : 196} onChange={(v) => sound.setVolume('sink', out.index, v)} />
         <Text style={{ fontSize: 11, color: t.textDim, width: 34, textAlign: 'end' }}>{out.mute ? '—' : `${pct} %`}</Text>
         {many ? (
           <View onClick={() => setPick((v) => !v)} title={tr('shell.cc.output')}
@@ -291,7 +291,7 @@ function BrightnessTile({ t, onClose, bl }) {
       <TileTitle t={t} onClick={() => openSettings(onClose, 'displays')}>{tr('prefs.display.brightness')}</TileTitle>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, direction: 'ltr' }}>
         <View style={{ width: 26, alignItems: 'center' }}><SunGlyph color={t.textDim} size={13} /></View>
-        <Slider value={bl.fraction} width={196} onChange={bl.set} />
+        <Slider value={Math.max(0, Math.min(1, bl.fraction))} min={0} max={1} width={196} onChange={bl.set} />
         <Text style={{ fontSize: 11, color: t.textDim, width: 34, textAlign: 'end' }}>{`${Math.round(bl.fraction * 100)} %`}</Text>
       </View>
     </Tile>
@@ -374,8 +374,9 @@ export function ControlCenter({ t, top, onClose, area = null, at = null }) {
               onToggle={() => setNightManual(!night)} onSettings={() => openSettings(onClose, 'displays')} /> : null}
           </View>
         ) : null}
+        {/* Only render hardware controls when the running session reports a real output/backlight device. */}
         <SoundTile t={t} onClose={onClose} />
-        {p.ccBrightness && bl ? <BrightnessTile t={t} onClose={onClose} bl={bl} /> : null}
+        {p.ccBrightness && bl?.name ? <BrightnessTile t={t} onClose={onClose} bl={bl} /> : null}
         <NowPlayingTile />
         {p.ccNetwork && typeof lord.net !== 'undefined' ? <NetTile t={t} onClose={onClose} ifs={ifs} /> : null}
         {wifi || btShown ? (
