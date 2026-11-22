@@ -3,10 +3,14 @@
 import { View, Text, useTheme, useAppWindow, useLauncherApps, getApp, wm, typeScale, isSystemApp, appName, t as tr } from '@lordos/sdk';
 import { useEffect } from 'react';
 
-export function Icon({ size }) {
+export function Icon({ size: s }) {
   return (
-    <View style={{ width: size, height: size, borderRadius: size * 0.22, backgroundColor: '#8e8e93', alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ fontSize: size * 0.55, fontWeight: 700, color: '#fff' }}>i</Text>
+    <View style={{ width: s, height: s, borderRadius: s * 0.225, background: 'linear-gradient(155deg, #65c7ff 0%, #2585e8 55%, #1456b8 100%)',
+      boxShadow: `0 ${s * 0.04}px ${s * 0.12}px rgba(0,0,0,0.32)`, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ width: s * 0.58, height: s * 0.58, borderRadius: s * 0.29, background: 'linear-gradient(145deg, #fff 0%, #eaf5ff 100%)',
+        alignItems: 'center', justifyContent: 'center', boxShadow: `0 ${s * 0.02}px ${s * 0.055}px rgba(0,35,90,0.25)` }}>
+        <Text style={{ fontSize: s * 0.48, lineHeight: s * 0.55, fontWeight: 700, color: '#2478cf' }}>i</Text>
+      </View>
     </View>
   );
 }
