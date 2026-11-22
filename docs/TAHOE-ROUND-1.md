@@ -65,9 +65,10 @@ O caminho foi seguido no código: `tp_event_at()` produz o botão direito (códi
 - Reutilizar `sdk/contextmenu.jsx` e `sdk/layers.js`.
 - [x] Adicionar menu contextual à barra de título das janelas Lord Flow: minimizar, maximizar/restaurar, mover para outro desktop e fechar.
 - O menu usa o componente `Menu` existente, que é renderizado na camada popover; não cria um segundo dispatcher nem um sistema de menus paralelo.
-- Apps Linux com CSD/ownFrame continuam usando `win.windowMenu`, alimentado pelo caminho próprio do compositor.
+- Apps Linux com CSD/ownFrame não recebem o menu do título desenhado pelo tema. O caminho é o protocolo xdg-shell: o app chama `xdg_toplevel.show_window_menu`; `server/src/wl/wl.c` (`top_menu`) converte a posição local em coordenadas da tela e emite o evento `menu`; o estado da janela expõe `windowMenu`, e `Window.jsx` desenha o menu nativo do shell. Isso depende de o aplicativo realmente emitir a solicitação; não se deve interceptar o clique direito dentro do conteúdo da aplicação.
+- A barra de título LordOS, por outro lado, usa `onContextMenu` do runtime. `runtime/events.js` só dispara o evento secundário no `pointerup` quando o botão 2 estava na cadeia do `pointerdown`; o handler usa `stopPropagation()` para não abrir também o menu do desktop.
 - Desktop/papel de parede, Files (itens, cabeçalho e fundo), Dock e Lixeira já possuem handlers; ainda falta validar em hardware e sessão real o caminho físico completo.
-- Fechar menus por clique externo e Escape; respeitar limites da tela e foco.
+- `Menu.jsx` fecha por clique externo/Escape e calcula posição dentro do display; a validação visual e de foco continua pendente.
 
 ### 3. Alternador de janelas
 
