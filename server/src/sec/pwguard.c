@@ -731,6 +731,12 @@ static void on_global(PwPod body) {
         arm();
         if (guard_armed) {
             c->want = GUARDED;
+            if (c->want & P.port_overflow) {
+                fprintf(stderr, "pwguard: capture-port tracking overflow: disconnecting unresolved client\n");
+                destroy_global(c->id);
+                c->live = 0;
+                return;
+            }
             apply_permissions(c, c->want);
             if (P.fd < 0) return;
         }
