@@ -716,7 +716,7 @@ static int flatpak_host_pid(const PgClient *c, int claims) {
     int found = 0;
     char line[64];
     while (!found && fgets(line, sizeof line, f)) {
-        line[strcspn(line, "\\r\\n")] = 0;
+        line[strcspn(line, "\r\n")] = 0;
         int pid = pwguard_parse_pid(line);
         if (pid > 0 && inner_pid(pid) == c->pid_app &&
             pulse_connections(c->pid_sec, pid) >= claims) found = pid;
