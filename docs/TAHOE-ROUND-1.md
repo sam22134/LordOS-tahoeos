@@ -124,7 +124,7 @@ O caminho foi seguido no código: `tp_event_at()` produz o botão direito (códi
 - [x] Fixar uma revisão upstream do [MacTahoe-icon-theme](https://github.com/vinceliuice/MacTahoe-icon-theme) e adicionar instalador reproduzível para o sistema/imagem.
 - [x] Instalar variantes azul, clara e escura preservando COPYING e AUTHORS do projeto original.
 - [x] Fazer o resolvedor C procurar ícones MacTahoe de usuário e do sistema antes do fallback Adwaita, mantendo overrides hicolor do usuário e aceitando os layouts reais `apps/32`, `apps/scalable` e `status/symbolic` além do formato hicolor.
-- [x] Expor `MacTahoe-blue` como tema de ícones padrão para GTK por settings.ini, GSettings keyfile e Settings portal.
+- [x] Expor as variantes MacTahoe dark/light como tema de ícones GTK por settings.ini, GSettings keyfile e Settings portal, acompanhando a aparência do sistema.
 - [x] Adicionar regressões de ordem de resolução para PNG, SVG e symbolic MacTahoe, sem quebrar os caminhos hicolor e Adwaita.
 - [ ] Integrar o pacote ao pipeline final da ISO/.deb (a estrutura Debian ainda é placeholder e não produz imagem/pacote).
 - [ ] Criar a família de ícones nativos Tahoe para os aplicativos LordOS; os apps nativos continuam usando componentes React próprios, não os ícones genéricos do tema upstream.
