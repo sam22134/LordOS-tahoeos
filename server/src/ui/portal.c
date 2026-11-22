@@ -1,6 +1,6 @@
 /* portal.c — our own org.freedesktop.portal.Settings, FileChooser, OpenURI, Inhibit, GlobalShortcuts and
  * ScreenCast (without xdg-desktop-portal), and org.freedesktop.ScreenSaver: GTK, GNOME (libadwaita) and Qt apps
- * read from here the dark/light mode, the accent color, the order of the title bar buttons and the GTK 3 theme,
+ * read from here the dark/light mode, the accent color, the order of the title bar buttons, the GTK theme and the icon theme,
  * and follow LordOS's changes live (SettingChanged); they open links and files the way LordOS does, keep the
  * screen on while a video plays, get the shortcuts the person gave them (push-to-talk) and share a screen or a
  * window the person picks. Uses Passwords' own D-Bus client (vault/dbus.c). See
