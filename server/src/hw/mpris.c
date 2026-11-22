@@ -168,7 +168,7 @@ static void on_reply(const DMsg *m) {
     /* only the bus answers for names, and only the owner the call went to for its player */
     if (q.kind == Q_LIST || q.kind == Q_OWNER) { if (!m->sender || strcmp(m->sender, BUS)) return; }
     else if (!pl || !pl->owner[0] || !m->sender || strcmp(m->sender, pl->owner)) return;
-    if (q.kind == Q_OWNER && pl && m->type == DBUS_ERROR) { remove_player(pl->name); return; }
+    if (q.kind == Q_OWNER && pl && !pl->owner[0] && m->type == DBUS_ERROR) { remove_player(pl->name); return; }
     if (m->type != DBUS_RETURN || !m->sig) return;
     DRd r;
     dr_init(&r, m);
