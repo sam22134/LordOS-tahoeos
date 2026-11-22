@@ -82,6 +82,8 @@ enum { T_IDLE, T_TOUCH, T_TAPPED, T_DRAG_OR_DOUBLE, T_DRAGGING, T_DEAD };
 
 struct TpDevice {
     TpCaps c;
+    int detected_clickpad;
+    int clickpad_mode;             /* 0 auto, 1 force clickpad, 2 separate buttons */
     int fd;
     double rx, ry, wmm, hmm;        /* units per mm, size in mm (a touchscreen's: as the picture turned) */
     double wmm0, hmm0;              /* the sensor's own size in mm */
@@ -219,6 +221,8 @@ TpDevice *tp_new(const TpCaps *caps) {
     TpDevice *d = calloc(1, sizeof *d);
     if (!d) return NULL;
     d->c = *caps;
+    d->detected_clickpad = !!caps->clickpad;
+    d->clickpad_mode = 0;
     d->fd = -1;
     if (d->c.nslots < 1) d->c.nslots = 1;
     if (d->c.nslots > MAX_SLOTS) d->c.nslots = MAX_SLOTS;
@@ -247,6 +251,19 @@ void tp_free(TpDevice *d) {
 
 int tp_kind(const TpDevice *d) { return d ? d->c.kind : 0; }
 const TpCaps *tp_caps(const TpDevice *d) { return &d->c; }
+
+int tp_set_device_mode(const char *id, int mode) {
+    if (!id || !*id || mode < 0 || mode > 2) return 0;
+    for (int i = 0; i < ndevs; i++) {
+        TpDevice *d = devs[i];
+        if (d->c.kind != TP_KIND_TOUCHPAD || strcmp(d->c.id, id)) continue;
+        if (mode != 0 && !d->c.identity_stable) return 0;
+        d->clickpad_mode = mode;
+        d->c.clickpad = mode == 1 ? 1 : mode == 2 ? 0 : d->detected_clickpad;
+        return 1;
+    }
+    return 0;
+}
 
 #define LONG_BITS (8 * sizeof(long))
 #define NLONGS(n) (((n) + LONG_BITS - 1) / LONG_BITS)
@@ -332,8 +349,8 @@ int tp_list_json(char *out, int size) {
         int k = 0;
         for (const char *p = d->c.name; *p && k < 78; p++) if (*p != '"' && *p != '\\' && (unsigned char)*p >= 32) name[k++] = *p;
         name[k] = 0;
-        o += snprintf(out + o, (size_t)(size - o), "%s{\"id\":\"%s\",\"identityStable\":%s,\"name\":\"%s\",\"kind\":\"%s\",\"clickpad\":%d,\"hasRight\":%d,\"width\":%.0f,\"height\":%.0f,\"fingers\":%d}",
-                      i ? "," : "", d->c.id, d->c.identity_stable ? "true" : "false", name, d->c.kind == TP_KIND_TOUCHSCREEN ? "touchscreen" : "touchpad", d->c.clickpad, d->c.has_right, d->wmm, d->hmm, d->c.max_fingers);
+        o += snprintf(out + o, (size_t)(size - o), "%s{\"id\":\"%s\",\"identityStable\":%s,\"name\":\"%s\",\"kind\":\"%s\",\"clickpad\":%d,\"detectedClickpad\":%d,\"mode\":%d,\"hasRight\":%d,\"width\":%.0f,\"height\":%.0f,\"fingers\":%d}",
+                      i ? "," : "", d->c.id, d->c.identity_stable ? "true" : "false", name, d->c.kind == TP_KIND_TOUCHSCREEN ? "touchscreen" : "touchpad", d->c.clickpad, d->detected_clickpad, d->clickpad_mode, d->c.has_right, d->wmm, d->hmm, d->c.max_fingers);
     }
     if (o < size - 1) o += snprintf(out + o, (size_t)(size - o), "]");
     return o;
