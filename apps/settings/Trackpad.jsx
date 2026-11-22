@@ -3,7 +3,7 @@
 // secondary click, three-finger drag, scrolling and its speed, inertia, pinch and swipe). Each
 // trackpad row comes with a small drawing of the gesture that animates on mouse hover. Saved in
 // settings.trackpad and applied live (sdk/trackpad.js → lord.input.configure). See docs/TRACKPAD.md.
-import { View, Text, useTheme, useLocale, Toggle, Segmented, Slider, useSettings, useTrackpads, TRACKPAD_DEFAULTS, setTrackpad, spacing, typeScale } from '@lordos/sdk';
+import { View, Text, useTheme, useLocale, Toggle, Segmented, Slider, useSettings, useTrackpads, TRACKPAD_DEFAULTS, setTrackpad, setTrackpadDeviceMode, spacing, typeScale } from '@lordos/sdk';
 import { Stack, Section, SettingRow, Note } from './ui.jsx';
 import { useEffect, useState } from 'react';
 
@@ -141,8 +141,19 @@ export function TrackpadSettings() {
           <Row kind="swipe4" label={tr('trackpad.swipe4')} hint={tr('trackpad.swipe4Hint')}>{toggle('swipe4')}</Row>
         </Section>
       )}
-      {devices.map((d, i) => (
-        <Note key={i}>{tr('trackpad.device', { name: d.name, w: d.width, h: d.height })}{d.clickpad ? ` · ${tr('trackpad.clickpad')}` : d.hasRight ? ' · botão direito físico' : ''}</Note>
+      {devices.map((d) => (
+        <Section key={d.id || d.name} title={d.name}>
+          <Note>{tr('trackpad.device', { name: d.name, w: d.width, h: d.height })}{d.clickpad ? ` · ${tr('trackpad.clickpad')}` : d.hasRight ? ' · botão direito físico' : ''}</Note>
+          {d.identityStable ? (
+            <SettingRow label="Tipo de clique do dispositivo" hint="Automático respeita a detecção do kernel. Clickpad permite configurar os cantos; Botões separados mantém os botões físicos.">
+              <Segmented small value={d.mode === 1 ? 'clickpad' : d.mode === 2 ? 'buttons' : 'auto'}
+                onChange={(mode) => setTrackpadDeviceMode(d.id, mode)}
+                options={[['auto', 'Automático'], ['clickpad', 'Clickpad'], ['buttons', 'Botões separados']]} />
+            </SettingRow>
+          ) : (
+            <Note>Este dispositivo não fornece uma identidade física única. A configuração individual fica indisponível para evitar aplicar a preferência ao touchpad errado.</Note>
+          )}
+        </Section>
       ))}
     </Stack>
   );
