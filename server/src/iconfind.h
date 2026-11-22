@@ -12,17 +12,17 @@
 #include <limits.h>
 #include <stddef.h>
 
-#define ICONFIND_THEMES 3
+#define ICONFIND_THEMES 9
 
 typedef struct {
-    char themes[ICONFIND_THEMES][PATH_MAX];     /* theme folders, in order */
+    char themes[ICONFIND_THEMES][PATH_MAX];     /* MacTahoe variants, hicolor and Adwaita, in lookup order */
     int nthemes, npng;                          /* the first npng are searched for PNGs too (hicolor) */
     char pixmaps[PATH_MAX];                     /* /usr/share/pixmaps */
     char appstream[PATH_MAX];                   /* the package engine's 64 px AppStream PNGs (<package>_<icon>.png) */
 } IconRoots;
 
-/* The usual folders: ~/.local/share/icons/hicolor (if home), /usr/share/icons/hicolor and /usr/share/icons/Adwaita,
- * each under prefix ("" outside tests). */
+/* MacTahoe-blue variants plus hicolor in the user's and system icon directories, then system Adwaita.
+ * prefix is the filesystem root ("" outside tests). */
 void iconfind_roots(IconRoots *r, const char *home, const char *prefix);
 
 /* A .desktop's Icon=: a name (no "..") or an absolute .png/.svg path. A tray's IconName: a plain name of
