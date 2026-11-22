@@ -61,7 +61,7 @@ export function Launchpad({ t, apps, onOpen, onClose, area = { x: 0, y: 0, w: sc
         {rows.map((row, r) => (
           <View key={r} style={{ flexDirection: 'row', justifyContent: 'center' }}>
             {row.map((a) => (
-              <View key={a.id} onClick={(e) => { e.stopPropagation(); if (!dockDragJustEnded()) open(a.id); }}
+              <View key={a.id} onClick={(e) => { e.stopPropagation(); if (!dockDragJustEnded(e)) open(a.id); }}
                 onMouseDown={(e) => { if (!e.button && dockIdOf(a)) beginDockDrag({ id: dockIdOf(a), Icon: a.Icon, x: e.x, y: e.y, source: 'launcher', onStart: onClose }); }}
                 onContextMenu={(e) => { e.stopPropagation(); setCtx({ app: a, x: e.x, y: e.y }); }}
                 style={{ width: cell, alignItems: 'center', gap: 10 }}>
