@@ -54,11 +54,13 @@ function soundDeviceUsers(st) {
 const pipewireDeviceUsers = createStore([]);
 function syncSoundDeviceUsers(st) {
   const pulse = soundDeviceUsers(st);
+  // Native PipeWire attribution is authoritative: pwguard verifies both direct clients and PulseAudio
+  // clients against their process scope/socket ownership. PulseAudio contributes only a source label,
+  // matched by PID; its app name/PID metadata must never create a privacy-indicator entry on its own.
+  const labels = new Map(pulse.filter((d) => d.pid > 0 && d.source).map((d) => [d.pid, d.source]));
   const native = pipewireDeviceUsers.get();
-  // The native PipeWire graph covers direct clients and cameras; PulseAudio gives richer source names.
-  // Merge by verified app/device and prefer the PulseAudio row when both report the same microphone.
-  const seen = new Set(pulse.map((d) => `${d.kind}:${d.app || d.pid || d.name}`));
-  monitorDevices.set([...pulse, ...native.filter((d) => !seen.has(`${d.kind}:${d.app || d.pid || d.name}`))]);
+  monitorDevices.set(native.map((d) => d.kind === 'microphone' && d.pid > 0 && labels.has(d.pid)
+    ? { ...d, source: labels.get(d.pid) } : d));
 }
 function pollPipewireDeviceUsers() {
   try {
