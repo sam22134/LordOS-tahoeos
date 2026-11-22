@@ -241,9 +241,16 @@ function BluetoothTile({ t, onClose, bt }) {
   };
   return (
     <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
-      <View onClick={() => setExpanded((x) => !x)}>
-        <SwitchTile t={t} on={!!adapter.powered} label={tr('shell.cc.bluetooth')} detail={adapter.powered && dev ? dev.name : undefined}
-          glyph={(c) => <BluetoothGlyph color={c} size={14} />} onToggle={() => setBluetoothPower(!adapter.powered)} onSettings={() => openSettings(onClose, 'bluetooth')} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 9, paddingHorizontal: 9, borderRadius: 14,
+        backgroundColor: adapter.powered ? t.accent : t.hover, border: `1px solid ${adapter.powered ? t.accent : t.separator}` }}>
+        <View onClick={(e) => { e?.stopPropagation?.(); setBluetoothPower(!adapter.powered); }}>
+          <TileIcon t={t} on={!!adapter.powered}>{(color) => <BluetoothGlyph color={color} size={14} />}</TileIcon>
+        </View>
+        <View onClick={() => setExpanded((x) => !x)} style={{ flex: 1, minWidth: 0, gap: 1 }}>
+          <Text style={{ fontSize: 12, fontWeight: 600, color: adapter.powered ? '#fff' : t.text }}>{tr('shell.cc.bluetooth')}</Text>
+          <Text style={{ fontSize: 11, color: adapter.powered ? 'rgba(255,255,255,0.8)' : t.textDim }} numberOfLines={1}>{adapter.powered && dev ? dev.name : tr(adapter.powered ? 'shell.cc.on' : 'shell.cc.off')}</Text>
+        </View>
+        <MoreButton color={adapter.powered ? '#fff' : t.textDim} onClick={() => openSettings(onClose, 'bluetooth')} />
       </View>
       {expanded ? <Tile t={t} style={{ padding: 8, gap: 7 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
