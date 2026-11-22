@@ -135,7 +135,7 @@ export function BluetoothSettings() {
       ) : err ? <Note tone="warn">{tr(`prefs.bt.err.${err}`) || err}</Note> : null}
       {a.powered && (
         <GroupBox title={tr('prefs.bt.myDevices')}>
-          {mine.length ? mine.map((d) => <Device key={d.path} d={d} tr={tr} onAction={runDeviceAction} pending={pending.current?.path === d.path} />) : <SettingRow label={tr('prefs.bt.noDevices')} />}
+          {mine.length ? mine.map((d) => <Device key={d.path} d={d} tr={tr} onAction={runDeviceAction} pending={!!pending.current} />) : <SettingRow label={tr('prefs.bt.noDevices')} />}
         </GroupBox>
       )}
       {a.powered && (
