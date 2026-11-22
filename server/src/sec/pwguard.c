@@ -3,9 +3,10 @@
  * A minimal client of PipeWire's native protocol (version 3): each message is a 16-byte header
  * (object id; opcode << 24 | payload size; sequence; number of fds) and a SPA POD Struct.
  * We only use: core.hello, client.update_properties, core.get_registry, core.pong,
- * registry.bind (clients only), registry.destroy (a restricted app's capture streams) and
+ * registry.bind (clients and links), registry.destroy (a restricted app's capture streams) and
  * client.update_permissions; and we read core.ping/error/remove_id, registry.global /
- * global_remove and client.info. Everything is non-blocking: lord-server never waits for it. */
+ * global_remove, client.info and Link::Info. Link state is observational and never changes policy.
+ * Everything is non-blocking: lord-server never waits for it. */
 #include "pwguard.h"
 #include "appid.h"
 #include "restrict.h"
@@ -753,11 +754,15 @@ static void on_link_info(uint32_t proxy, PwPod body) {
     PwPod f;
     int32_t v;
     int64_t mask;
-    if (pwpod_struct_field(body, 0, &f) || pwpod_int(f, &v)) return;
-    if (pwpod_struct_field(body, 1, &f) || pwpod_int(f, &v)) return; ln->out_node = (uint32_t)v;
-    if (pwpod_struct_field(body, 2, &f) || pwpod_int(f, &v)) return; ln->out_port = (uint32_t)v;
-    if (pwpod_struct_field(body, 3, &f) || pwpod_int(f, &v)) return; ln->in_node = (uint32_t)v;
-    if (pwpod_struct_field(body, 4, &f) || pwpod_int(f, &v)) return; ln->in_port = (uint32_t)v;
+    if (pwpod_struct_field(body, 0, &f) || pwpod_int(f, &v) || (uint32_t)v != ln->id) return;
+    if (pwpod_struct_field(body, 1, &f) || pwpod_int(f, &v)) return;
+    ln->out_node = (uint32_t)v;
+    if (pwpod_struct_field(body, 2, &f) || pwpod_int(f, &v)) return;
+    ln->out_port = (uint32_t)v;
+    if (pwpod_struct_field(body, 3, &f) || pwpod_int(f, &v)) return;
+    ln->in_node = (uint32_t)v;
+    if (pwpod_struct_field(body, 4, &f) || pwpod_int(f, &v)) return;
+    ln->in_port = (uint32_t)v;
     if (pwpod_struct_field(body, 5, &f) || pwpod_long(f, &mask)) return;
     if (mask & 1) {
         if (pwpod_struct_field(body, 6, &f) || pwpod_int(f, &v)) return;
