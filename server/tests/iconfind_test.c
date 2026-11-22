@@ -148,8 +148,10 @@ static void test_app(void) {
 static void test_app_resolution(void) {
     /* A high-resolution source must win over a smaller PNG in the same active theme. */
     touch("/usr/share/icons/MacTahoe-blue-dark/apps/64/hires.png");
+    touch("/usr/share/icons/MacTahoe-blue-dark/apps/256/hires.png");
     touch("/usr/share/icons/MacTahoe-blue-dark/apps/128/hires.png");
     expect(0, "hires", "/usr/share/icons/MacTahoe-blue-dark/apps/128/hires.png");
+    expect(0, "hires", "/usr/share/icons/MacTahoe-blue-dark/apps/256/hires.png");
     expect(0, "hires", "/usr/share/icons/MacTahoe-blue-dark/apps/64/hires.png");
     expect(0, "hires", "");
 }
