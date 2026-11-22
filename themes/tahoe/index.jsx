@@ -17,7 +17,7 @@ import { useEffect, useRef, useState, Fragment } from 'react';
 import { makeTheme } from './tokens.js';
 import { minimizeStarts } from '../default/minimize.js';
 import { MenuBars } from './components/MenuBar.jsx';
-import { Dock, LaunchpadIcon, dockThickness } from '../default/components/Dock.jsx';
+import { Dock, LaunchpadIcon, dockThickness } from './components/Dock.jsx';
 import { Window } from './components/Window.jsx';
 import { Launchpad } from '../default/components/Launchpad.jsx';
 import { ControlCenter } from '../default/components/ControlCenter.jsx';
@@ -45,7 +45,7 @@ function workAreaFor(p, d, every) {
 }
 const areaFn = (d) => { const s = settings.get(); return workAreaFor(dockPrefs(s), d, menuBarEveryDisplay(s)); };
 
-// chrome: borders (1 + 1) and title bar (40 + 1 separator) of Window.jsx's frame
+// chrome: borders (1 + 1) and title bar (46 + 1 separator) of Tahoe's Window.jsx frame
 // snap (0.8.8.10, GitHub #182): a window dragged to a side of the screen takes that half, near a corner a quarter, to the
 // top it fills the screen (sdk/snap.js); Settings → Desktop & Dock → Windows turns it off (settings.windowSnap)
 configureWindows({ apps, workArea: areaFn, chrome: { w: 2, h: 49 }, snap: true });
