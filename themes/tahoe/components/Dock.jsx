@@ -199,11 +199,14 @@ export function Dock({ t, items: list, running, onOpen, onRestoreWindow, onConte
   const vert = position !== 'bottom';
   const [m, setM] = useState(null);             // mouse position along the Dock's axis
   const [activating, setActivating] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const previewTimer = useRef(null);
   const activationTimer = useRef(null);
   const activationEndTimer = useRef(null);
   useEffect(() => () => {
     clearTimeout(activationTimer.current);
     clearTimeout(activationEndTimer.current);
+    clearTimeout(previewTimer.current);
   }, []);
   const activateItem = (id, e) => {
     if (dockDragJustEnded(e)) return;
@@ -466,6 +469,12 @@ export function Dock({ t, items: list, running, onOpen, onRestoreWindow, onConte
           </View>
         ) : (
           <View key={app.id} onClick={(e) => activateItem(app.id, e)} onContextMenu={() => onContext?.(app.id, anchor(i))}
+            onMouseEnter={() => {
+              clearTimeout(previewTimer.current);
+              if (app.windows?.length > 1) setPreview({ id: app.id, name: app.name, Icon: app.Icon, windows: app.windows, at: anchor(i) });
+              else setPreview(null);
+            }}
+            onMouseLeave={() => { previewTimer.current = setTimeout(() => setPreview(null), 180); }}
             onMouseDown={(e) => { if (!e.button) beginDockDrag({ id: app.id, Icon: app.Icon, x: e.x, y: e.y, source: 'dock' }); }}
             style={{ position: 'absolute', ...place(i), width: sizes[i], height: sizes[i],
               transform: !reduce && activating?.id === app.id
@@ -494,6 +503,47 @@ export function Dock({ t, items: list, running, onOpen, onRestoreWindow, onConte
         )))}
       </View>
       {/* the name tooltip (not while the icon's menu is open: the menu takes that place) */}
+      <Layer name="popover">
+        {preview && preview.windows.length > 1 && !drag && (
+          <View
+            onMouseEnter={() => clearTimeout(previewTimer.current)}
+            onMouseLeave={() => { clearTimeout(previewTimer.current); setPreview(null); }}
+            style={{
+              position: 'absolute',
+              ...(position === 'bottom'
+                ? { left: Math.max(area.x + 8, Math.min(area.x + area.w - Math.min(620, preview.windows.length * 150 + 16) - 8, preview.at.x - Math.min(620, preview.windows.length * 150 + 16) / 2)),
+                    bottom: screen.height - (AB - MARGIN - hide) + bar + 14 }
+                : position === 'left'
+                  ? { left: AX + MARGIN + bar + 14 - hide, top: Math.max(area.y + 8, Math.min(area.y + area.h - 112 - 8, preview.at.y - 56)) }
+                  : { right: screen.width - (AR - MARGIN - bar - 14 + hide), top: Math.max(area.y + 8, Math.min(area.y + area.h - 112 - 8, preview.at.y - 56)) }),
+              width: Math.min(620, preview.windows.length * 150 + 16), maxWidth: area.w - 16,
+              padding: 8, borderRadius: 14, flexDirection: 'row', flexWrap: 'wrap', gap: 8,
+              backgroundColor: t.panelBg, backdropFilter: `blur(${t.blur}px)`,
+              border: `1px solid ${t.windowBorder}`, boxShadow: t.dockShadow,
+            }}>
+            {preview.windows.map((w) => (
+              <View key={w.id} onClick={() => { clearTimeout(previewTimer.current); setPreview(null); onRestoreWindow?.(w.id); }}
+                style={{ width: 142, height: 88, borderRadius: 8, overflow: 'hidden',
+                  backgroundColor: t.mode === 'dark' ? '#34363d' : '#e8eaf0',
+                  border: `1px solid ${t.dockBorder}`, opacity: w.minimized ? 0.78 : 1 }}>
+                <View style={{ height: 14, paddingHorizontal: 5, flexDirection: 'row', alignItems: 'center', gap: 3,
+                  backgroundColor: t.mode === 'dark' ? '#555861' : '#c7cad2' }}>
+                  {[0,1,2].map((n) => <View key={n} style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: t.mode === 'dark' ? '#b7bac2' : '#777b85' }} />)}
+                  <Text style={{ marginLeft: 4, fontSize: 9, color: t.mode === 'dark' ? '#f3f4f6' : '#333640', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {w.title || preview.name}
+                  </Text>
+                </View>
+                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3 }}>
+                  <TahoeIconForApp app={{ id: preview.id, Icon: preview.Icon }} size={26} />
+                  <Text style={{ fontSize: 9, color: t.mode === 'dark' ? '#f3f4f6' : '#333640' }}>
+                    {w.minimized ? tr('shell.dock.minimized') : tr('shell.dock.open')}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+      </Layer>
       <Layer name="tooltip">
         {showTip && position === 'bottom' && (
           <View style={{ position: 'absolute', left: start + iconC[hovered] - 90, width: 180, bottom: screen.height - (AB - MARGIN + hide) + sizes[hovered] + PAD + 12,
