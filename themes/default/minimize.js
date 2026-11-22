@@ -8,5 +8,9 @@ export function minimizeStarts(windows, prev, { reduce = false, now = Date.now()
     if (!reduce && w.minimized && prev.get(w.id) === false && !w.fullscreen && !w.pip) started.push({ id: w.id, t0: now });
     prev.set(w.id, !!w.minimized);
   }
+  // A closed window can never be minimized again. Drop its history so this Map stays bounded
+  // during long desktop sessions with many applications opened and closed.
+  const live = new Set(windows.map((w) => w.id));
+  for (const id of prev.keys()) if (!live.has(id)) prev.delete(id);
   return started;
 }
