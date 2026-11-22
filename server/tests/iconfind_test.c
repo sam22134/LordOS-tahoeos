@@ -50,7 +50,9 @@ static void expect(int status, const char *name, const char *want) {
 
 static void test_status(void) {
     const char *files[] = {
+        "/home/.local/share/icons/MacTahoe-blue/status/32/vol.png",
         "/home/.local/share/icons/hicolor/22x22/status/vol.png",
+        "/usr/share/icons/MacTahoe-blue/status/32/vol.png",
         "/usr/share/icons/hicolor/32x32/status/vol.png",
         "/usr/share/icons/hicolor/22x22/status/vol.png",
         "/usr/share/icons/hicolor/32x32/apps/vol.png",
@@ -60,8 +62,8 @@ static void test_status(void) {
         "/usr/share/icons/Adwaita/scalable/status/vol.svg",
         "/usr/share/icons/hicolor/scalable/apps/vol.svg",
         "/usr/share/pixmaps/vol.svg",
-        "/home/.local/share/icons/MacTahoe-blue/symbolic/status/vol-symbolic.svg",
-        "/usr/share/icons/MacTahoe-blue/symbolic/status/vol-symbolic.svg",
+        "/home/.local/share/icons/MacTahoe-blue/status/symbolic/vol-symbolic.svg",
+        "/usr/share/icons/MacTahoe-blue/status/symbolic/vol-symbolic.svg",
         "/usr/share/icons/hicolor/symbolic/status/vol-symbolic.svg",
         "/usr/share/icons/hicolor/scalable/status/vol-symbolic.svg",
         "/usr/share/icons/Adwaita/symbolic/status/vol-symbolic.svg",
@@ -85,13 +87,15 @@ static void test_status(void) {
 
 static void test_app(void) {
     const char *files[] = {
+        "/home/.local/share/icons/MacTahoe-blue/apps/32/ed.png",
         "/home/.local/share/icons/hicolor/48x48/apps/ed.png",
+        "/usr/share/icons/MacTahoe-blue/apps/32/ed.png",
         "/usr/share/icons/hicolor/64x64/apps/ed.png",
         "/usr/share/icons/hicolor/256x256/apps/ed.png",
         "/usr/share/pixmaps/ed.png",
-        "/home/.local/share/icons/MacTahoe-blue/scalable/apps/ed.svg",
+        "/home/.local/share/icons/MacTahoe-blue/apps/scalable/ed.svg",
         "/home/.local/share/icons/hicolor/scalable/apps/ed.svg",
-        "/usr/share/icons/MacTahoe-blue/scalable/apps/ed.svg",
+        "/usr/share/icons/MacTahoe-blue/apps/scalable/ed.svg",
         "/usr/share/icons/hicolor/scalable/apps/ed.svg",
         "/usr/share/icons/Adwaita/scalable/apps/ed.svg",
         "/usr/share/pixmaps/ed.svg",
