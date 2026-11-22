@@ -18,10 +18,19 @@ if [[ -z "${DESTDIR:-}" && "${EUID:-$(id -u)}" -ne 0 ]]; then
   exit 1
 fi
 
-if [[ -z "$SOURCE_DIR" ]]; then
+TMP="$(mktemp -d)"
+if [[ -n "$SOURCE_DIR" ]]; then
+  if [[ ! -f "$SOURCE_DIR/install.sh" || ! -f "$SOURCE_DIR/COPYING" || ! -f "$SOURCE_DIR/src/index.theme" ]]; then
+    echo "The source directory is not a complete MacTahoe-icon-theme checkout." >&2
+    exit 1
+  fi
+  # Work on a temporary copy: the optional cache-tool compatibility patch must not alter a user's checkout.
+  mkdir -p "$TMP/source"
+  cp -a "$SOURCE_DIR/." "$TMP/source/"
+  SOURCE_DIR="$TMP/source"
+else
   command -v curl >/dev/null 2>&1 || { echo "curl is required to download the pinned icon source." >&2; exit 1; }
   command -v tar >/dev/null 2>&1 || { echo "tar is required." >&2; exit 1; }
-  TMP="$(mktemp -d)"
   ARCHIVE="$TMP/mactahoe-icons.tar.gz"
   URL="https://codeload.github.com/vinceliuice/MacTahoe-icon-theme/tar.gz/$UPSTREAM_REV"
   curl --fail --location --retry 3 --output "$ARCHIVE" "$URL"
