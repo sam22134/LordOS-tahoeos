@@ -12,7 +12,7 @@ import {
   View, Text, Image, Slider, useSettings, settings, useCpuUsage, useSystemInfo, memUsedKB, formatBytes, wm, session, addListener, t as tr,
   useSound, defaultSink, sound, NowPlayingTile, findWallpaper, wallpaperThumb, wallpaperIdFor, wallpaperPatch, screenDisplays, menuBarPrefs, SoundOutputList, useSoundOutputs, useBluetooth, setBluetoothPower,
   panelLeft, inBar, ScrollView, screen, nightActive, setNightManual, notifyPrefs, dndActive, useBacklight, wifiTile, wifiTileView, admin, DisclosureGlyph,
-  MoonGlyph, SunGlyph, ContrastGlyph, LayersGlyph, BluetoothGlyph, SignalGlyph, wifiBars, keyring, TextInput, Button,
+  MoonGlyph, SunGlyph, ContrastGlyph, LayersGlyph, BluetoothGlyph, SignalGlyph, wifiBars, keyring, TextInput, Button, nearbyDevices,
 } from '@lordos/sdk';
 import { useEffect, useRef, useState } from 'react';
 import { wifiRows, markCurrent } from '../../../apps/settings/wifimodel.js';
@@ -221,9 +221,51 @@ function WifiTile({ t, onClose, w, onChanged }) {
 function BluetoothTile({ t, onClose, bt }) {
   const adapter = bt.adapter;
   const dev = (bt.devices || []).find((d) => d.connected);
+  const [expanded, setExpanded] = useState(false);
+  const [search, setSearch] = useState(false);
+  useEffect(() => {
+    if (!expanded || !adapter.powered) return undefined;
+    setSearch(true);
+    lord.bt.discover(true);
+    const stop = setTimeout(() => { lord.bt.discover(false); setSearch(false); }, 40000);
+    return () => { clearTimeout(stop); lord.bt.discover(false); setSearch(false); };
+  }, [expanded, adapter.powered, adapter.path]);
+  const devices = bt.devices || [];
+  const paired = devices.filter((d) => d.paired);
+  const nearby = nearbyDevices(devices);
+  const action = (d) => {
+    if (d.busy) return;
+    if (!d.paired) lord.bt.pair(d.path);
+    else if (d.connected) lord.bt.disconnect(d.path);
+    else lord.bt.connect(d.path);
+  };
   return (
-    <SwitchTile t={t} on={!!adapter.powered} label={tr('shell.cc.bluetooth')} detail={adapter.powered && dev ? dev.name : undefined}
-      glyph={(c) => <BluetoothGlyph color={c} size={14} />} onToggle={() => setBluetoothPower(!adapter.powered)} onSettings={() => openSettings(onClose, 'bluetooth')} />
+    <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
+      <View onClick={() => setExpanded((x) => !x)}>
+        <SwitchTile t={t} on={!!adapter.powered} label={tr('shell.cc.bluetooth')} detail={adapter.powered && dev ? dev.name : undefined}
+          glyph={(c) => <BluetoothGlyph color={c} size={14} />} onToggle={() => setBluetoothPower(!adapter.powered)} onSettings={() => openSettings(onClose, 'bluetooth')} />
+      </View>
+      {expanded ? <Tile t={t} style={{ padding: 8, gap: 7 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={{ fontSize: 11, fontWeight: 600, color: t.text }}>{tr('prefs.bt.myDevices')}</Text>
+          <View onClick={() => openSettings(onClose, 'bluetooth')}><Text style={{ fontSize: 10, color: t.accent }}>{tr('settings.section.bluetooth')} ›</Text></View>
+        </View>
+        {!adapter.powered ? <Text style={{ fontSize: 11, color: t.textDim }}>{tr('shell.cc.off')}</Text> : <>
+          {paired.map((d) => <View key={d.path} onClick={() => action(d)} style={{ flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 4 }}>
+            <BluetoothGlyph color={d.connected ? t.accent : t.textDim} size={13} />
+            <Text style={{ flex: 1, minWidth: 0, fontSize: 11, color: t.text }}>{d.name}</Text>
+            <Text style={{ fontSize: 10, color: t.textDim }}>{d.busy ? tr('prefs.bt.working') : d.connected ? tr('prefs.bt.disconnect') : tr('prefs.bt.connect')}</Text>
+          </View>)}
+          <Text style={{ fontSize: 11, fontWeight: 600, color: t.text, marginTop: 3 }}>{tr('prefs.bt.nearby')}</Text>
+          {nearby.map((d) => <View key={d.path} onClick={() => action(d)} style={{ flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 4 }}>
+            <BluetoothGlyph color={t.textDim} size={13} />
+            <Text style={{ flex: 1, minWidth: 0, fontSize: 11, color: t.text }}>{d.name}</Text>
+            <Text style={{ fontSize: 10, color: t.accent }}>{d.busy ? tr('prefs.bt.working') : tr('prefs.bt.connect')}</Text>
+          </View>)}
+          {!nearby.length ? <Text style={{ fontSize: 10, color: t.textDim }}>{search ? tr('prefs.bt.searching') : tr('prefs.bt.noneNearby')}</Text> : null}
+        </>}
+      </Tile> : null}
+    </View>
   );
 }
 
