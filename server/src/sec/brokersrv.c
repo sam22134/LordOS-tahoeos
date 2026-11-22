@@ -684,7 +684,12 @@ static void handle(AppConn *a, BrokerHdr *h, char *payload, int *fds, int nfds) 
     }
     case BOP_MIC: {
         int want = payload[0] == '1';
-        if (!want) { if (a->mic) { maudio_close(a->mic); a->mic = NULL; } send_reply(fd, h->reqid, BST_OK, NULL, 0); break; }
+        if (!want) {
+            if (a->mic) { maudio_close(a->mic); a->mic = NULL; }
+            queue_evt("device", "{\"app\":\"%s\",\"kind\":\"microphone\",\"on\":false}", a->id);
+            send_reply(fd, h->reqid, BST_OK, NULL, 0);
+            break;
+        }
         if (deny_restricted(fd, h->reqid, a->id, FW_R_NO_MIC)) break;
         if (perm_get(a->id, PERM_MICROPHONE) != PERM_ALLOW) { send_reply(fd, h->reqid, BST_DENIED, NULL, 0); break; }
         if (!a->mic) {
@@ -701,8 +706,9 @@ static void handle(AppConn *a, BrokerHdr *h, char *payload, int *fds, int nfds) 
         /* tamaño y formato del anillo (datos de confianza del servidor, no de la cabecera) */
         char info[64];
         int n = snprintf(info, sizeof info, "%u %u %u", 1u << 18, (unsigned)AR_RATE, 1u);
-        send_reply_fd(fd, h->reqid, BST_OK, info, (uint32_t)n, ro);
+        int sent = send_reply_fd(fd, h->reqid, BST_OK, info, (uint32_t)n, ro);
         close(ro);
+        if (!sent) queue_evt("device", "{\"app\":\"%s\",\"kind\":\"microphone\",\"on\":true}", a->id);
         break;
     }
     case BOP_CLIP_SECRET: {
