@@ -165,6 +165,9 @@ void bt_apply_props(BtModel *m, const char *path, const char *iface, DRd *r) {
     }
 }
 
+static void prompt_drop(void);
+static void agent_reject(const DMsg *m, const char *why);
+
 void bt_remove_object(BtModel *m, const char *path, const char *iface) {
     if (!strcmp(iface, "org.bluez.Device1")) {
         if (prompt.active && !strcmp(prompt.dev, path)) {
