@@ -37,7 +37,7 @@ export const MONITOR_HISTORY = 240;             // 60 s at 4 samples per second
 export const monitorSamples = createStore([]);
 export const monitorProcesses = createStore(null);
 export const monitorConnections = createStore(null);
-export const monitorDevices = createStore([]);  // active microphone capture streams reported by PipeWire
+export const monitorDevices = createStore([]);  // verified apps on active PipeWire microphone/camera links
 // PipeWire's PulseAudio compatibility server reports each recording stream with its owning PID,
 // application ID and source. Only real input sources count: monitor-of-output streams are not microphones.
 function soundDeviceUsers(st) {
