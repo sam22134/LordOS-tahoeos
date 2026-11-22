@@ -35,8 +35,8 @@ int main(void) {
     memset(keys, 0, sizeof keys); set(keys, BTN_TOOL_FINGER);
     memset(props, 0, sizeof props); set(props, INPUT_PROP_BUTTONPAD);
     CHECK(input_is_multitouch_touchpad(ev, ab, keys, props)); /* explicit clickpad */
-    memset(props, 0, sizeof props); set(props, INPUT_PROP_DIRECT);
-    CHECK(input_is_multitouch_touchpad(ev, ab, keys, props)); /* touchscreen: tp_open decides DIRECT */
+    memset(keys, 0, sizeof keys); memset(props, 0, sizeof props); set(props, INPUT_PROP_DIRECT);
+    CHECK(input_is_multitouch_touchpad(ev, ab, keys, props)); /* touchscreen needs no BTN_TOOL_FINGER */
     memset(props, 0, sizeof props); memset(keys, 0, sizeof keys);
     set(keys, BTN_TOOL_FINGER); set(props, INPUT_PROP_ACCELEROMETER);
     CHECK(!input_is_multitouch_touchpad(ev, ab, keys, props)); /* no pointer/button property */
