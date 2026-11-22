@@ -33,12 +33,16 @@ export function makeTheme({ mode, accent, effects }) {
 
     // Tahoe materials: translucent when effects are enabled, opaque otherwise.
     menuBg: dark ? (glass ? 'rgba(31,33,40,0.76)' : '#252830') : (glass ? 'rgba(250,251,254,0.82)' : '#f6f7fa'),
+    menuBorder: dark ? 'rgba(255,255,255,0.13)' : 'rgba(35,38,48,0.10)',
+    menuShadow: dark ? '0 5px 22px rgba(0,0,0,0.22)' : '0 5px 22px rgba(35,45,65,0.10)',
     menuText: dark ? '#f5f5f7' : '#1d1d1f',
     menuTextDim: dark ? 'rgba(245,245,247,0.58)' : 'rgba(29,31,38,0.52)',
     menuHover: dark ? 'rgba(255,255,255,0.14)' : 'rgba(20,30,50,0.08)',
     panelBg: dark ? (glass ? 'rgba(37,40,49,0.78)' : '#292c34') : (glass ? 'rgba(247,248,252,0.84)' : '#f1f2f6'),
     popupBg: dark ? (glass ? 'rgba(37,40,49,0.94)' : '#292c34') : (glass ? 'rgba(250,251,254,0.96)' : '#f6f7fa'),
     windowBorder: dark ? 'rgba(255,255,255,0.14)' : 'rgba(35,38,48,0.14)',
+    windowShadow: dark ? '0 24px 64px rgba(0,0,0,0.52)' : '0 24px 64px rgba(25,35,55,0.22)',
+    windowShadowInactive: dark ? '0 12px 32px rgba(0,0,0,0.34)' : '0 12px 32px rgba(25,35,55,0.13)',
     titleBg: dark ? 'rgba(43,46,56,0.96)' : 'rgba(242,244,249,0.96)',
     dockBg: dark ? (glass ? 'rgba(45,48,59,0.62)' : '#292c34') : (glass ? 'rgba(248,249,253,0.68)' : '#f0f1f5'),
     dockBorder: dark ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.72)',
