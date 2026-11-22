@@ -40,6 +40,10 @@ typedef struct { const uint8_t *p; size_t n; } PwPod;
 int  pwpod_struct_field(PwPod s, int index, PwPod *out);     /* 0 ok */
 int  pwpod_int(PwPod p, int32_t *v);
 int  pwpod_string(PwPod p, const char **s);
+/* Match Core::Error to a permission update or its Core::Sync barrier (sequence is bit-preserving). */
+int  pwguard_error_matches(uint32_t proxy, uint32_t sync_header,
+                           const uint32_t *permission_seqs, unsigned count,
+                           int32_t resource_id, int32_t request_seq);
 /* Strict decimal parsing for PipeWire's string-valued IDs and process IDs (0 = invalid PID). */
 int  pwguard_parse_u32(const char *s, uint32_t *value);
 int  pwguard_parse_pid(const char *s);
