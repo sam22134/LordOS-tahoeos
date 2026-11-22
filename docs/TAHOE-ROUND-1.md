@@ -113,3 +113,9 @@ O caminho foi seguido no código: `tp_event_at()` produz o botão direito (códi
 - [ ] Validar em hardware físico.
 
 **Importante:** os casos de teste foram escritos, mas ainda não foram compilados nem executados. A inspeção do código e os testes simulados não substituem a validação no notebook real. A correção do touchpad permanece pendente até a execução da suíte e o teste no hardware.
+
+### 3. Alt + Tab
+
+- `sdk/switchermodel.js` agora define `alt` como padrão do alternador de aplicativos. A configuração continua permitindo `theme`, `meta`, `alt` e `both`; uma preferência já salva pelo usuário continua sendo respeitada.
+- O SDK gera o perfil `flow+tab-alt`, reconhecido pelo `server/src/wl/keygrab.c`, que captura Alt+Tab como combinação de retenção e entrega a navegação ao App Switcher até soltar Alt. O atalho Meta+Tab deixa de ser o padrão, mas continua selecionável nas Configurações.
+- Adicionado teste de modelo para o padrão Alt e para o perfil de captura. Ainda precisa executar os testes no ambiente de build e confirmar em sessão Wayland real.
