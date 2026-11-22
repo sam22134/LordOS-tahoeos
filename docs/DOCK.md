@@ -214,7 +214,11 @@ arguments). A Linux app shows its `.desktop`'s desktop actions, run through the 
 - **Lord Classic theme:** the Trash is the last button of the taskbar, with the same click, drop, menu
   and confirmation.
 
-## Minimized windows in the Dock
+## Minimized windows and window previews in the Dock
+
+In Lord Flow and Tahoe, each minimized window gets an individual compact tile after the app icons and before the Trash. The recent-app section (when enabled) stays separated from pinned apps, and minimized windows have their own separator before the Trash.
+
+When an app has more than one window, hovering its Dock icon opens a small window chooser. Each card identifies a window; selecting one focuses it and restores it if minimized. Clicking the Dock icon of the app whose window is currently in front minimizes that foreground window. Clicking another app's icon keeps the usual behavior and brings one of its windows forward.
 
 In Lord Flow, each minimized window gets an individual compact tile after the app icons and before the Trash. Windows belonging to the same app remain separate, and clicking a tile calls `wm.focus(windowId)` so the exact window is restored (including switching to its desktop when necessary). The tile updates from the live window list and disappears when that window is restored or closed.
 
