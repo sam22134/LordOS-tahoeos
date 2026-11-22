@@ -149,19 +149,26 @@ function WifiTile({ t, onClose, w, onChanged }) {
   const [expanded, setExpanded] = useState(false);
   const [networks, setNetworks] = useState([]);
   const [scanning, setScanning] = useState(false);
+  const scanBusy = useRef(false);
   const [passwordFor, setPasswordFor] = useState(null);
   const [password, setPassword] = useState('');
   const open = () => openSettings(onClose, 'network', 'wifi');
   const v = wifiTileView(w, want);
   const scan = () => {
-    if (!w.name || scanning || !v.on) return;
+    if (!w.name || scanBusy.current || !v.on) return;
+    scanBusy.current = true;
     setScanning(true); setErr('');
     const found = [];
     admin.run('net-wifi-scan', w.name, (line) => { try { found.push(JSON.parse(line)); } catch (e) {} }, { quiet: true })
       .then(() => setNetworks(wifiRows(found)), (e) => setErr(e.message))
-      .finally(() => setScanning(false));
+      .finally(() => { scanBusy.current = false; setScanning(false); });
   };
-  useEffect(() => { if (expanded && v.on && networks.length === 0) scan(); }, [expanded, v.on]);
+  useEffect(() => {
+    if (!expanded || !v.on) return undefined;
+    scan();
+    const id = setInterval(scan, 15000);
+    return () => clearInterval(id);
+  }, [expanded, v.on, w.name]);
   const toggle = (e) => {
     e?.stopPropagation?.();
     if (!w.canSwitch || !admin.available()) { open(); return; }
@@ -197,7 +204,7 @@ function WifiTile({ t, onClose, w, onChanged }) {
           <Text style={{ fontSize: 11, fontWeight: 600, color: t.text }}>{tr('network.wifi.available')}</Text>
           <View onClick={scan}><Text style={{ fontSize: 11, color: t.accent }}>{scanning ? tr('network.wifi.scanning') : tr('network.wifi.scan')}</Text></View>
         </View>
-        {!v.on ? <Text style={{ fontSize: 11, color: t.textDim }}>{tr('shell.cc.off')}</Text> :
+        {!v.on ? <Text style={{ fontSize: 11, color: t.textDim }}>{tr('shell.cc.off')}</Text> : networks.length === 0 && !scanning ? <Text style={{ fontSize: 11, color: t.textDim }}>{tr('network.wifi.noNetworks')}</Text> :
           networks.map((n, i) => <View key={n.bssid || `${n.ssid}-${i}`} style={{ gap: 5, paddingVertical: 4 }}>
             <View onClick={() => n.current ? null : (n.security === 'open' || n.known ? join(n) : (setPasswordFor(n.ssid), setPassword('')))}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
