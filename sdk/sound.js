@@ -27,7 +27,9 @@ function apply(plan) {
   pending = plan.pending ? { ...plan.pending, until: Date.now() + PENDING_MS } : null;
   let ok = true;
   for (const [card, profile] of plan.profiles) ok = call('setProfile', card, profile) && ok;
-  return plan.setDefault ? call('setDefault', plan.setDefault.kind, plan.setDefault.name) : ok;
+  const selected = plan.setDefault ? call('setDefault', plan.setDefault.kind, plan.setDefault.name) : true;
+  if (!ok || !selected) pending = null;
+  return ok && selected;
 }
 
 function onState(st) {
