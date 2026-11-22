@@ -76,10 +76,12 @@ static uint32_t call(const char *dest, const char *path, const char *iface, cons
     return s;
 }
 
-/* A call nobody answers (controls, AddMatch): the player is never waited for. */
-static void tell(const char *dest, const char *path, const char *iface, const char *member, const char *sig, const DBuf *body) {
+/* A call nobody answers (controls, AddMatch): the player is never waited for.
+ * Report whether the message was queued and the connection could flush it; this is transport
+ * acceptance only, not confirmation that the remote player executed the method. */
+static int tell(const char *dest, const char *path, const char *iface, const char *member, const char *sig, const DBuf *body) {
     DHdr h = { .type = DBUS_CALL, .flags = DBUS_NO_REPLY, .path = path, .iface = iface, .member = member, .dest = dest, .sig = sig };
-    dbus_send(&conn, &h, body);
+    return dbus_send(&conn, &h, body) && dbus_flush(&conn) == 0;
 }
 
 static void get_all(Player *pl, const char *iface, int kind) {
@@ -348,10 +350,10 @@ int mpris_control(const char *name, int cmd, double ms) {
         if (p->trackid[0] && strcmp(p->trackid, NO_TRACK)) {
             dw_str(&b, p->trackid);
             dw_u64(&b, (uint64_t)to);
-            tell(pl->owner, MP_PATH, PLAYER_IFACE, "SetPosition", "ox", &b);
+            if (!tell(pl->owner, MP_PATH, PLAYER_IFACE, "SetPosition", "ox", &b)) { dw_free(&b); return -1; }
         } else {                                         /* no track id: a relative Seek from where it is */
             dw_u64(&b, (uint64_t)(to - estimate(pl, now)));
-            tell(pl->owner, MP_PATH, PLAYER_IFACE, "Seek", "x", &b);
+            if (!tell(pl->owner, MP_PATH, PLAYER_IFACE, "Seek", "x", &b)) { dw_free(&b); return -1; }
         }
         dw_free(&b);
         pl->p.position_us = to;
@@ -364,9 +366,7 @@ int mpris_control(const char *name, int cmd, double ms) {
     default: return -1;
     }
     if (!member) return -1;
-    tell(pl->owner, MP_PATH, PLAYER_IFACE, member, NULL, NULL);
-    dbus_flush(&conn);
-    return 0;
+    return tell(pl->owner, MP_PATH, PLAYER_IFACE, member, NULL, NULL) ? 0 : -1;
 }
 
 void mpris_refresh(void) {
