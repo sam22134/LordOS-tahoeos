@@ -685,7 +685,7 @@ static void resolve(PgClient *c) {
     c->resolved = 1;
     /* A PID is not a durable process identity. If the process that originally established this
      * client has exited, never let a later process reusing its PID inherit the connection's app. */
-    if (c->identity_pid > 0 && process_start_time(c->identity_pid) != c->identity_start) {
+    if (c->identity_pid > 0 && (!c->identity_start || process_start_time(c->identity_pid) != c->identity_start)) {
         c->unverified = 1;
         return;
     }
@@ -716,6 +716,20 @@ static void resolve(PgClient *c) {
         }
     }
     if (pid <= 0) { c->unverified = 1; return; }
+    uint64_t start = process_start_time(pid);
+    if (!start) {
+        /* Latch an unreadable/dead PID too: it must not become a different process on a later retry. */
+        if (!c->identity_pid) c->identity_pid = pid;
+        c->identity_start = 0;
+        c->unverified = 1;
+        return;
+    }
+    if (c->identity_pid > 0) {
+        if (c->identity_pid != pid || c->identity_start != start) { c->unverified = 1; return; }
+    } else {
+        c->identity_pid = pid;
+        c->identity_start = start;
+    }
     int r = appid_of_pid((unsigned)pid, c->app, sizeof c->app);
     if (r < 0) { c->unverified = 1; c->app[0] = 0; }  /* gone or unreadable */
 
@@ -724,16 +738,6 @@ static void resolve(PgClient *c) {
         /* escaped to the user's service manager while restricted apps run: treated as restricted
          * (like lord-netperm's per-user union) */
         if (guard_armed && in_user_manager(pid)) c->unverified = 1;
-    }
-    if (!c->unverified) {
-        uint64_t start = process_start_time(pid);
-        if (!start || (c->identity_pid > 0 && (c->identity_pid != pid || c->identity_start != start))) {
-            c->unverified = 1;
-            c->app[0] = 0;
-        } else if (!c->identity_pid) {
-            c->identity_pid = pid;
-            c->identity_start = start;
-        }
     }
 }
 
