@@ -1040,11 +1040,14 @@ void pwguard_dispatch(void) {
         if (n < 0 && errno == EAGAIN) break;
         if (n <= 0) { drop(); return; }
         for (struct cmsghdr *cm = CMSG_FIRSTHDR(&mh); cm; cm = CMSG_NXTHDR(&mh, cm))   /* we never use fds: close them */
-            if (cm->cmsg_level == SOL_SOCKET && cm->cmsg_type == SCM_RIGHTS) {
+            if (cm->cmsg_level == SOL_SOCKET && cm->cmsg_type == SCM_RIGHTS && cm->cmsg_len >= CMSG_LEN(0)) {
                 int *fds = (int *)CMSG_DATA(cm);
                 size_t k = (cm->cmsg_len - CMSG_LEN(0)) / sizeof(int);
                 for (size_t i = 0; i < k; i++) close(fds[i]);
             }
+        /* This protocol carries no FDs for us. A truncated ancillary buffer means that the
+         * kernel may have discarded some received descriptors; reject the packet and reset. */
+        if (mh.msg_flags & MSG_CTRUNC) { drop(); return; }
         P.inlen += (size_t)n;
         size_t off = 0;
         while (P.inlen - off >= 16) {
