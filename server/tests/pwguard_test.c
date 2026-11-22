@@ -23,7 +23,7 @@ static int fails, total;
 static size_t put(uint8_t *b, size_t o, uint32_t v) { memcpy(b + o, &v, 4); return o + 4; }
 
 
-static void test_malformed_done_resets_connection(void) {
+static void test_malformed_event_resets_connection(uint32_t opcode) {
     char dir[] = "/tmp/lordos-pwguard-XXXXXX";
     if (!mkdtemp(dir)) { CHECK(0); return; }
     char path[sizeof(((struct sockaddr_un *)0)->sun_path)];
@@ -48,8 +48,8 @@ static void test_malformed_done_resets_connection(void) {
     int peer = accept(server, NULL, NULL);
     CHECK(peer >= 0);
     if (peer >= 0) {
-        /* Core::Done with an empty body is malformed: the guard must drop the socket. */
-        uint32_t header[4] = { 0, 1u << 24, 0, 0 };
+        /* An empty Core::Done/Core::Error body is malformed: drop the socket. */
+        uint32_t header[4] = { 0, opcode << 24, 0, 0 };
         CHECK(send(peer, header, sizeof header, 0) == (ssize_t)sizeof header);
         pwguard_dispatch();
         CHECK(pwguard_fd() == -1);
@@ -145,7 +145,8 @@ int main(void) {
     CHECK(pwguard_node_flag("Video/Source", NULL, NULL) == FW_R_NO_CAMERA);
     CHECK(pwguard_node_flag("Audio/Source", "Screen", "lordos-screencast-0") == FW_R_NO_MIC);   /* only a video source is a screen */
     CHECK(pwguard_node_flag("Audio/Sink", NULL, NULL) == 0);
-    test_malformed_done_resets_connection();
+    test_malformed_event_resets_connection(1); /* Core::Done */
+    test_malformed_event_resets_connection(3); /* Core::Error */
     printf("pwguard-test: %d/%d passed\n", total - fails, total);
     return fails ? 1 : 0;
 }
