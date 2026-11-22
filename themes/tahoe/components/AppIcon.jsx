@@ -18,8 +18,11 @@ const ICONS = {
   logs: ['📋','#586476'], forcequit: ['⏹️','#414852'],
 };
 export function TahoeAppIcon({ id, Base, size = 32 }) {
+  // Prefer each built-in app's authored vector artwork. Emoji are only a fallback for
+  // legacy/system entries that do not export an icon component.
+  if (Base) return <Base size={size} />;
   const data = ICONS[id];
-  if (!data) return Base ? <Base size={size} /> : null;
+  if (!data) return null;
   const [glyph, bg] = data;
   return (
     <View style={{ width: size, height: size, borderRadius: size * 0.23, background: bg,
