@@ -1,7 +1,7 @@
 // Settings → Sound: outputs, inputs (with meter), per-app volume (PipeWire, sdk/sound.js).
 import {
   View, Text, useTheme, useLocale, Slider, Toggle, Button, Segmented, useSound, useSoundPeak, sound, defaultSink,
-  microphones, defaultSource, headsetMics, spacing, typeScale,
+  microphones, defaultSource, headsetMics, useSoundError, spacing, typeScale,
 } from '@lordos/sdk';
 import { useEffect } from 'react';
 import { Stack, Section, SettingRow, Note, tint } from './ui.jsx';
@@ -89,6 +89,7 @@ export function SoundSettings() {
   const t = useTheme();
   const { t: tr } = useLocale();
   const st = useSound();
+  const error = useSoundError();
   if (!sound.available() || !st.connected) {
     return <Stack><Note tone="warn">{tr('settings.sound.unavailable')}</Note></Stack>;
   }
@@ -99,6 +100,7 @@ export function SoundSettings() {
   const apps = st.inputs;
   return (
     <Stack>
+      {error ? <Note tone="warn">{tr('settings.sound.commandFailed', { code: error.code })}</Note> : null}
       <Section title={tr('settings.sound.output')}>
         {st.sinks.length === 0 ? <SettingRow label={tr('settings.sound.noOutputs')} disabled /> : deviceRows('sink', st.sinks, t)}
       </Section>
