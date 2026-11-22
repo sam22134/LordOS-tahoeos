@@ -243,11 +243,18 @@ function BluetoothTile({ t, onClose, bt }) {
   const [search, setSearch] = useState(false);
   const [btError, setBtError] = useState('');
   const devicesRef = useRef([]);
-  const pendingPath = useRef(null);
+  const pending = useRef(null); // { path, op }; pairing is followed by a separate Connect result
   devicesRef.current = bt.devices || [];
   useEffect(() => onBluetoothResult((r) => {
-    if (!r || r.path !== pendingPath.current || r.op === 'stop') return;
-    pendingPath.current = null;
+    const p = pending.current;
+    if (!r || !p || r.path !== p.path || r.op !== p.op) return;
+    if (r.op === 'pair' && r.ok) {
+      // The daemon reports pairing first, then reports the automatic connection separately.
+      p.op = 'connect';
+      setBtError('');
+      return;
+    }
+    pending.current = null;
     if (r.ok) { setBtError(''); return; }
     const key = btErrorKey(r, devicesRef.current);
     setBtError(key ? tr(`prefs.bt.err.${key}`) : '');
@@ -271,16 +278,20 @@ function BluetoothTile({ t, onClose, bt }) {
   const paired = devices.filter((d) => d.paired);
   const nearby = nearbyDevices(devices);
   const action = (d) => {
-    if (d.busy || pendingPath.current) return;
+    if (d.busy || pending.current) return;
     setBtError('');
     try {
       if (typeof lord === 'undefined' || !lord.bt || !adapter.powered) throw new Error('Bluetooth unavailable');
-      pendingPath.current = d.path;
-      if (!d.paired) lord.bt.pair(d.path);
-      else if (d.connected) lord.bt.disconnect(d.path);
-      else lord.bt.connect(d.path);
+      const op = !d.paired ? 'pair' : d.connected ? 'disconnect' : 'connect';
+      pending.current = { path: d.path, op };
+      // The native bridge returns false when the request was rejected before an async result can arrive.
+      const accepted = lord.bt[op](d.path);
+      if (!accepted) {
+        pending.current = null;
+        setBtError(tr('prefs.bt.err.failed'));
+      }
     } catch (e) {
-      pendingPath.current = null;
+      pending.current = null;
       setBtError(tr('prefs.bt.err.failed'));
     }
   };
