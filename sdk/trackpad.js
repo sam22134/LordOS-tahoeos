@@ -51,7 +51,7 @@ function applyDeviceModes(list) {
 function apply() {
   if (!native()) return;
   lord.input.configure(trackpadConfig());
-  applyDeviceModes();
+  applyDeviceModes(trackpadDevices.get());
 }
 let applied = settings.get().trackpad;
 let appliedDevices = settings.get().trackpadDevices;
@@ -89,8 +89,9 @@ export function setTrackpadDeviceMode(id, mode) {
   const modes = { ...(settings.get().trackpadDevices || {}) };
   if (mode === 'auto') delete modes[id];
   else modes[id] = mode;
+  if (!native() || !lord.input.configureDevice(id, mode)) return false;
   settings.set((s) => ({ ...s, trackpadDevices: modes }));
-  return native() ? lord.input.configureDevice(id, mode) : false;
+  return true;
 }
 
 // ---- desktop swipe ----
