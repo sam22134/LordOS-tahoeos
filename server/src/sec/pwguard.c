@@ -664,11 +664,11 @@ static uint64_t process_start_time(int pid) {
     char *p = strrchr(line, ')');
     if (!p) return 0;
     p++;
-    while (*p == ' ' || *p == '\\t') p++;
+    while (*p == ' ' || *p == '\t') p++;
     /* field 3 (state) */
-    while (*p && *p != ' ' && *p != '\\t') p++;
+    while (*p && *p != ' ' && *p != '\t') p++;
     for (int field = 4; field <= 22; field++) {
-        while (*p == ' ' || *p == '\\t') p++;
+        while (*p == ' ' || *p == '\t') p++;
         if (!*p) return 0;
         char *end;
         unsigned long long value = strtoull(p, &end, 10);
