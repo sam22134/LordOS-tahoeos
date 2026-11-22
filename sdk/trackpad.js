@@ -38,8 +38,9 @@ export const TRACKPAD_DEFAULTS = {
 const native = () => typeof lord !== 'undefined' && lord.input;
 export const trackpadConfig = () => ({ ...TRACKPAD_DEFAULTS, ...(settings.get().trackpad || {}) });
 
-function applyDeviceModes(list = trackpadDevices.get()) {
+function applyDeviceModes(list) {
   if (!native()) return;
+  if (!list) return;
   const modes = settings.get().trackpadDevices || {};
   for (const d of list) {
     if (d.kind !== 'touchpad' || !d.identityStable) continue;
@@ -52,15 +53,21 @@ function apply() {
   lord.input.configure(trackpadConfig());
   applyDeviceModes();
 }
-apply();
 let applied = settings.get().trackpad;
+let appliedDevices = settings.get().trackpadDevices;
 settings.subscribe(() => {
   const now = settings.get().trackpad;
-  if (now !== applied) { applied = now; apply(); }
+  const nowDevices = settings.get().trackpadDevices;
+  if (now !== applied || nowDevices !== appliedDevices) {
+    applied = now;
+    appliedDevices = nowDevices;
+    apply();
+  }
 });
 
 // Devices (lord-sessiond lends them when showing the session on the monitor: they are re-scanned).
 export const trackpadDevices = createStore(native() ? lord.input.devices() : []);
+apply();
 export function refreshTrackpads() {
   if (!native()) return;
   const list = lord.input.devices();
