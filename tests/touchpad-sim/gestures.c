@@ -159,6 +159,18 @@ static void g_thumbclick(SimGen *g) {          /* thumb resting at the bottom + 
     hold(g, 2, a, 30, 0);
     lift(g);
 }
+
+static void click_at(SimGen *g, double x, double y) {
+    Pt a[] = { { x, y, P_FINGER } };
+    hold(g, 1, a, 50, 0);
+    hold(g, 1, a, 80, 1);
+    hold(g, 1, a, 30, 0);
+    lift(g);
+    sim_wait(g, 200);
+}
+static void g_click_bottom_right(SimGen *g) { click_at(g, 82, 82); }
+static void g_click_bottom_left(SimGen *g) { click_at(g, 20, 82); }
+static void g_click_center(SimGen *g) { click_at(g, 52, 43); }
 static void g_scroll(SimGen *g) {             /* two fingers up, fast, released while moving */
     Pt a[] = { { 45, 65, P_FINGER }, { 60, 66, P_FINGER } }, b[] = { { 45, 30, P_FINGER }, { 60, 31, P_FINGER } };
     stroke_linear(g, 2, a, b, 220);
@@ -245,6 +257,9 @@ static const SimGesture list[] = {
     { "click2", "physical click with 2 fingers (secondary)", g_click2 },
     { "click3", "physical click with 3 fingers (middle)", g_click3 },
     { "thumbclick", "thumb resting at the bottom + index: left click", g_thumbclick },
+    { "click-bottom-right", "physical click in the bottom-right corner", g_click_bottom_right },
+    { "click-bottom-left", "physical click in the bottom-left corner", g_click_bottom_left },
+    { "click-center", "physical click in the center", g_click_center },
     { "scroll", "2 fingers up, fast (momentum)", g_scroll },
     { "scroll-down", "2 fingers down, fast", g_scroll_down },
     { "scroll-slow", "2 fingers slowly, no momentum", g_scroll_slow },
