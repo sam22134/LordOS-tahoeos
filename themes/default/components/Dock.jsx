@@ -202,7 +202,7 @@ export function Dock({ t, items: list, running, onOpen, onRestoreWindow, onConte
     setActivating(id);
     clearTimeout(activationTimer.current);
     // This is acknowledgement of the click, not a claim that the app has finished launching.
-    // A real window lifecycle event clears the indicator sooner; the timeout prevents a stuck pulse.
+    // The short timeout prevents a stuck pulse without pretending the app is ready.
     activationTimer.current = setTimeout(() => setActivating(null), 420);
     onOpen(id);
   };
