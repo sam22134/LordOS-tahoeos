@@ -23,6 +23,7 @@ typedef struct {
     char name[256], owner[256];          /* owner: its unique name, "" until GetNameOwner answers */
     MprisProps p;
     double pos_at;                       /* CLOCK_MONOTONIC ms when p.position_us was true */
+    uint32_t root_revision, player_revision;
     uint32_t pos_query;                   /* newest outstanding Get(Position), rejects older replies */
 } Player;
 
@@ -69,9 +70,11 @@ static void settle(Player *pl, double now) {
 static uint32_t call(const char *dest, const char *path, const char *iface, const char *member, const char *sig,
                      const DBuf *body, int kind, uint32_t player) {
     uint32_t generation = 0;
-    if (kind == Q_POS) {
-        Player *pl = by_id(player);
-        if (pl) { generation = ++pl->pos_query; if (!generation) generation = ++pl->pos_query; }
+    Player *target = by_id(player);
+    if (target) {
+        if (kind == Q_POS) { generation = ++target->pos_query; if (!generation) generation = ++target->pos_query; }
+        else if (kind == Q_ROOT) generation = target->root_revision;
+        else if (kind == Q_PLAYER) generation = target->player_revision;
     }
     int slot = -1;
     for (int i = 0; i < MPRIS_MAX_PENDING && slot < 0; i++) if (!pending[i].serial) slot = i;
@@ -198,8 +201,11 @@ static void on_reply(const DMsg *m) {
         fetch(pl);
         break;
     }
-    case Q_ROOT: case Q_PLAYER:
-        if (!strcmp(m->sig, "a{sv}")) apply_props(pl, &r);
+    case Q_ROOT:
+        if (q.generation == pl->root_revision && !strcmp(m->sig, "a{sv}")) apply_props(pl, &r);
+        break;
+    case Q_PLAYER:
+        if (q.generation == pl->player_revision && !strcmp(m->sig, "a{sv}")) apply_props(pl, &r);
         break;
     case Q_POS: {
         int64_t us;
@@ -245,6 +251,8 @@ static void on_signal(const DMsg *m) {
         }
         const char *iface = dr_str(&r, NULL);
         if (r.err || (strcmp(iface, ROOT_IFACE) && strcmp(iface, PLAYER_IFACE))) continue;
+        if (!strcmp(iface, ROOT_IFACE)) pl->root_revision++;
+        else pl->player_revision++;
         apply_props(pl, &r);
         /* properties it says changed without their value: read them all again */
         size_t end = dr_arr(&r, 4);
