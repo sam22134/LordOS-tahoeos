@@ -235,6 +235,10 @@ static void t_clicks(void) {
     s = summary();
     print_sum("corner-right", &s);
     CHECK(!strcmp(s.btns, "Rr"), "single-finger physical click in bottom-right = right (%s)", s.btns);
+    run("click2", TP_KIND_TOUCHPAD, &area);
+    s = summary();
+    print_sum("corner-two-fingers", &s);
+    CHECK(!strcmp(s.btns, "Ll"), "two fingers in corner mode still produce left (%s)", s.btns);
     run("click-bottom-left", TP_KIND_TOUCHPAD, &area);
     s = summary();
     print_sum("corner-left-off", &s);
