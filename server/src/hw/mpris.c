@@ -68,19 +68,17 @@ static void settle(Player *pl, double now) {
 /* An asynchronous call whose reply goes to on_reply as kind; 0 if it could not be sent (no free slot). */
 static uint32_t call(const char *dest, const char *path, const char *iface, const char *member, const char *sig,
                      const DBuf *body, int kind, uint32_t player) {
+    uint32_t generation = 0;
+    if (kind == Q_POS) {
+        Player *pl = by_id(player);
+        if (pl) { generation = ++pl->pos_query; if (!generation) generation = ++pl->pos_query; }
+    }
     int slot = -1;
     for (int i = 0; i < MPRIS_MAX_PENDING && slot < 0; i++) if (!pending[i].serial) slot = i;
     if (slot < 0) return 0;
     DHdr h = { .type = DBUS_CALL, .path = path, .iface = iface, .member = member, .dest = dest, .sig = sig };
     uint32_t s = dbus_send(&conn, &h, body);
-    if (s) {
-        uint32_t generation = 0;
-        if (kind == Q_POS) {
-            Player *pl = by_id(player);
-            if (pl) { generation = ++pl->pos_query; if (!generation) generation = ++pl->pos_query; }
-        }
-        pending[slot] = (Pending){ .serial = s, .player = player, .generation = generation, .kind = kind, .since = mono_ms() };
-    }
+    if (s) pending[slot] = (Pending){ .serial = s, .player = player, .generation = generation, .kind = kind, .since = mono_ms() };
     return s;
 }
 
