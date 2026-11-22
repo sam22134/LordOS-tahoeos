@@ -23,10 +23,11 @@ typedef struct {
     char name[256], owner[256];          /* owner: its unique name, "" until GetNameOwner answers */
     MprisProps p;
     double pos_at;                       /* CLOCK_MONOTONIC ms when p.position_us was true */
+    uint32_t pos_query;                   /* newest outstanding Get(Position), rejects older replies */
 } Player;
 
 enum { Q_LIST, Q_OWNER, Q_ROOT, Q_PLAYER, Q_POS };
-typedef struct { uint32_t serial, player; int kind; double since; } Pending;
+typedef struct { uint32_t serial, player, generation; int kind; double since; } Pending;
 
 static DConn conn = { .fd = -1 };
 static int up, dirty, full_told;
@@ -72,7 +73,14 @@ static uint32_t call(const char *dest, const char *path, const char *iface, cons
     if (slot < 0) return 0;
     DHdr h = { .type = DBUS_CALL, .path = path, .iface = iface, .member = member, .dest = dest, .sig = sig };
     uint32_t s = dbus_send(&conn, &h, body);
-    if (s) pending[slot] = (Pending){ s, player, kind, mono_ms() };
+    if (s) {
+        uint32_t generation = 0;
+        if (kind == Q_POS) {
+            Player *pl = by_id(player);
+            if (pl) { generation = ++pl->pos_query; if (!generation) generation = ++pl->pos_query; }
+        }
+        pending[slot] = (Pending){ .serial = s, .player = player, .generation = generation, .kind = kind, .since = mono_ms() };
+    }
     return s;
 }
 
@@ -197,7 +205,13 @@ static void on_reply(const DMsg *m) {
         break;
     case Q_POS: {
         int64_t us;
-        if (!strcmp(m->sig, "v") && !mpris_read_position(&r, &us)) { pl->p.position_us = us; pl->pos_at = mono_ms(); dirty = 1; }
+        /* Several track/status changes can request Position before the bus answers.
+         * Only the newest request may update the current track's position. */
+        if (q.generation == pl->pos_query && !strcmp(m->sig, "v") && !mpris_read_position(&r, &us)) {
+            pl->p.position_us = us;
+            pl->pos_at = mono_ms();
+            dirty = 1;
+        }
         break;
     }
     }
