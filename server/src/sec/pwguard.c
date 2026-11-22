@@ -199,11 +199,11 @@ static uint32_t proxy_new(void) {
 int pwguard_start(void) {
     if (P.fd >= 0) return 0;
     const char *rt = getenv("XDG_RUNTIME_DIR");
-    if (!rt || rt[0] != '/') return -1;
+    if (!rt || rt[0] != '/') { P.next_try = now_ms() + 2000; return -1; }
     struct sockaddr_un sa = { .sun_family = AF_UNIX };
-    if ((size_t)snprintf(sa.sun_path, sizeof sa.sun_path, "%s/pipewire-0-manager", rt) >= sizeof sa.sun_path) return -1;
+    if ((size_t)snprintf(sa.sun_path, sizeof sa.sun_path, "%s/pipewire-0-manager", rt) >= sizeof sa.sun_path) { P.next_try = now_ms() + 2000; return -1; }
     int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
-    if (fd < 0) return -1;
+    if (fd < 0) { P.next_try = now_ms() + 2000; return -1; }
     if (connect(fd, (struct sockaddr *)&sa, sizeof sa) && errno != EINPROGRESS) { close(fd); P.next_try = now_ms() + 2000; return -1; }
     P.fd = fd;
     P.seq = 0;
