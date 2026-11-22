@@ -581,7 +581,7 @@ static const JSCFunctionListEntry monitor_funcs[] = {
     JS_CFUNC_DEF("stop", 0, f_stop),
     JS_CFUNC_DEF("want", 3, f_want),
     JS_CFUNC_DEF("sample", 0, f_sample),
-    JS_CFUNC_DEF("deviceUsers", 0, f_device_users),\n    JS_CFUNC_DEF("deviceUsers", 0, f_device_users),
+    JS_CFUNC_DEF("deviceUsers", 0, f_device_users),
     JS_CFUNC_DEF("processes", 1, f_processes),
     JS_CFUNC_DEF("connections", 1, f_connections),
     JS_CFUNC_DEF("info", 0, f_info),
