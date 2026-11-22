@@ -60,6 +60,7 @@ O caminho foi seguido no código: `tp_event_at()` produz o botão direito (códi
 
 ### 2. Menus contextuais
 
+- Auditoria do dispatcher: `runtime/events.js` gera `onContextMenu` no `pointerup` quando o botão é `2`, usando a cadeia comum entre pressionar e soltar; `stopPropagation()` encerra o bubbling. Files (itens, cabeçalho e fundo), Dock, Lixeira e papel de parede já possuem handlers. Não foi encontrado defeito universal no dispatcher; ainda falta validar o botão emitido pelo hardware e testar cada alvo no desktop real.
 - Reutilizar `sdk/contextmenu.jsx` e `sdk/layers.js`.
 - Garantir botão direito no desktop, arquivos, Dock, lixeira e janelas.
 - Validar que o evento secundário emitido pelo touchpad percorre o mesmo caminho do mouse.
