@@ -11,7 +11,7 @@
 // items, centered in the 28 px bar, left the top 3 px of the display on the bar itself, where a click did nothing).
 import { View, Text, useStore, sharedTicker, barDisplays, activeBarId, pinBar, wm, getApp, session, useMenusWithSpeech, t as tr, appName, formatDate, formatTime, keyboard, useSettings, direction, screen, windowAppName, LordOSGlyph, spotlight, PrivacyIndicators, StatusItems, help, menuClock, appMenuItems, recentItems, storeUpdates, windowMenuItems, menuBarPrefs, addMenuBarKeys, barIndex, barHover, webHelpItems } from '@lordos/sdk';
 import { useState, useRef, useEffect } from 'react';
-import { Menu } from '../../default/components/Menu.jsx';
+import { Menu } from './Menu.jsx';
 
 // Date and time with the region's format (sdk/i18n.js),
 // with the format chosen in Settings → Date & Time (sdk/hardware.jsx)
