@@ -195,6 +195,13 @@ int main(void) {
     PwPod es = { embedded, sizeof embedded };
     CHECK(pwpod_string(es, &str) != 0); /* embedded NUL makes the value ambiguous */
 
+    CHECK(pwguard_next_sync_token(0, NULL, 0) == 1);
+    CHECK(pwguard_next_sync_token(1, NULL, 0) == 2);
+    CHECK(pwguard_next_sync_token(INT32_MAX, NULL, 0) == 1);
+    const uint32_t pending_tokens[] = { 1, 2, 4 };
+    CHECK(pwguard_next_sync_token(INT32_MAX, pending_tokens, 3) == 3);
+    CHECK(pwguard_next_sync_token(1, pending_tokens, 3) == 3);
+
     uint64_t parsed64;
     CHECK(!pwguard_parse_u64("0", &parsed64) && parsed64 == 0);
     CHECK(!pwguard_parse_u64("18446744073709551615", &parsed64) && parsed64 == UINT64_MAX);
