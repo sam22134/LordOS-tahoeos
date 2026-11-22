@@ -103,6 +103,19 @@ static uint32_t rd32(const uint8_t *p) { uint32_t v; memcpy(&v, p, 4); return v;
 
 /* PipeWire publishes these identifiers as decimal strings. Reject prefixes, signs,
  * whitespace and overflow instead of accepting atoi()/strtoul() partial parses. */
+int pwguard_parse_u64(const char *s, uint64_t *value) {
+    if (!s || !*s || !value) return -1;
+    uint64_t v = 0;
+    for (const unsigned char *p = (const unsigned char *)s; *p; p++) {
+        if (*p < '0' || *p > '9') return -1;
+        uint64_t digit = (uint64_t)(*p - '0');
+        if (v > (UINT64_MAX - digit) / 10) return -1;
+        v = v * 10 + digit;
+    }
+    *value = v;
+    return 0;
+}
+
 int pwguard_parse_u32(const char *s, uint32_t *value) {
     if (!s || !*s || !value) return -1;
     uint32_t v = 0;
@@ -781,10 +794,17 @@ static uint64_t process_start_time(int pid) {
     for (int field = 4; field <= 22; field++) {
         while (*p == ' ' || *p == '\t') p++;
         if (!*p) return 0;
-        char *end;
-        unsigned long long value = strtoull(p, &end, 10);
+        char *end = p;
+        while (*end && *end != ' ' && *end != '\t' && *end != '\r' && *end != '\n') end++;
         if (end == p) return 0;
-        if (field == 22) return (uint64_t)value;
+        if (field == 22) {
+            char saved = *end;
+            *end = 0;
+            uint64_t value = 0;
+            int valid = pwguard_parse_u64(p, &value) == 0;
+            *end = saved;
+            return valid ? value : 0;
+        }
         p = end;
     }
     return 0;
