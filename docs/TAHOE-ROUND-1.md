@@ -44,7 +44,10 @@ Não inferir clickpad apenas pela ausência de BTN_RIGHT. Essa regra pode classi
 
 - Se `INPUT_PROP_BUTTONPAD` não estiver presente, `tp_open()` mantém `clickpad = 0`, mesmo quando o dispositivo tem `BTN_LEFT` e é reconhecido como touchpad.
 - Nesse caso, `BTN_LEFT` é encaminhado como botão físico esquerdo (`btn_pending[0]`); `click_button()` não aplica a lógica de cantos.
-- `TpCaps.has_right` já é coletado, mas não era exposto em `lord.input.devices()` nem mostrado na lista de dispositivos das Configurações.
+- `TpCaps.has_right` é exposto em `lord.input.devices()` como `hasRight` e a lista das Configurações já indica botão direito físico ou clickpad.
+- A identidade estável do dispositivo ainda não é exposta; `tp_open()` coleta bus/vendor/product e nome, mas não consulta `EVIOCGPHYS` nem `EVIOCGUNIQ`.
+- `server/src/input.c` só chamava `tp_open()` depois de classificar o dispositivo como mouse ou ponteiro absoluto. Um touchpad multitouch que anuncie apenas `ABS_MT_POSITION_X/Y/SLOT`, sem `ABS_X/Y`, podia ser descartado antes do driver.
+- Foi adicionada uma classificação explícita para esse conjunto de capabilities, alinhada aos critérios de `tp_open()`, e testes no `inputkind_test.c`. A suíte ainda precisa ser executada.
 - Próximo passo de UX: expor capabilities sem inferência arriscada e implementar override por dispositivo (Auto / Clickpad / Botões separados), persistido por identidade estável do hardware. Não usar override global.
 - O override ainda não foi implementado; `hasRight` será apenas diagnóstico.
 
@@ -89,6 +92,8 @@ Não inferir clickpad apenas pela ausência de BTN_RIGHT. Essa regra pode classi
 - [x] Adicionar testes para mapeamento de botão direito nos dois cantos, centro como botão esquerdo e preservação do modo de dois dedos.
 - [x] Adicionar teste de regressão para touchpad com botões físicos separados.
 - [x] Fortalecer a regressão: o dispositivo simulado anuncia explicitamente BTN_RIGHT, evitando que o teste represente por engano um touchpad sem botão direito físico.
+- [x] Corrigir a triagem inicial para aceitar touchpads multitouch sem eixos legados `ABS_X/Y`, mantendo o critério de capabilities do driver.
+- [x] Adicionar regressões para touchpad multitouch com `INPUT_PROP_POINTER`, `BTN_LEFT`, `INPUT_PROP_BUTTONPAD` e touchscreen `INPUT_PROP_DIRECT`.
 - [ ] Fechar estratégia de detecção adicional com base em capabilities reais.
 - [ ] Corrigir e testar menus contextuais no caminho completo.
 - [ ] Implementar as demais melhorias da Rodada 1.
