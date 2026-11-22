@@ -165,3 +165,19 @@ O caminho foi seguido no código: `tp_event_at()` produz o botão direito (códi
 - [ ] Adicionar teste automatizado específico para a troca de ícone no Settings portal; compilar e executar a suíte completa do servidor.
 
 A implementação e o guia estão em `packaging/icons/` e `docs/ICONS.md`. A revisão upstream está fixada em `839848b9a8a38a92a6936e30c4abe35cc6f2546d`; o repositório original informa licença GPL-3.0. CI do commit `bd1be104e1bcad8086a61dd0dc12d99bce03b7bf`: `iconfind-test` passou, `tp-test` passou com 98/98, `inputkind-test` passou e `bash -n packaging/icons/install-mactahoe.sh` passou. A suíte completa do servidor, os testes do portal e a validação em hardware ainda não foram executados.
+
+
+## Rodada 2 — Fundação do Tahoe Design System
+
+- [x] Criar `themes/tahoe/` como tema independente, sem substituir Lord Flow.
+- [x] Registrar o tema no catálogo de aparências e documentar em `themes/README.md`.
+- [x] Criar tokens próprios para superfícies claras/escuras, materiais translúcidos, blur adaptável, sombras, bordas e acentos.
+- [x] Definir geometria compartilhada para controles, grupos e menus pelo contrato de tokens do `ThemeProvider`.
+- [x] Definir `Alt+Tab` na tabela de atalhos do shell Tahoe.
+- [x] Reutilizar os componentes nativos atuais de Lord Flow nesta primeira fatia, preservando a lógica do Dock, janelas, menus, Control Center, notificações, widgets e multi-monitor.
+- [ ] Separar progressivamente componentes visuais Tahoe próprios: Window chrome, Menu Bar, Dock, Control Center e Notification Center.
+- [ ] Adicionar arte original de ícones, wallpapers e sons Tahoe.
+- [ ] Executar `npm run build`, selecionar Tahoe em Configurações → Aparência e validar visualmente em hardware e em múltiplos monitores.
+- [ ] Incluir o tema no manifesto de código verificado/assinado da versão de lançamento.
+
+A especificação da fundação está em `docs/TAHOE-DESIGN-SYSTEM.md`. A criação dos arquivos é implementação de código-fonte; build, seleção em sessão e testes visuais ainda não foram executados nesta etapa.
