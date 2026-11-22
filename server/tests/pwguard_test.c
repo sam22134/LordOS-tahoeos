@@ -23,6 +23,74 @@ static int fails, total;
 static size_t put(uint8_t *b, size_t o, uint32_t v) { memcpy(b + o, &v, 4); return o + 4; }
 
 
+
+static size_t put_pod_int(uint8_t *b, size_t o, int32_t v) {
+    o = put(b, o, 4); o = put(b, o, 4); o = put(b, o, (uint32_t)v);
+    return o + 4; /* SPA POD alignment */
+}
+
+static size_t put_pod_string(uint8_t *b, size_t o, const char *v) {
+    size_t n = strlen(v) + 1;
+    o = put(b, o, (uint32_t)n); o = put(b, o, 8);
+    memcpy(b + o, v, n);
+    o += n;
+    return o + ((8 - (n & 7)) & 7);
+}
+
+static void test_well_formed_events_keep_connection(void) {
+    char dir[] = "/tmp/lordos-pwguard-valid-XXXXXX";
+    if (!mkdtemp(dir)) { CHECK(0); return; }
+    char path[sizeof(((struct sockaddr_un *)0)->sun_path)];
+    snprintf(path, sizeof path, "%s/pipewire-0-manager", dir);
+    int server = socket(AF_UNIX, SOCK_STREAM, 0);
+    CHECK(server >= 0);
+    if (server < 0) { rmdir(dir); return; }
+    struct sockaddr_un sa = { .sun_family = AF_UNIX };
+    snprintf(sa.sun_path, sizeof sa.sun_path, "%s", path);
+    if (bind(server, (struct sockaddr *)&sa, sizeof sa) != 0 ||
+        listen(server, 1) != 0 || setenv("XDG_RUNTIME_DIR", dir, 1) != 0 ||
+        pwguard_start() != 0) {
+        CHECK(0); close(server); unlink(path); rmdir(dir); return;
+    }
+    CHECK(1);
+    int peer = accept(server, NULL, NULL);
+    CHECK(peer >= 0);
+    if (peer >= 0) {
+        uint8_t packet[160] = { 0 }, body[96] = { 0 };
+        size_t n = 8;
+        n = put_pod_int(body, n, 0);
+        n = put_pod_int(body, n, 0);
+        put(body, 0, (uint32_t)(n - 8)); put(body, 4, 14);
+        uint32_t header[4] = { 0, (1u << 24) | (uint32_t)n, 41, 0 };
+        memcpy(packet, header, sizeof header);
+        memcpy(packet + sizeof header, body, n);
+        CHECK(send(peer, packet, 16 + n, 0) == (ssize_t)(16 + n));
+        pwguard_dispatch();
+        CHECK(pwguard_fd() >= 0); /* valid Core::Done with no pending request is harmless */
+
+        memset(packet, 0, sizeof packet); memset(body, 0, sizeof body);
+        n = 8;
+        n = put_pod_int(body, n, 0);
+        n = put_pod_int(body, n, 42);
+        n = put_pod_int(body, n, -1);
+        n = put_pod_string(body, n, "mock error");
+        put(body, 0, (uint32_t)(n - 8)); put(body, 4, 14);
+        header[1] = (3u << 24) | (uint32_t)n;
+        header[2] = 42;
+        memcpy(packet, header, sizeof header);
+        memcpy(packet + sizeof header, body, n);
+        CHECK(send(peer, packet, 16 + n, 0) == (ssize_t)(16 + n));
+        pwguard_dispatch();
+        CHECK(pwguard_fd() >= 0); /* well-formed Core::Error is parsed, not treated as framing failure */
+        shutdown(peer, SHUT_RDWR);
+        pwguard_dispatch();
+        close(peer);
+    }
+    close(server);
+    unlink(path);
+    rmdir(dir);
+}
+
 static void test_malformed_event_resets_connection(uint32_t opcode) {
     char dir[] = "/tmp/lordos-pwguard-XXXXXX";
     if (!mkdtemp(dir)) { CHECK(0); return; }
@@ -145,6 +213,7 @@ int main(void) {
     CHECK(pwguard_node_flag("Video/Source", NULL, NULL) == FW_R_NO_CAMERA);
     CHECK(pwguard_node_flag("Audio/Source", "Screen", "lordos-screencast-0") == FW_R_NO_MIC);   /* only a video source is a screen */
     CHECK(pwguard_node_flag("Audio/Sink", NULL, NULL) == 0);
+    test_well_formed_events_keep_connection();
     test_malformed_event_resets_connection(1); /* Core::Done */
     test_malformed_event_resets_connection(3); /* Core::Error */
     printf("pwguard-test: %d/%d passed\n", total - fails, total);
