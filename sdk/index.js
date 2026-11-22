@@ -28,7 +28,7 @@ export { switcherPrefs, SWITCHER_DEFAULTS, validColor } from './switchermodel.js
 export { RemoteDeskApp } from './remotedesk.jsx';
 export { osk, oskState, startOsk } from './osk.js';
 export { OskPanel, OskIcon, OskStatus, oskLift } from './osk.jsx';
-export { trackpad, useTrackpads, hasTouchpad, registerGestureActions, lastSwipe, TRACKPAD_DEFAULTS, trackpadConfig, setTrackpad } from './trackpad.js';
+export { trackpad, useTrackpads, hasTouchpad, registerGestureActions, lastSwipe, TRACKPAD_DEFAULTS, trackpadConfig, setTrackpad, setTrackpadDeviceMode } from './trackpad.js';
 export { ime, useIme } from './ime.js';
 export { wayland, x11SelfScale, setX11Scaling } from './wayland.js';
 export { useLauncherApps, launchApp, refreshApps, isLinuxApp, linuxAppFor, shortAppName, windowAppName, windowPixelIcons, LetterIcon, iconFromFile, webAppIcon, webProfileIcon, APP_CATEGORIES, appCategory } from './apps.js';
