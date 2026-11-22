@@ -49,9 +49,14 @@ void iconfind_roots(IconRoots *r, const char *home, const char *prefix) {
 
 /* SVGs: category/scalable (MacTahoe), then scalable/category (hicolor), then /usr/share/pixmaps. */
 static int find_svg(const IconRoots *r, const char *const *kinds, const char *name, char *out, size_t n) {
+    static const int sizes[] = { 64, 48, 128, 96, 256, 72, 32, 24, 22, 16, 512 };
     for (int k = 0; kinds[k]; k++)
         for (int t = 0; t < r->nthemes; t++) {
-            /* Freedesktop themes use both layouts: hicolor's scalable/apps and MacTahoe's apps/scalable. */
+            /* MacTahoe also ships SVGs in fixed-size category folders (apps/32, status/24). */
+            for (size_t z = 0; z < sizeof sizes / sizeof *sizes; z++)
+                if (try_path(out, n, ".svg", "%s/%s/%d/%s.svg", r->themes[t], kinds[k], sizes[z], name) ||
+                    try_path(out, n, ".svg", "%s/%s/%dx%d/%s.svg", r->themes[t], kinds[k], sizes[z], sizes[z], name)) return 1;
+            /* Freedesktop themes use both scalable layouts: MacTahoe's apps/scalable and hicolor's scalable/apps. */
             if (try_path(out, n, ".svg", "%s/%s/scalable/%s.svg", r->themes[t], kinds[k], name) ||
                 try_path(out, n, ".svg", "%s/scalable/%s/%s.svg", r->themes[t], kinds[k], name)) return 1;
         }
@@ -63,7 +68,11 @@ static int find_symbolic(const IconRoots *r, const char *const *kinds, const cha
     const char *suffix = ends_with(name, "-symbolic") ? "" : "-symbolic";
     for (int k = 0; kinds[k]; k++)
         for (int t = 0; t < r->nthemes; t++) {
-            /* MacTahoe stores status/symbolic; hicolor commonly stores symbolic/status. */
+            /* MacTahoe stores category/22 and category/symbolic; hicolor commonly uses symbolic/category. */
+            static const int sizes[] = { 32, 24, 22, 16, 48, 64, 128, 256, 512 };
+            for (size_t z = 0; z < sizeof sizes / sizeof *sizes; z++)
+                if (try_path(out, n, ".svg", "%s/%s/%d/%s%s.svg", r->themes[t], kinds[k], sizes[z], name, suffix) ||
+                    try_path(out, n, ".svg", "%s/%s/%dx%d/%s%s.svg", r->themes[t], kinds[k], sizes[z], sizes[z], name, suffix)) return 1;
             if (try_path(out, n, ".svg", "%s/%s/symbolic/%s%s.svg", r->themes[t], kinds[k], name, suffix) ||
                 try_path(out, n, ".svg", "%s/symbolic/%s/%s%s.svg", r->themes[t], kinds[k], name, suffix)) return 1;
             if (*suffix && (try_path(out, n, ".svg", "%s/%s/scalable/%s%s.svg", r->themes[t], kinds[k], name, suffix) ||
