@@ -270,18 +270,18 @@ export function launchDockItem(id) {
 export function dockActivate(e) {
   if (e.launcher) { e.onOpen?.(); return; }
   if (!e.windows.length) { if (!launchDockItem(e.id) && e.launcherId) launchApp(e.launcherId); return; }
+  const top = wm.focused();
+  // Clicking the active app's Dock icon toggles that foreground window into the minimized
+  // group beside the Trash. This takes precedence over app-specific click handlers.
+  if (top && e.windows.some((w) => w.id === top && onActiveDesktop(w))) {
+    wm.minimize(top);
+    return;
+  }
   const own = parseDockId(e.id);
   const custom = own?.kind === 'app' ? activateProviders.get(own.key) : null;
   try { if (custom && custom(e)) return; } catch (err) { /* the usual click */ }
   const wants = e.windows.find((w) => w.attention);
   if (wants) { wm.focus(wants.id); return; }
-  const top = wm.focused();
-  // Clicking the active app's Dock icon toggles that foreground window into the minimized
-  // group beside the Trash. If another app is in front, keep the usual bring-to-front behavior.
-  if (top && e.windows.some((w) => w.id === top && onActiveDesktop(w))) {
-    wm.minimize(top);
-    return;
-  }
   const here = e.windows.filter(onActiveDesktop);
   const next = pickWindow(here.length ? here : e.windows, activeDesktop.get());
   wm.focus(next.id);
