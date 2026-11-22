@@ -2,10 +2,10 @@
  * installed icon themes. apps.c uses it for the Dock, the launcher and the tray; build/iconfind-test checks the
  * order over a made-up tree.
  *
- * PNGs first, as before 0.8.8.8: hicolor (the user's, then the system's) at the sizes asked for, then
- * /usr/share/pixmaps. Then SVG, which lord-media draws (media/svgicon.c): scalable/ of every theme (hicolor, then
- * Adwaita, where most status icons only exist as SVG), /usr/share/pixmaps; an app's AppStream PNG; and last the
- * symbolic ones (symbolic/ and scalable/ "<name>-symbolic.svg"), which the bar recolors to its text color. */
+ * PNGs first: the user's MacTahoe variants and hicolor, then the system's MacTahoe variants and hicolor,
+ * at the sizes asked for, then /usr/share/pixmaps. Then SVG, which lord-media draws (media/svgicon.c): scalable/
+ * of those themes, then Adwaita and /usr/share/pixmaps; an app's AppStream PNG; and last symbolic/ icons, which
+ * the bar recolors to its text color. 
 #ifndef LORD_ICONFIND_H
 #define LORD_ICONFIND_H
 
@@ -16,7 +16,7 @@
 
 typedef struct {
     char themes[ICONFIND_THEMES][PATH_MAX];     /* MacTahoe variants, hicolor and Adwaita, in lookup order */
-    int nthemes, npng;                          /* the first npng are searched for PNGs too (hicolor) */
+    int nthemes, npng;                          /* the first npng are searched for PNGs too */
     char pixmaps[PATH_MAX];                     /* /usr/share/pixmaps */
     char appstream[PATH_MAX];                   /* the package engine's 64 px AppStream PNGs (<package>_<icon>.png) */
 } IconRoots;
