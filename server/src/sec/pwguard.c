@@ -509,7 +509,7 @@ static int in_user_unit(int pid, const char *unit) {
     snprintf(want, sizeof want, "/sys/fs/cgroup/user.slice/user-%u.slice/user@%u.service/session.slice/%s/cgroup.procs", u, u, unit);
     f = fopen(want, "re");
     int n = 0, first = -1;
-    while (f && fgets(line, sizeof line, f)) { if (!n) first = pwguard_parse_pid(line); n++; }
+    while (f && fgets(line, sizeof line, f)) { if (!n) { line[strcspn(line, "\\r\\n")] = 0; first = pwguard_parse_pid(line); } n++; }
     if (f) fclose(f);
     return n == 1 && first == pid;
 }
