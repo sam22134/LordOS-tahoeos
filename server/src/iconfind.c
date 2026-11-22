@@ -31,7 +31,15 @@ static int try_path(char *out, size_t n, const char *ext, const char *fmt, ...) 
 
 void iconfind_roots(IconRoots *r, const char *home, const char *prefix) {
     memset(r, 0, sizeof *r);
-    if (home && *home) snprintf(r->themes[r->nthemes++], PATH_MAX, "%s/.local/share/icons/hicolor", home);
+    if (home && *home) {
+        snprintf(r->themes[r->nthemes++], PATH_MAX, "%s/.local/share/icons/MacTahoe-blue", home);
+        snprintf(r->themes[r->nthemes++], PATH_MAX, "%s/.local/share/icons/MacTahoe-blue-dark", home);
+        snprintf(r->themes[r->nthemes++], PATH_MAX, "%s/.local/share/icons/MacTahoe-blue-light", home);
+        snprintf(r->themes[r->nthemes++], PATH_MAX, "%s/.local/share/icons/hicolor", home);
+    }
+    snprintf(r->themes[r->nthemes++], PATH_MAX, "%s/usr/share/icons/MacTahoe-blue", prefix);
+    snprintf(r->themes[r->nthemes++], PATH_MAX, "%s/usr/share/icons/MacTahoe-blue-dark", prefix);
+    snprintf(r->themes[r->nthemes++], PATH_MAX, "%s/usr/share/icons/MacTahoe-blue-light", prefix);
     snprintf(r->themes[r->nthemes++], PATH_MAX, "%s/usr/share/icons/hicolor", prefix);
     r->npng = r->nthemes;
     snprintf(r->themes[r->nthemes++], PATH_MAX, "%s/usr/share/icons/Adwaita", prefix);
