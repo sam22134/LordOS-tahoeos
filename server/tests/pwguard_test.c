@@ -48,6 +48,10 @@ int main(void) {
     put(oversized, 0, 64); put(oversized, 4, 8);
     PwPod os = { oversized, sizeof oversized };
     CHECK(pwpod_string(os, &str) != 0); /* claimed string length exceeds POD buffer */
+    uint8_t embedded[16] = { 0 };
+    put(embedded, 0, 4); put(embedded, 4, 8); memcpy(embedded + 8, "a\\0b", 4);
+    PwPod es = { embedded, sizeof embedded };
+    CHECK(pwpod_string(es, &str) != 0); /* embedded NUL makes the value ambiguous */
 
     CHECK(pwguard_link_state_active(-2) == 0);       /* ERROR */
     CHECK(pwguard_link_state_active(-1) == 0);       /* UNLINKED */
