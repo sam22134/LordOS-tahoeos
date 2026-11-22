@@ -156,15 +156,16 @@ static void remove_player(const char *name) {
 }
 
 /* What a dictionary of properties did to a player: the position settles before the state changes. */
-static void apply_props(Player *pl, DRd *r) {
+static int apply_props(Player *pl, DRd *r) {
     double now = mono_ms();
     settle(pl, now);
     int got = mpris_read_props(r, &pl->p);
-    if (got <= 0) return;
+    if (got <= 0) return got;
     if (got & MP_POS) pl->pos_at = now;
     /* a new state or track: Position isn't signalled, so it is asked */
     if ((got & (MP_STATUS | MP_META)) && !(got & MP_POS)) get_position(pl);
     dirty = 1;
+    return got;
 }
 
 static void on_reply(const DMsg *m) {
@@ -251,9 +252,12 @@ static void on_signal(const DMsg *m) {
         }
         const char *iface = dr_str(&r, NULL);
         if (r.err || (strcmp(iface, ROOT_IFACE) && strcmp(iface, PLAYER_IFACE))) continue;
-        if (!strcmp(iface, ROOT_IFACE)) pl->root_revision++;
-        else pl->player_revision++;
-        apply_props(pl, &r);
+        int got = apply_props(pl, &r);
+        /* Ignore unrelated properties: they must not invalidate an initial GetAll snapshot. */
+        if (got > 0) {
+            if (!strcmp(iface, ROOT_IFACE)) pl->root_revision++;
+            else pl->player_revision++;
+        }
         /* properties it says changed without their value: read them all again */
         size_t end = dr_arr(&r, 4);
         if (!r.err && dr_more(&r, end)) get_all(pl, iface, !strcmp(iface, ROOT_IFACE) ? Q_ROOT : Q_PLAYER);
