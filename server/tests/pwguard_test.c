@@ -45,6 +45,13 @@ int main(void) {
     PwPod nn = { nonul, 32 };
     CHECK(!pwpod_struct_field(nn, 0, &f) && pwpod_string(f, &str) != 0); /* string without its 0 */
 
+    CHECK(pwguard_link_state_active(-2) == 0);       /* ERROR */
+    CHECK(pwguard_link_state_active(-1) == 0);       /* UNLINKED */
+    CHECK(pwguard_link_state_active(0) == 0);        /* INIT */
+    CHECK(pwguard_link_state_active(1) == 0);        /* NEGOTIATING */
+    CHECK(pwguard_link_state_active(2) == 0);        /* ALLOCATING */
+    CHECK(pwguard_link_state_active(3) == 0);        /* PAUSED */
+    CHECK(pwguard_link_state_active(4) == 1);        /* ACTIVE */
     CHECK(pwguard_capture_flag("Audio/Source") == FW_R_NO_MIC);
     CHECK(pwguard_capture_flag("Audio/Source/Virtual") == FW_R_NO_MIC);
     CHECK(pwguard_capture_flag("Audio/Duplex") == FW_R_NO_MIC);
