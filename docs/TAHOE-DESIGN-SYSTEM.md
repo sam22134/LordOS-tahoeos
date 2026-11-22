@@ -39,4 +39,4 @@ The shell now has Tahoe-specific presentation for its Menu Bar, Dock, window fra
 
 ## Tahoe native application icons
 
-The Tahoe shell has a mapped icon accent component for selected built-in LordOS app IDs, rendered in Launchpad and Dock. It falls back to the app's own icon for unmapped IDs, including third-party desktop, Flatpak and web apps. This initial set uses lightweight runtime primitives rather than a separate image dependency.
+The Tahoe shell has a mapped icon accent component for selected built-in LordOS app IDs, rendered in Launchpad and Dock. It falls back to the app's own icon for unmapped IDs, including third-party desktop, Flatpak and web apps. This initial set uses lightweight runtime primitives rather than a separate image dependency. The mapping was cross-checked against the app manifest directory and expanded to cover more bundled utilities; unmapped IDs keep their supplied icon.
