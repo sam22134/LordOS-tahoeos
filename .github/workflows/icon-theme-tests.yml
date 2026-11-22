@@ -1,4 +1,4 @@
-name: Icon theme regression tests
+name: Desktop input and icon regression tests
 
 on:
   push:
@@ -8,6 +8,11 @@ on:
       - "server/src/iconfind.c"
       - "server/src/iconfind.h"
       - "server/tests/iconfind_test.c"
+      - "server/src/tp/**"
+      - "server/tests/tp_test.c"
+      - "server/src/inputkind.h"
+      - "server/tests/inputkind_test.c"
+      - "tests/touchpad-sim/**"
       - "packaging/icons/**"
       - ".github/workflows/icon-theme-tests.yml"
   pull_request:
@@ -15,6 +20,11 @@ on:
       - "server/src/iconfind.c"
       - "server/src/iconfind.h"
       - "server/tests/iconfind_test.c"
+      - "server/src/tp/**"
+      - "server/tests/tp_test.c"
+      - "server/src/inputkind.h"
+      - "server/tests/inputkind_test.c"
+      - "tests/touchpad-sim/**"
       - "packaging/icons/**"
       - ".github/workflows/icon-theme-tests.yml"
 
@@ -32,3 +42,11 @@ jobs:
         run: /tmp/iconfind-test
       - name: Validate installer shell syntax
         run: bash -n packaging/icons/install-mactahoe.sh
+      - name: Compile and run input capability classification tests
+        run: |
+          cc -std=c11 -Wall -Wextra -o /tmp/inputkind-test server/tests/inputkind_test.c
+          /tmp/inputkind-test
+      - name: Compile and run touchpad driver tests
+        run: |
+          cc -D_GNU_SOURCE -std=c11 -Wall -Wextra -o /tmp/tp-test server/tests/tp_test.c server/src/tp/tp.c tests/touchpad-sim/gestures.c -lm
+          /tmp/tp-test
