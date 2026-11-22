@@ -52,7 +52,7 @@ static int only_web;                        /* another program serves the portal
 /* valores actuales */
 static int dark = 1;
 static double acc[3] = { 0.04, 0.52, 1.0 };
-static char acc_name[16] = "blue", buttons[64] = "close,minimize,maximize:", gtk_theme[64] = "Adwaita-dark", icon_theme[64] = "MacTahoe-blue";
+static char acc_name[16] = "blue", buttons[64] = "close,minimize,maximize:", gtk_theme[64] = "Adwaita-dark", icon_theme[64] = "MacTahoe-blue-dark";
 
 enum { V_U, V_S, V_RGB };
 typedef struct { const char *ns, *key; int type; } Key;
@@ -2220,11 +2220,13 @@ static int theme_installed(const char *name) {
 void portal_set(int is_dark, const double rgb[3], const char *accent_name, const char *button_layout) {
     int old_dark = dark;
     double old[3] = { acc[0], acc[1], acc[2] };
-    char old_name[16], old_buttons[64], old_theme[64];
+    char old_name[16], old_buttons[64], old_theme[64], old_icon_theme[64];
     snprintf(old_name, sizeof old_name, "%s", acc_name);
     snprintf(old_buttons, sizeof old_buttons, "%s", buttons);
     snprintf(old_theme, sizeof old_theme, "%s", gtk_theme);
+    snprintf(old_icon_theme, sizeof old_icon_theme, "%s", icon_theme);
     dark = !!is_dark;
+    snprintf(icon_theme, sizeof icon_theme, "%s", dark ? "MacTahoe-blue-dark" : "MacTahoe-blue-light");
     for (int i = 0; i < 3; i++) acc[i] = rgb[i] < 0 ? 0 : rgb[i] > 1 ? 1 : rgb[i];
     if (accent_name) snprintf(acc_name, sizeof acc_name, "%s", accent_name);
     if (button_layout) snprintf(buttons, sizeof buttons, "%s", button_layout);
@@ -2235,6 +2237,7 @@ void portal_set(int is_dark, const double rgb[3], const char *accent_name, const
     if (memcmp(old, acc, sizeof old)) changed(1);
     if (strcmp(old_name, acc_name)) changed(4);
     if (strcmp(old_theme, gtk_theme)) changed(5);
+    if (strcmp(old_icon_theme, icon_theme)) changed(6);
     if (strcmp(old_buttons, buttons)) changed(7);
     if (up) dbus_flush(&conn);
     static int written;
