@@ -716,6 +716,14 @@ static void on_global(PwPod body) {
             send_msg(2, 1, &b);                                 /* registry.bind → client.info follows */
             c->proxy = px;
         }
+        /* Resolve identity asynchronously. Until then, fail closed while any app is restricted:
+         * the client must not get a brief unrestricted window before client.info arrives. */
+        arm();
+        if (guard_armed) {
+            c->want = GUARDED;
+            apply_permissions(c, c->want);
+            if (P.fd < 0) return;
+        }
         /* the others already restricted must not see this one either */
         for (int i = 0; i < MAX_CLIENTS; i++)
             if (P.cl[i].live && &P.cl[i] != c && P.cl[i].applied) apply_permissions(&P.cl[i], P.cl[i].applied);
@@ -740,6 +748,17 @@ static void on_global(PwPod body) {
         nd->flag = flag;
         nd->stream = stream;
         nd->client = cid ? (uint32_t)strtoul(cid, NULL, 10) : 0;
+        /* A stream can be announced before its owner's client.info response. Recheck the
+         * running restrictions and temporarily restrict that unresolved client before kill_streams. */
+        if (stream) {
+            arm();
+            PgClient *owner = client_by_id(nd->client);
+            if (guard_armed && owner && !owner->resolved && !(owner->want & stream)) {
+                owner->want = GUARDED;
+                apply_permissions(owner, owner->want);
+                if (P.fd < 0) return;
+            }
+        }
         if (flag)                                               /* a new microphone or camera: hidden from the restricted at once */
             for (int i = 0; i < MAX_CLIENTS; i++) if (P.cl[i].live && (P.cl[i].applied & flag)) apply_permissions(&P.cl[i], P.cl[i].applied);
         if (stream) kill_streams();
