@@ -465,7 +465,7 @@ License: MIT and public-domain
 
 Files: usr/share/icons/MacTahoe-*
 Copyright: MacTahoe icon theme contributors (see AUTHORS in each theme directory)
-License: GPL-3.0
+License: GPL-3
  The complete upstream COPYING file is retained in each installed theme directory.
  On Debian systems, the GPL-3 license text is also available in
  /usr/share/common-licenses/GPL-3.
