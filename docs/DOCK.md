@@ -220,7 +220,7 @@ In Lord Flow and Tahoe, each minimized window gets an individual compact tile af
 
 When an app has more than one window, hovering its Dock icon opens a small window chooser. Each card identifies a window; selecting one focuses it and restores it if minimized. Clicking the Dock icon of the app whose window is currently in front minimizes that foreground window. Clicking another app's icon keeps the usual behavior and brings one of its windows forward.
 
-In Lord Flow, each minimized window gets an individual compact tile after the app icons and before the Trash. Windows belonging to the same app remain separate, and clicking a tile calls `wm.focus(windowId)` so the exact window is restored (including switching to its desktop when necessary). The tile updates from the live window list and disappears when that window is restored or closed.
+Windows belonging to the same app remain separate, and clicking a minimized tile calls `wm.focus(windowId)` so the exact window is restored (including switching to its desktop when necessary). Tiles update from the live window list and disappear when their window is restored or closed.
 
 These first tiles are lightweight window representations (frame, app icon and title), not captured screenshots of the app contents. They do not keep a second copy of a window's raster in memory. A future visual pass can replace the representation with a cached snapshot if the compositor exposes a safe, low-cost thumbnail source.
 
