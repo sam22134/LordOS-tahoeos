@@ -147,6 +147,26 @@ int pwguard_parse_pid(const char *s) {
     return !pwguard_parse_u32(s, &pid) && pid > 0 && pid <= INT_MAX ? (int)pid : 0;
 }
 
+/* /proc/<pid>/status: accept exactly one positive PID after the NSpid label. */
+int pwguard_parse_nspid(const char *line) {
+    if (!line || strncmp(line, "NSpid:", 6)) return 0;
+    const char *s = line + 6;
+    while (*s == ' ' || *s == '\t') s++;
+    const char *end = s;
+    while (*end >= '0' && *end <= '9') end++;
+    if (end == s || (*end && *end != ' ' && *end != '\t' && *end != '\r' && *end != '\n')) return 0;
+    char token[32];
+    size_t n = (size_t)(end - s);
+    if (n >= sizeof token) return 0;
+    memcpy(token, s, n);
+    token[n] = 0;
+    int pid = pwguard_parse_pid(token);
+    if (!pid) return 0;
+    s = end;
+    while (*s == ' ' || *s == '\t' || *s == '\r' || *s == '\n') s++;
+    return *s ? 0 : pid;
+}
+
 static int pwpod_long(PwPod p, int64_t *v) {
     if (p.n < 16 || rd32(p.p + 4) != SPA_LONG || rd32(p.p) != 8) return -1;
     memcpy(v, p.p + 8, 8);
@@ -767,8 +787,7 @@ static int same_pidns(int pid) {
     int ok = 0;
     while (f && fgets(line, sizeof line, f)) {
         if (strncmp(line, "NSpid:", 6)) continue;
-        int a, b;
-        ok = sscanf(line + 6, "%d %d", &a, &b) == 1 && a == pid;
+        ok = pwguard_parse_nspid(line) == pid;
         break;
     }
     if (f) fclose(f);
