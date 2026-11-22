@@ -40,6 +40,9 @@ typedef struct { const uint8_t *p; size_t n; } PwPod;
 int  pwpod_struct_field(PwPod s, int index, PwPod *out);     /* 0 ok */
 int  pwpod_int(PwPod p, int32_t *v);
 int  pwpod_string(PwPod p, const char **s);
+/* Strict decimal parsing for PipeWire's string-valued IDs and process IDs (0 = invalid PID). */
+int  pwguard_parse_u32(const char *s, uint32_t *value);
+int  pwguard_parse_pid(const char *s);
 /* Which restriction makes a node a capture node to hide ("Audio/Source" → FW_R_NO_MIC...), 0 none. */
 uint32_t pwguard_capture_flag(const char *media_class);
 /* The same for a stream an app creates to capture ("Stream/Input/Audio" → FW_R_NO_MIC). */
