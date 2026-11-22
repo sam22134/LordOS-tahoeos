@@ -10,7 +10,7 @@ LordOS Tahoe uses two complementary icon paths:
 The default freedesktop icon theme is [MacTahoe-icon-theme](https://github.com/vinceliuice/MacTahoe-icon-theme), pinned to revision
 `839848b9a8a38a92a6936e30c4abe35cc6f2546d`.
 
-Install it with:
+The LordOS package builder runs the pinned installer, so normal `.deb` installs and the live ISO include the icon theme. To install it manually on a development system, run:
 
 ```sh
 sudo bash packaging/icons/install-mactahoe.sh
