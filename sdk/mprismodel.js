@@ -8,7 +8,7 @@
 
 export const MAX_PLAYERS = 16;          // as many as lord-server follows (MPRIS_MAX_PLAYERS)
 export const TILE_MAX = 3;              // players Control Center shows at once
-const LIMIT = { name: 255, identity: 95, title: 255, artist: 255, album: 255, art: 1023 };
+const LIMIT = { name: 255, owner: 255, identity: 95, title: 255, artist: 255, album: 255, art: 1023 };
 const STATUS = new Set(['playing', 'paused', 'stopped']);
 
 const str = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
@@ -20,7 +20,7 @@ export function normalize(p) {
   const length = ms(p.length);
   const pos = length ? Math.min(ms(p.pos), length) : ms(p.pos);
   return {
-    name: str(p.name, LIMIT.name), identity: str(p.identity, LIMIT.identity), status: STATUS.has(p.status) ? p.status : 'stopped',
+    name: str(p.name, LIMIT.name), owner: str(p.owner, LIMIT.owner), identity: str(p.identity, LIMIT.identity), status: STATUS.has(p.status) ? p.status : 'stopped',
     title: str(p.title, LIMIT.title), artist: str(p.artist, LIMIT.artist), album: str(p.album, LIMIT.album),
     art: str(p.art, LIMIT.art).startsWith('/') ? str(p.art, LIMIT.art) : '', length, pos,
     canPlay: p.canPlay === true, canPause: p.canPause === true, canNext: p.canNext === true, canPrev: p.canPrev === true,
@@ -37,8 +37,9 @@ export function mergePlayers(prev, list, now) {
     const p = normalize(raw);
     if (!p || out.some((x) => x.name === p.name)) continue;
     const was = old.get(p.name);
-    const started = p.status === 'playing' && (!was || was.status !== 'playing');
-    out.push({ ...p, at: now, active: started ? now : was ? was.active : 0 });
+    const sameInstance = was && was.owner === p.owner;
+    const started = p.status === 'playing' && (!sameInstance || was.status !== 'playing');
+    out.push({ ...p, at: now, active: started ? now : sameInstance ? was.active : 0 });
     if (out.length >= MAX_PLAYERS) break;
   }
   return out;
