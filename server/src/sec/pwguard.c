@@ -58,7 +58,14 @@ typedef struct {
     int resolved;               /* app worked out (needs the client's info) */
     char fpid[64];              /* pipewire.access.portal.app_id: the Flatpak app pipewire-pulse says it is (checked) */
     char app[FW_APP_MAX];
-    uint32_t want, applied;     /* restrictions (FW_R_NO_MIC | FW_R_NO_CAMERA | FW_R_NO_SCREEN) to apply / applied */
+    uint32_t want, applied;     /* restrictions requested / confirmed by Core::Done */
+    uint32_t pending_sync;
+    uint32_t pending_sync_header;
+    uint32_t pending_seq[16];
+    uint32_t pending_flags;
+    unsigned pending_count;
+    double pending_since;
+    int pending, pending_failed, pending_dirty;
     int identity_pid;            /* resolved process whose identity this PipeWire connection was bound to */
     uint64_t identity_start;     /* /proc/<pid>/stat starttime: prevents PID reuse from inheriting identity */
     int identity_failed;         /* ambiguous namespace PID: never retry it as a different host process */
@@ -75,7 +82,7 @@ static struct {
     size_t inlen;
     uint8_t *out;
     size_t outlen;
-    uint32_t seq;
+    uint32_t seq, sync_token;
     PgClient cl[MAX_CLIENTS];
     PgNode node[MAX_NODES];
     PgPort port[MAX_PORTS];
@@ -219,16 +226,21 @@ static void flush_out(void) {
     }
 }
 
-static int send_msg(uint32_t id, uint32_t opcode, const Pb *b) {
+static int send_msg_seq(uint32_t id, uint32_t opcode, const Pb *b, uint32_t *sent_seq) {
     if (P.fd < 0) return -1;
     if (b->err) { drop(); return -1; }
     if (!P.out && !(P.out = malloc(OUT_MAX))) { drop(); return -1; }
     if (P.outlen + 16 + b->n > OUT_MAX) { drop(); return -1; }   /* PipeWire isn't reading: start over */
-    uint32_t h[4] = { id, opcode << 24 | (uint32_t)(b->n & 0xffffff), P.seq++, 0 };
+    uint32_t seq = P.seq++;
+    uint32_t h[4] = { id, opcode << 24 | (uint32_t)(b->n & 0xffffff), seq, 0 };
     memcpy(P.out + P.outlen, h, 16);
     memcpy(P.out + P.outlen + 16, b->b, b->n);
     P.outlen += 16 + b->n;
+    if (sent_seq) *sent_seq = seq;
     return 0;
+}
+static int send_msg(uint32_t id, uint32_t opcode, const Pb *b) {
+    return send_msg_seq(id, opcode, b, NULL);
 }
 
 static uint32_t proxy_new(void) {
@@ -238,6 +250,7 @@ static uint32_t proxy_new(void) {
 
 static void start_protocol(void) {
     P.seq = 0;
+    P.sync_token = 0;
     P.proxy_used[0] = P.proxy_used[1] = P.proxy_used[2] = 1;
     Pb b = { .n = 0 };
     size_t s = pb_begin(&b); pb_int(&b, 3); pb_end(&b, s);
@@ -417,17 +430,39 @@ static int send_perm_chunk(PgClient *c, const int32_t *pairs, int32_t n) {
     return send_msg(c->proxy, 4, &b);                           /* client.update_permissions */
 }
 
+/* A permission update is not considered applied until Core::Done confirms that every
+ * preceding UpdatePermissions method has been processed. Core::Error is correlated by the
+ * target proxy and the request header sequence. */
+#define PERM_MAX_CHUNKS 16
 static void apply_permissions(PgClient *c, uint32_t flags) {
-    if (!c->proxy) return;
+    if (!c->proxy || !c->live || P.fd < 0) return;
+    if (c->pending) { c->pending_dirty = 1; return; }
+
     int32_t pairs[2 * PERM_CHUNK];
     int32_t n = 0;
-#define PERM_ADD(id_, perm_) do { pairs[2 * n] = (int32_t)(id_); pairs[2 * n + 1] = (int32_t)(perm_); \
-                                 if (++n == PERM_CHUNK) { if (send_perm_chunk(c, pairs, n)) return; n = 0; if (P.fd < 0) return; } } while (0)
+    c->pending_count = 0;
+    c->pending_failed = 0;
+    c->pending_dirty = 0;
+    c->pending_flags = flags;
+    c->pending = 1;
+    c->pending_since = now_ms();
+#define PERM_ADD(id_, perm_) do { \
+        pairs[2 * n] = (int32_t)(id_); pairs[2 * n + 1] = (int32_t)(perm_); \
+        if (++n == PERM_CHUNK) { \
+            uint32_t sent = 0; \
+            if (send_perm_chunk(c, pairs, n)) { c->pending = 0; return; } \
+            /* send_perm_chunk uses the ordinary sender; its header sequence is the last one. */ \
+            sent = P.seq - 1; \
+            if (c->pending_count >= PERM_MAX_CHUNKS) { drop(); return; } \
+            c->pending_seq[c->pending_count++] = sent; n = 0; \
+            if (P.fd < 0) return; \
+        } \
+    } while (0)
     uint32_t perm_clients = flags ? 0 : PW_ALL;
     for (int i = 0; i < MAX_NODES; i++) {
         PgNode *nd = &P.node[i];
         if (!nd->live || !nd->flag) continue;
-        uint32_t want = (flags & nd->flag) ? 0 : PW_ALL;    /* restored when lifted */
+        uint32_t want = (flags & nd->flag) ? 0 : PW_ALL;
         PERM_ADD(nd->id, want);
         for (int k = 0; k < MAX_PORTS; k++)
             if (P.port[k].live && P.port[k].node == nd->id) PERM_ADD(P.port[k].id, want);
@@ -438,8 +473,27 @@ static void apply_permissions(PgClient *c, uint32_t flags) {
         PERM_ADD(o->id, perm_clients);
     }
 #undef PERM_ADD
-    if (n && send_perm_chunk(c, pairs, n)) return;
-    if (P.fd >= 0) c->applied = flags;
+    if (n) {
+        uint32_t sent = 0;
+        if (send_perm_chunk(c, pairs, n)) { c->pending = 0; return; }
+        sent = P.seq - 1;
+        if (c->pending_count >= PERM_MAX_CHUNKS) { drop(); return; }
+        c->pending_seq[c->pending_count++] = sent;
+    }
+
+    /* Core::Sync is a barrier: Done echoes this unique token after earlier methods are handled. */
+    Pb sync = { .n = 0 };
+    size_t at = pb_begin(&sync);
+    uint32_t token = ++P.sync_token;
+    if (!token || token > INT32_MAX) { P.sync_token = token = 1; }
+    pb_int(&sync, 0);
+    pb_int(&sync, (int32_t)token);
+    pb_end(&sync, at);
+    c->pending_sync = token;
+    if (send_msg_seq(0, 2, &sync, &c->pending_sync_header)) {
+        c->pending = 0;
+        return;
+    }
 }
 
 /* registry.destroy of a global (a stream, a node or a client we must not leave running) */
@@ -846,7 +900,7 @@ static void on_global(PwPod body) {
         }
         /* the others already restricted must not see this one either */
         for (int i = 0; i < MAX_CLIENTS; i++)
-            if (P.cl[i].live && &P.cl[i] != c && P.cl[i].applied) apply_permissions(&P.cl[i], P.cl[i].applied);
+            if (P.cl[i].live && &P.cl[i] != c && P.cl[i].want) apply_permissions(&P.cl[i], P.cl[i].want);
     } else if (!strcmp(type, "PipeWire:Interface:Node") && has_props) {
         const char *mc = dict_get(props, "media.class"), *cid = dict_get(props, "client.id");
         uint32_t flag = pwguard_node_flag(mc, dict_get(props, "media.role"), dict_get(props, "node.name")), stream = pwguard_stream_flag(mc);
@@ -882,7 +936,7 @@ static void on_global(PwPod body) {
             }
         }
         if (flag)                                               /* a new microphone or camera: hidden from the restricted at once */
-            for (int i = 0; i < MAX_CLIENTS; i++) if (P.cl[i].live && (P.cl[i].applied & flag)) apply_permissions(&P.cl[i], P.cl[i].applied);
+            for (int i = 0; i < MAX_CLIENTS; i++) if (P.cl[i].live && (P.cl[i].want & flag)) apply_permissions(&P.cl[i], P.cl[i].want);
         if (stream) kill_streams();
     } else if (!strcmp(type, "PipeWire:Interface:Link")) {
         PgLink *ln = NULL;
@@ -933,7 +987,7 @@ static void on_global(PwPod body) {
         pt->live = 1;
         pt->id = (uint32_t)id;
         pt->node = node;
-        for (int i = 0; i < MAX_CLIENTS; i++) if (P.cl[i].live && (P.cl[i].applied & nd->flag)) apply_permissions(&P.cl[i], P.cl[i].applied);
+        for (int i = 0; i < MAX_CLIENTS; i++) if (P.cl[i].live && (P.cl[i].want & nd->flag)) apply_permissions(&P.cl[i], P.cl[i].want);
     }
 }
 
@@ -1023,10 +1077,50 @@ static void on_message(uint32_t id, uint32_t opcode, PwPod body) {
         Pb p = { .n = 0 };
         size_t s = pb_begin(&p); pb_int(&p, a); pb_int(&p, b); pb_end(&p, s);
         send_msg(0, 3, &p);
+    } else if (id == 0 && opcode == 1) {                        /* core.done(id, seq) */
+        int32_t done_id, done_seq;
+        if (pwpod_struct_field(body, 0, &f) || pwpod_int(f, &done_id) ||
+            pwpod_struct_field(body, 1, &f) || pwpod_int(f, &done_seq)) return;
+        if (done_id != 0) return;
+        for (int i = 0; i < MAX_CLIENTS; i++) {
+            PgClient *c = &P.cl[i];
+            if (!c->live || !c->pending || c->pending_sync != (uint32_t)done_seq) continue;
+            uint32_t flags = c->pending_flags;
+            int failed = c->pending_failed;
+            int dirty = c->pending_dirty;
+            c->pending = 0;
+            c->pending_count = 0;
+            if (failed) {
+                fprintf(stderr, "pwguard: permission update failed; disconnecting client %u (%s)\n",
+                        c->id, c->app[0] ? c->app : "unresolved");
+                destroy_global(c->id);
+                c->live = 0;
+                break;
+            }
+            c->applied = flags;
+            if (dirty || c->want != c->applied) apply_permissions(c, c->want);
+            break;
+        }
     } else if (id == 0 && opcode == 3) {                        /* core.error */
+        int32_t resource_id = -1, request_seq = -1, result = 0;
         const char *msg = "";
-        if (!pwpod_struct_field(body, 3, &f)) pwpod_string(f, &msg);
-        fprintf(stderr, "pwguard: PipeWire error: %s\n", msg);
+        (void)(!pwpod_struct_field(body, 0, &f) && !pwpod_int(f, &resource_id));
+        (void)(!pwpod_struct_field(body, 1, &f) && !pwpod_int(f, &request_seq));
+        (void)(!pwpod_struct_field(body, 2, &f) && !pwpod_int(f, &result));
+        if (!pwpod_struct_field(body, 3, &f)) (void)pwpod_string(f, &msg);
+        fprintf(stderr, "pwguard: PipeWire error (object %d, seq %d, result %d): %s\n",
+                resource_id, request_seq, result, msg);
+        for (int i = 0; i < MAX_CLIENTS; i++) {
+            PgClient *c = &P.cl[i];
+            if (!c->live || !c->pending) continue;
+            if ((resource_id == (int32_t)c->proxy && request_seq >= 0 &&
+                 ({ int found = 0; for (unsigned k = 0; k < c->pending_count; k++)
+                        if (c->pending_seq[k] == (uint32_t)request_seq) found = 1; found; })) ||
+                (resource_id == 0 && request_seq >= 0 &&
+                 c->pending_sync_header == (uint32_t)request_seq)) {
+                c->pending_failed = 1;
+            }
+        }
     } else if (id == 0 && opcode == 4) {                        /* core.remove_id */
         if (!pwpod_struct_field(body, 0, &f) && !pwpod_int(f, &a) && a > 2 && a < MAX_PROXY) {
             P.proxy_used[a] = 0;
@@ -1104,7 +1198,15 @@ void pwguard_tick(void) {
     arm();
     for (int i = 0; i < MAX_CLIENTS; i++) {
         PgClient *c = &P.cl[i];
-        if (!c->live || !c->resolved) continue;
+        if (!c->live) continue;
+        if (c->pending && t - c->pending_since > 5000.0) {
+            fprintf(stderr, "pwguard: permission confirmation timed out; disconnecting client %u (%s)\n",
+                    c->id, c->app[0] ? c->app : "unresolved");
+            destroy_global(c->id);
+            c->live = 0;
+            continue;
+        }
+        if (!c->resolved) continue;
         /* Re-read every client's cgroup, not just PulseAudio/unverified clients: a native app may
          * migrate into user@ after its first identification. resolve() also pins PID starttime. */
         resolve(c);
