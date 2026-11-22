@@ -219,6 +219,31 @@ static void t_taps(void) {
     CHECK(!s.btns[0], "tap off: no click (%s)", s.btns);
 }
 
+static void t_device_modes(void) {
+    TpCaps caps = sim_caps(TP_KIND_TOUCHPAD);
+    snprintf(caps.id, sizeof caps.id, "tp-test-stable");
+    caps.identity_stable = 1;
+    caps.clickpad = 0;
+    TpDevice *d = tp_new(&caps);
+    CHECK(d != NULL, "create device for per-device mode test");
+    if (!d) return;
+    CHECK(tp_set_device_mode(caps.id, 1), "stable device accepts clickpad override");
+    CHECK(tp_caps(d)->clickpad == 1, "clickpad override changes classification");
+    CHECK(tp_set_device_mode(caps.id, 2), "stable device accepts separate-button override");
+    CHECK(tp_caps(d)->clickpad == 0, "separate-button override disables corner mapping");
+    CHECK(tp_set_device_mode(caps.id, 0), "stable device accepts auto mode");
+    CHECK(tp_caps(d)->clickpad == 0, "auto restores kernel-detected classification");
+    tp_free(d);
+
+    caps.identity_stable = 0;
+    d = tp_new(&caps);
+    CHECK(d != NULL, "create ambiguous device for safety test");
+    if (!d) return;
+    CHECK(!tp_set_device_mode(caps.id, 1), "ambiguous identity rejects persistent override");
+    CHECK(tp_caps(d)->clickpad == 0, "rejected override leaves detected behavior unchanged");
+    tp_free(d);
+}
+
 static void t_clicks(void) {
     Sum s = go("click", NULL);
     CHECK(!strcmp(s.btns, "Ll"), "physical click with 1 finger (%s)", s.btns);
@@ -983,6 +1008,7 @@ int main(int argc, char **argv) {
     t_pointer();
     t_taps();
     t_clicks();
+    t_device_modes();
     t_scroll();
     t_pinch();
     t_swipe();
