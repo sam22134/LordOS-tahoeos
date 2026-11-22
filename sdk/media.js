@@ -292,7 +292,7 @@ nowPlaying.subscribe(() => {
 function linuxEntry(p) {
   const ctl = (cmd, ms) => {
     const m = mpris();
-    if (m && m.control(p.name, cmd, ms || 0)) linuxPlayers.set(touch(linuxPlayers.get(), p.name, Date.now()));
+    if (m && m.control(p.name, cmd, ms || 0) === 0) linuxPlayers.set(touch(linuxPlayers.get(), p.name, Date.now()));
   };
   const playing = p.status === 'playing';
   return {
