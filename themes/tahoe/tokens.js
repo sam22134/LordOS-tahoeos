@@ -2,6 +2,16 @@
 // Lord Flow's native shell components are reused; this file supplies a distinct material system.
 import { lordosWallpapers } from '@lordos/sdk';
 
+// Tahoe-curated order: lead with calmer, light/glass-friendly landscapes and abstract art,
+// while retaining the full LordOS collection and per-display wallpaper support.
+const tahoeWallpaperOrder = ['lumo-celestial', 'lumo-aurora', 'royal-waves', 'crystal-crown',
+  'eternal-dawn', 'violet-horizon', 'royal-flow', 'solar-odyssey', 'event-horizon',
+  'infinite-galaxy', 'stellar-voyage'];
+const tahoeWallpapers = [...lordosWallpapers].sort((a, b) => {
+  const ai = tahoeWallpaperOrder.indexOf(a.id), bi = tahoeWallpaperOrder.indexOf(b.id);
+  return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
+});
+
 export const accents = {
   azul: '#0a84ff',
   violeta: '#bf5af2',
@@ -20,7 +30,7 @@ export function makeTheme({ mode, accent, effects }) {
     accent: a,
     accentName: accents[accent] ? accent : 'azul',
     accents,
-    wallpapers: lordosWallpapers,
+    wallpapers: tahoeWallpapers,
     effects: glass,
     text: dark ? '#f5f5f7' : '#1d1d1f',
     textDim: dark ? 'rgba(235,235,245,0.58)' : 'rgba(60,60,67,0.62)',
