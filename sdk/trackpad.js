@@ -38,7 +38,20 @@ export const TRACKPAD_DEFAULTS = {
 const native = () => typeof lord !== 'undefined' && lord.input;
 export const trackpadConfig = () => ({ ...TRACKPAD_DEFAULTS, ...(settings.get().trackpad || {}) });
 
-function apply() { if (native()) lord.input.configure(trackpadConfig()); }
+function applyDeviceModes(list = trackpadDevices.get()) {
+  if (!native()) return;
+  const modes = settings.get().trackpadDevices || {};
+  for (const d of list) {
+    if (d.kind !== 'touchpad' || !d.identityStable) continue;
+    const mode = modes[d.id];
+    if (mode === 'auto' || mode === 'clickpad' || mode === 'buttons') lord.input.configureDevice(d.id, mode);
+  }
+}
+function apply() {
+  if (!native()) return;
+  lord.input.configure(trackpadConfig());
+  applyDeviceModes();
+}
 apply();
 let applied = settings.get().trackpad;
 settings.subscribe(() => {
@@ -52,6 +65,7 @@ export function refreshTrackpads() {
   if (!native()) return;
   const list = lord.input.devices();
   if (JSON.stringify(list) !== JSON.stringify(trackpadDevices.get())) trackpadDevices.set(list);
+  applyDeviceModes(list);
 }
 export function useTrackpads() {
   useEffect(() => { refreshTrackpads(); const id = setInterval(refreshTrackpads, 3000); return () => clearInterval(id); }, []);
@@ -60,6 +74,17 @@ export function useTrackpads() {
 export const hasTouchpad = () => trackpadDevices.get().some((d) => d.kind === 'touchpad');
 
 export const setTrackpad = (patch) => settings.set((s) => ({ ...s, trackpad: { ...(s.trackpad || {}), ...patch } }));
+
+export function setTrackpadDeviceMode(id, mode) {
+  if (!id || !['auto', 'clickpad', 'buttons'].includes(mode)) return false;
+  const device = trackpadDevices.get().find((d) => d.id === id);
+  if (!device || !device.identityStable) return false;
+  const modes = { ...(settings.get().trackpadDevices || {}) };
+  if (mode === 'auto') delete modes[id];
+  else modes[id] = mode;
+  settings.set((s) => ({ ...s, trackpadDevices: modes }));
+  return native() ? lord.input.configureDevice(id, mode) : false;
+}
 
 // ---- desktop swipe ----
 
