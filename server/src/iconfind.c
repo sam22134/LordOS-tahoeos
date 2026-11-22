@@ -47,7 +47,7 @@ void iconfind_roots(IconRoots *r, const char *home, const char *prefix) {
     snprintf(r->appstream, PATH_MAX, "%s/var/lib/lordos/pkg/icons/64", prefix);
 }
 
-/* the SVGs of a name in these kinds of folder: every theme's scalable/ first, then /usr/share/pixmaps */
+/* SVGs: category/scalable (MacTahoe), then scalable/category (hicolor), then /usr/share/pixmaps. */
 static int find_svg(const IconRoots *r, const char *const *kinds, const char *name, char *out, size_t n) {
     for (int k = 0; kinds[k]; k++)
         for (int t = 0; t < r->nthemes; t++) {
@@ -58,7 +58,7 @@ static int find_svg(const IconRoots *r, const char *const *kinds, const char *na
     return try_path(out, n, ".svg", "%s/%s.svg", r->pixmaps, name);
 }
 
-/* the symbolic ones, last: "<name>-symbolic.svg" in symbolic/ (where the themes put them now) or scalable/ */
+/* Symbolic SVGs, last: category/symbolic (MacTahoe) or symbolic/category (hicolor), then scalable variants. */
 static int find_symbolic(const IconRoots *r, const char *const *kinds, const char *name, char *out, size_t n) {
     const char *suffix = ends_with(name, "-symbolic") ? "" : "-symbolic";
     for (int k = 0; kinds[k]; k++)
