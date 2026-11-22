@@ -29,8 +29,10 @@ the app's session scope), not from a display name supplied by the stream. Duplic
 rows are merged by app and device kind. Generic video nodes are not treated as screen shares;
 screen sharing continues to use the ScreenCast portal's session attribution.
 
-This is live graph attribution, not a claim that a paused stream is capturing. If PipeWire has
-not supplied a complete link or client identity, the row is omitted rather than guessed.
+This is live graph attribution, not a claim that a paused stream is capturing. Links are invalidated
+when their global or either endpoint node disappears, so a later object reusing a node ID cannot inherit
+an old capture relationship. If PipeWire has not supplied a complete link or client identity, the row
+is omitted rather than guessed.
 
 ## Tabs
 
