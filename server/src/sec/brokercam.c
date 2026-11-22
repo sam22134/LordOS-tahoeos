@@ -86,6 +86,22 @@ static void cam_free(Cam *c, int kill_helper) {
     c->ringfd = -1;
 }
 
+/* The indicator is not allowed to hide a device that the server still has open. */
+int brokercam_device_active(const char *app, const char *kind) {
+    if (!app || !kind) return 0;
+    for (int i = 0; i < MAX_CAMS; i++) {
+        Cam *c = &cams[i];
+        const char *owner = c->used ? brokersrv_conn_app(c->conn) : NULL;
+        if (!owner || strcmp(owner, app)) continue;
+        if (!strcmp(kind, "camera") && !c->live) return 1;
+        if (!strcmp(kind, "microphone") && c->live) {
+            MediaSrc *s = media_src_get(c->sid);
+            if (s && s->mic) return 1;
+        }
+    }
+    return 0;
+}
+
 static int take_token(Cam *c) {
     double t = now_s();
     c->tokens += (t - c->tok_at) * ACK_RATE;
