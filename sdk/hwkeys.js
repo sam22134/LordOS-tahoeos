@@ -13,18 +13,18 @@ import { backlightOf, backlightValue } from './menubarmodel.js';
 function changeVolume(dir) {
   const out = defaultSink(soundState.get());
   if (!out) return;
-  if (dir > 0 && out.mute) sound.setMute('sink', out.index, false);
+  if (dir > 0 && out.mute && !sound.setMute('sink', out.index, false)) return;
   const level = nextVolume(out.level, dir);
-  sound.setVolume('sink', out.index, level);
-  showLevel('volume', levelFraction(level), out.mute && dir < 0);
+  if (sound.setVolume('sink', out.index, level))
+    showLevel('volume', levelFraction(level), out.mute && dir < 0);
 }
 export const volumeUp = () => changeVolume(1);
 export const volumeDown = () => changeVolume(-1);
 export function volumeMute() {
   const out = defaultSink(soundState.get());
   if (!out) return;
-  sound.setMute('sink', out.index, !out.mute);
-  showLevel('volume', levelFraction(out.level), !out.mute);
+  if (sound.setMute('sink', out.index, !out.mute))
+    showLevel('volume', levelFraction(out.level), !out.mute);
 }
 
 // A held key is faster than the helper's round trip: the value on its way counts, not the file's.
