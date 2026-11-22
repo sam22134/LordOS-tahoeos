@@ -111,7 +111,7 @@ O caminho foi seguido no código: `tp_event_at()` produz o botão direito (códi
 - [ ] Executar build e testes no ambiente de desenvolvimento (ainda não executados: o ambiente desta sessão não conseguiu acessar GitHub para clonar o repositório).
 - [ ] Validar em hardware físico.
 
-**Importante:** os casos de teste foram escritos, mas ainda não foram compilados nem executados. A inspeção do código e os testes simulados não substituem a validação no notebook real. A correção do touchpad permanece pendente até a execução da suíte e o teste no hardware.
+**Importante:** os testes de touchpad foram escritos, mas ainda não foram compilados nem executados nesta rodada. O teste de ícones teve execução independente no GitHub Actions. A inspeção do código e os testes simulados não substituem a validação no notebook real. A correção do touchpad permanece pendente até a execução da suíte e o teste no hardware.
 
 ### 3. Alt + Tab
 
@@ -128,6 +128,7 @@ O caminho foi seguido no código: `tp_event_at()` produz o botão direito (códi
 - [x] Adicionar regressões de ordem de resolução para PNG, SVG e symbolic MacTahoe, sem quebrar os caminhos hicolor e Adwaita.
 - [ ] Integrar o pacote ao pipeline final da ISO/.deb (a estrutura Debian ainda é placeholder e não produz imagem/pacote).
 - [ ] Criar a família de ícones nativos Tahoe para os aplicativos LordOS; os apps nativos continuam usando componentes React próprios, não os ícones genéricos do tema upstream.
-- [ ] Compilar e executar `iconfind-test` e os testes do portal em ambiente de build.
+- [x] Compilar e executar `iconfind-test` no GitHub Actions; validar a sintaxe do instalador com `bash -n`.
+- [ ] Adicionar teste automatizado específico para a troca de ícone no Settings portal; compilar e executar a suíte completa do servidor.
 
-A implementação e o guia estão em `packaging/icons/` e `docs/ICONS.md`. A revisão upstream está fixada em `839848b9a8a38a92a6936e30c4abe35cc6f2546d`; o repositório original informa licença GPL-3.0. Ainda não houve build nem execução dos testes.
+A implementação e o guia estão em `packaging/icons/` e `docs/ICONS.md`. A revisão upstream está fixada em `839848b9a8a38a92a6936e30c4abe35cc6f2546d`; o repositório original informa licença GPL-3.0. CI do commit `4f44feb5979e109a3138a308a7e3bf03647d5350`: `iconfind-test` passou e `bash -n packaging/icons/install-mactahoe.sh` passou. A suíte completa do servidor, os testes do portal e a validação em hardware ainda não foram executados.
