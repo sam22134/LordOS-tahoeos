@@ -194,6 +194,18 @@ export function Dock({ t, items: list, running, onOpen, onRestoreWindow, onConte
   // area: the display it is on (global coordinates); everything below is placed inside it
   const vert = position !== 'bottom';
   const [m, setM] = useState(null);             // mouse position along the Dock's axis
+  const [activating, setActivating] = useState(null);
+  const activationTimer = useRef(null);
+  useEffect(() => () => clearTimeout(activationTimer.current), []);
+  const activateItem = (id) => {
+    if (dockDragJustEnded()) return;
+    setActivating(id);
+    clearTimeout(activationTimer.current);
+    // This is acknowledgement of the click, not a claim that the app has finished launching.
+    // A real window lifecycle event clears the indicator sooner; the timeout prevents a stuck pulse.
+    activationTimer.current = setTimeout(() => setActivating(null), 420);
+    onOpen(id);
+  };
   const { dir } = useLocale();
   const drag = useStore(dockDrag);
   const poof = useStore(dockPoof);
@@ -435,9 +447,12 @@ export function Dock({ t, items: list, running, onOpen, onRestoreWindow, onConte
             </View>
           </View>
         ) : (
-          <View key={app.id} onClick={() => { if (!dockDragJustEnded()) onOpen(app.id); }} onContextMenu={() => onContext?.(app.id, anchor(i))}
+          <View key={app.id} onClick={() => activateItem(app.id)} onContextMenu={() => onContext?.(app.id, anchor(i))}
             onMouseDown={(e) => { if (!e.button) beginDockDrag({ id: app.id, Icon: app.Icon, x: e.x, y: e.y, source: 'dock' }); }}
-            style={{ position: 'absolute', ...place(i), width: sizes[i], height: sizes[i] }}>
+            style={{ position: 'absolute', ...place(i), width: sizes[i], height: sizes[i],
+              transform: !reduce && activating === app.id ? 'scale(0.9)' : 'scale(1)',
+              opacity: !reduce && activating === app.id ? 0.82 : 1,
+              transition: reduce ? 'none' : 'transform 150ms ease, opacity 150ms ease' }}>
             <app.Icon size={sizes[i]} />
             {/* a web app's unread count (SetBadge, docs/WEBAPPS.md): a red badge, "99+" past 99 */}
             {app.badge ? (() => {
