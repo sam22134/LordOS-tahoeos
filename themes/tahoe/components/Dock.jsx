@@ -12,6 +12,7 @@ import {
   registerDockTarget, dockDragJustEnded, refreshTrash, Layer, useDockCovered, dockBadgeMetrics,
 } from '@lordos/sdk';
 import { useEffect, useRef, useState } from 'react';
+import { TahoeIconForApp } from './AppIcon.jsx';
 
 const GAP = 8, PAD = 9, MARGIN = 6;
 const SEP = GAP + 1;          // separator before the recent apps and before the Trash
@@ -453,7 +454,7 @@ export function Dock({ t, items: list, running, onOpen, onRestoreWindow, onConte
               transform: !reduce && activating === app.id ? 'scale(0.9)' : 'scale(1)',
               opacity: !reduce && activating === app.id ? 0.82 : 1,
               transition: reduce ? 'none' : 'transform 150ms ease, opacity 150ms ease' }}>
-            <app.Icon size={sizes[i]} />
+            <TahoeIconForApp app={app} size={sizes[i]} />
             {/* a web app's unread count (SetBadge, docs/WEBAPPS.md): a red badge, "99+" past 99 */}
             {app.badge ? (() => {
               const b = dockBadgeMetrics(sizes[i]);      // smaller on a small Dock (issue #128)
