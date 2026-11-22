@@ -167,15 +167,23 @@ void bt_apply_props(BtModel *m, const char *path, const char *iface, DRd *r) {
 
 void bt_remove_object(BtModel *m, const char *path, const char *iface) {
     if (!strcmp(iface, "org.bluez.Device1")) {
+        if (prompt.active && !strcmp(prompt.dev, path)) {
+            agent_reject(&prompt.call, "device removed");
+            prompt_drop();
+        }
         for (int i = 0; i < m->ndevices; i++)
             if (!strcmp(m->devices[i].path, path)) { m->devices[i] = m->devices[--m->ndevices]; break; }
     } else if (!strcmp(iface, "org.bluez.Battery1")) {
         BtDevice *d = device(m, path, 0);
         if (d) d->battery = -1;
     } else if (!strcmp(iface, "org.bluez.Adapter1")) {
+        size_t pl = strlen(path);
+        if (prompt.active && !strncmp(prompt.dev, path, pl) && prompt.dev[pl] == '/') {
+            agent_reject(&prompt.call, "adapter removed");
+            prompt_drop();
+        }
         for (int i = 0; i < m->nadapters; i++)
             if (!strcmp(m->adapters[i].path, path)) { m->adapters[i] = m->adapters[--m->nadapters]; break; }
-        size_t pl = strlen(path);
         for (int i = 0; i < m->ndevices;)
             if (!strncmp(m->devices[i].path, path, pl) && m->devices[i].path[pl] == '/') m->devices[i] = m->devices[--m->ndevices];
             else i++;
