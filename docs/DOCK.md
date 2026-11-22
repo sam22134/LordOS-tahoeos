@@ -214,6 +214,12 @@ arguments). A Linux app shows its `.desktop`'s desktop actions, run through the 
 - **Lord Classic theme:** the Trash is the last button of the taskbar, with the same click, drop, menu
   and confirmation.
 
+## Minimized windows in the Dock
+
+In Lord Flow, each minimized window gets an individual compact tile after the app icons and before the Trash. Windows belonging to the same app remain separate, and clicking a tile calls `wm.focus(windowId)` so the exact window is restored (including switching to its desktop when necessary). The tile updates from the live window list and disappears when that window is restored or closed.
+
+These first tiles are lightweight window representations (frame, app icon and title), not captured screenshots of the app contents. They do not keep a second copy of a window's raster in memory. A future visual pass can replace the representation with a cached snapshot if the compositor exposes a safe, low-cost thumbnail source.
+
 ## Work area
 
 Each theme calls `configureWindows({ apps, workArea })` again when the position, the size,
