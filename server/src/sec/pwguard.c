@@ -688,7 +688,7 @@ static void on_global(PwPod body) {
         if (!ln || !px) {
             /* Link tracking is observational: never destroy a user's media connection because
              * the privacy guard ran out of bookkeeping slots. */
-            fprintf(stderr, "pwguard: link tracking capacity reached for link %d\\n", (int)id);
+            fprintf(stderr, "pwguard: link tracking capacity reached for link %d\n", (int)id);
             return;
         }
         memset(ln, 0, sizeof *ln);
