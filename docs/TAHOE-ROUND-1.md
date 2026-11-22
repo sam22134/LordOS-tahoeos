@@ -49,8 +49,10 @@ Não inferir clickpad apenas pela ausência de BTN_RIGHT. Essa regra pode classi
 - Quando o kernel não fornece identidade física nem serial, o fingerprint usa bus/vendor/product/nome e `identityStable` fica falso. Esse fallback serve para diagnóstico, não deve ser usado para gravar overrides persistentes, pois dispositivos iguais podem colidir.
 - `server/src/input.c` só chamava `tp_open()` depois de classificar o dispositivo como mouse ou ponteiro absoluto. Um touchpad multitouch que anuncie apenas `ABS_MT_POSITION_X/Y/SLOT`, sem `ABS_X/Y`, podia ser descartado antes do driver.
 - Foi adicionada uma classificação explícita para esse conjunto de capabilities, alinhada aos critérios de `tp_open()`, e testes no `inputkind_test.c`. A suíte ainda precisa ser executada.
-- Próximo passo: implementar `Auto / Clickpad / Botões separados` por dispositivo, aceitando persistência apenas quando `identityStable` for verdadeiro. Não usar override global.
-- O override ainda não foi implementado; `hasRight`, `id` e `identityStable` são apenas diagnóstico até a API individual existir.
+- A API `lord.input.configureDevice(id, mode)` agora aceita `auto`, `clickpad` e `buttons`. O servidor aplica o modo somente ao dispositivo conectado com o ID informado; modos forçados são recusados quando `identityStable` é falso.
+- `sdk/trackpad.js` persiste os overrides em `settings.trackpadDevices`, reaplica quando os dispositivos são reenumerados e atualiza a lista após a mudança. O `eventN` nunca é usado como chave.
+- Configurações agora apresenta um seletor por touchpad. Dispositivos sem identidade física única exibem o motivo e não permitem persistência individual.
+- Foram adicionados testes unitários para os três modos e para rejeitar override em identidade ambígua. Os testes ainda precisam ser compilados e executados.
 
 **Caminho do botão direito já existente**
 
@@ -100,7 +102,9 @@ O caminho foi seguido no código: `tp_event_at()` produz o botão direito (códi
 - [x] Corrigir a triagem inicial para aceitar touchpads multitouch sem eixos legados `ABS_X/Y`, mantendo o critério de capabilities do driver.
 - [x] Adicionar regressões para touchpad multitouch com `INPUT_PROP_POINTER`, `BTN_LEFT`, `INPUT_PROP_BUTTONPAD` e touchscreen `INPUT_PROP_DIRECT`.
 - [x] Expor fingerprint de dispositivo baseado em `EVIOCGPHYS`/`EVIOCGUNIQ`, com indicação explícita quando a identidade é apenas aproximada.
-- [ ] Implementar override individual e persistente (Auto / Clickpad / Botões separados).
+- [x] Implementar API de override individual (Auto / Clickpad / Botões separados), com bloqueio para identidade ambígua.
+- [x] Persistir preferências individuais e reaplicar na reenumeração.
+- [x] Expor controles individuais em Configurações e adicionar testes unitários de modo e segurança.
 - [ ] Corrigir e testar menus contextuais no caminho completo.
 - [ ] Implementar as demais melhorias da Rodada 1.
 - [ ] Executar build e testes no ambiente de desenvolvimento (ainda não executados: o ambiente desta sessão não conseguiu acessar GitHub para clonar o repositório).
