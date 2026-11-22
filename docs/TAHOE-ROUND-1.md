@@ -81,9 +81,8 @@ O caminho foi seguido no código: `tp_event_at()` produz o botão direito (códi
 
 ### 5. Feedback de abertura de aplicativos
 
-- Estados: solicitação, iniciando, janela pronta e falha.
-- Usar eventos reais do ciclo de vida; não manter animação infinita nem indicar sucesso antes da janela abrir.
-- Respeitar Reduce Motion.
+- O Dock agora dá feedback imediato e curto ao clique (ícone reduz e retorna em 420 ms), respeitando Reduce Motion. É confirmação da interação, não indica que o aplicativo terminou de abrir.
+- Próxima evolução: estados reais de solicitação, processo iniciado, primeira janela exibida e falha. Não manter animação infinita nem indicar sucesso antes da janela abrir.
 
 ### 6. Abrir com e navegador
 
