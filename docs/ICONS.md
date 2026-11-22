@@ -18,7 +18,7 @@ sudo bash packaging/icons/install-mactahoe.sh
 
 The installer places the upstream blue, light and dark variants in `/usr/share/icons` and preserves the upstream `COPYING` and `AUTHORS` files. It can also install into an image staging root with `DESTDIR=/path/to/root`. See [packaging/icons/README.md](../packaging/icons/README.md).
 
-The icon resolver understands both the MacTahoe layout (for example, `apps/scalable`, `status/symbolic` and `apps/32`) and the hicolor layout (`scalable/apps`, `symbolic/status` and `32x32/apps`). It checks the user's MacTahoe and hicolor directories before system variants, then Adwaita as a fallback. This preserves per-user hicolor icon overrides. GTK receives `MacTahoe-blue` through both the system settings.ini fallback and the Settings portal's `org.gnome.desktop.interface/icon-theme` key.
+The icon resolver understands both the MacTahoe layout (for example, `apps/scalable`, `status/symbolic` and `apps/32`) and the hicolor layout (`scalable/apps`, `symbolic/status` and `32x32/apps`). It checks the user's MacTahoe and hicolor directories before system variants, then Adwaita as a fallback. This preserves per-user hicolor icon overrides. GTK receives the MacTahoe dark or light variant through the system settings.ini fallback and the Settings portal's `org.gnome.desktop.interface/icon-theme` key; the portal switches variants with LordOS's dark/light appearance.
 
 ## Tahoe-native app icons
 
