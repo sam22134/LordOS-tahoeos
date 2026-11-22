@@ -25,7 +25,11 @@ no per-app restriction is active) and the PulseAudio compatibility view (which c
 source names only). The latter follows `Link::Info` and reports only `ACTIVE`
 connections from a microphone or camera source to an application's input stream. The application
 identity comes from `pwguard`'s verified PipeWire client resolution (process credentials and
-the app's session scope), not from a display name supplied by the stream. Duplicate microphone
+the app's session scope), not from a display name supplied by the stream. Client identities are
+re-evaluated every second so a process moved out of its app scope cannot keep its old attribution;
+the PID is pinned to its `/proc/<pid>/stat` start time, so a later process reusing that number cannot
+inherit the old connection's identity. If the original process disappears or cannot be verified,
+the client is treated as unverified rather than reassigned. Duplicate microphone
 rows are merged by app and device kind. Generic video nodes are not treated as screen shares;
 screen sharing continues to use the ScreenCast portal's session attribution.
 
