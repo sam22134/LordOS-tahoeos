@@ -4,8 +4,8 @@
  * (object id; opcode << 24 | payload size; sequence; number of fds) and a SPA POD Struct.
  * We only use: core.hello, client.update_properties, core.get_registry, core.pong,
  * registry.bind (clients and links), registry.destroy (a restricted app's capture streams),
- * client.update_permissions and core.sync barriers; and we read core.ping/done/error/remove_id, registry.global /
- * global_remove, client.info and Link::Info. Link state is observational and never changes policy.
+ * client.update_permissions and core.sync barriers; and we read core.ping/done/error/remove_id,
+ * registry.global/global_remove, client.info and Link::Info. Link state is observational and never changes policy.
  * Everything is non-blocking: lord-server never waits for it. */
 #include "pwguard.h"
 #include "appid.h"
@@ -34,6 +34,8 @@
 #define MAX_PORTS   4096
 #define MAX_LINKS   2048
 #define MAX_PROXY   (MAX_CLIENTS + MAX_LINKS + 8)
+#define PERM_CHUNK  400
+#define PERM_MAX_CHUNKS ((MAX_NODES + MAX_PORTS + MAX_CLIENTS + PERM_CHUNK - 1) / PERM_CHUNK)
 #define IN_MAX      (1u << 20)
 #define OUT_MAX     (1u << 20)
 
@@ -61,7 +63,7 @@ typedef struct {
     uint32_t want, applied;     /* restrictions requested / confirmed by Core::Done */
     uint32_t pending_sync;
     uint32_t pending_sync_header;
-    uint32_t pending_seq[16];
+    uint32_t pending_seq[PERM_MAX_CHUNKS];
     uint32_t pending_flags;
     unsigned pending_count;
     double pending_since;
@@ -419,7 +421,6 @@ static uint32_t client_restrictions(PgClient *c) {
  * restriction is lifted): hidden = the capture nodes and ports of what it is restricted to, and
  * every other client. In chunks: PipeWire merges successive update_permissions, so a list longer
  * than one message is never dropped (that would leave the client with every permission). */
-#define PERM_CHUNK 400
 static int send_perm_chunk(PgClient *c, const int32_t *pairs, int32_t n, uint32_t *sent_seq) {
     Pb b = { .n = 0 };
     size_t s = pb_begin(&b);
@@ -433,7 +434,6 @@ static int send_perm_chunk(PgClient *c, const int32_t *pairs, int32_t n, uint32_
 /* A permission update is not considered applied until Core::Done confirms that every
  * preceding UpdatePermissions method has been processed. Core::Error is correlated by the
  * target proxy and the request header sequence. */
-#define PERM_MAX_CHUNKS 16
 static void apply_permissions(PgClient *c, uint32_t flags) {
     if (!c->proxy || !c->live || P.fd < 0) return;
     if (c->pending) { c->pending_dirty = 1; return; }
