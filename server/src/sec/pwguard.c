@@ -343,7 +343,7 @@ char *pwguard_device_users_json(void) {
         pw_json_string(out, cap, &at, c->app);
         out[at++] = ',';
         memcpy(out + at, "\"pid\":", 6); at += 6;
-        at += (size_t)snprintf(out + at, cap - at, "%d", c->pulse && c->pid_app > 0 ? c->pid_app : (c->pid_sec > 0 ? c->pid_sec : c->pid_app));
+        at += (size_t)snprintf(out + at, cap - at, "%d", c->pid_sec > 0 ? c->pid_sec : c->pid_app);
         out[at++] = '}';
     }
     out[at++] = ']';
@@ -847,7 +847,7 @@ static void on_message(uint32_t id, uint32_t opcode, PwPod body) {
     } else if (id == 0 && opcode == 4) {                        /* core.remove_id */
         if (!pwpod_struct_field(body, 0, &f) && !pwpod_int(f, &a) && a > 2 && a < MAX_PROXY) {
             P.proxy_used[a] = 0;
-            for (int i = 0; i < MAX_LINKS; i++) if (P.link[i].live && P.link[i].proxy == (uint32_t)a) P.link[i].info = 0;
+            for (int i = 0; i < MAX_LINKS; i++) if (P.link[i].live && P.link[i].proxy == (uint32_t)a) P.link[i].live = 0;
         }
     } else if (id == 2 && opcode == 0) on_global(body);
     else if (id == 2 && opcode == 1) {
