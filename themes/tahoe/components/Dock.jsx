@@ -441,7 +441,7 @@ export function Dock({ t, items: list, running, onOpen, onRestoreWindow, onConte
                 {[0, 1, 2].map((n) => <View key={n} style={{ width: 2, height: 2, borderRadius: 1, backgroundColor: t.mode === 'dark' ? '#b7bac2' : '#777b85' }} />)}
               </View>
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 2 }}>
-                {app.Icon ? <app.Icon size={Math.max(12, sizes[i] * 0.38)} /> : null}
+                <TahoeIconForApp app={{ id: app.parentId, Icon: app.Icon }} size={Math.max(12, sizes[i] * 0.38)} />
                 <Text style={{ fontSize: Math.max(5, sizes[i] * 0.105), color: t.mode === 'dark' ? '#f3f4f6' : '#333640',
                   maxWidth: '100%', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{app.window.title || app.name}</Text>
               </View>
