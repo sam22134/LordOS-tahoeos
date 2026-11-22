@@ -41,7 +41,7 @@ export function Launchpad({ t, apps, onOpen, onClose, area = { x: 0, y: 0, w: sc
       position: 'absolute', left: area.x, top: area.y, width: area.w, height: area.h, alignItems: 'center',
       backgroundColor: t.effects ? 'rgba(12,15,24,0.42)' : 'rgba(18,20,28,0.97)', backdropFilter: `blur(${t.effects ? 36 : 0}px)`,
     }}>
-      <View onClick={(e) => e.stopPropagation()} style={{ marginTop: searchTop, width: Math.min(360, Math.max(180, area.w - 32)) }}>
+      <View onClick={(e) => e.stopPropagation()} style={{ marginTop: searchTop, width: Math.max(1, Math.min(360, area.w - 32)) }}>
         <TextInput value={query} onChange={setQuery} placeholder={tr('shell.launchpad.search')} autoFocus
           onSubmit={() => list[0] && open(list[0].id)} onCancel={onClose}
           style={{ backgroundColor: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.26)', borderRadius: 18, paddingHorizontal: 16, height: 42 }} />
