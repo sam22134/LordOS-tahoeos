@@ -119,7 +119,7 @@ function SoundTile({ t, onClose }) {
         <Text style={{ fontSize: 11, color: t.textDim, whiteSpace: 'nowrap', maxWidth: 200, overflow: 'hidden' }}>{out.description || out.name}</Text>
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, direction: 'ltr' }}>
-        <View onClick={() => sound.setMute('sink', out.index, !out.mute)} title={out.mute ? tr('settings.sound.unmute') : tr('settings.sound.mute')} style={{ width: 26, alignItems: 'center' }}>
+        <View onClick={() => sound.setMute('sink', out.index, !out.mute)} style={{ width: 26, alignItems: 'center' }}>
           <Text style={{ fontSize: 15 }}>{out.mute || pct === 0 ? '🔇' : pct < 40 ? '🔈' : pct < 75 ? '🔉' : '🔊'}</Text>
         </View>
         <Slider value={Math.max(0, Math.min(1, out.level))} min={0} max={1} width={many ? 168 : 196} onChange={(v) => sound.setVolume('sink', out.index, v)} />
