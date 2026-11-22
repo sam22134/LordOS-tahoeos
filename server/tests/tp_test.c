@@ -104,10 +104,10 @@ static TpConfig defaults(void) {
 
 static double base_t = 100000;      /* each test starts later (far from the last key) */
 
-static void run(const char *name, int kind, const TpConfig *cfg) {
+static void run_caps(const char *name, int kind, const TpConfig *cfg, const TpCaps *override) {
     TpConfig c = cfg ? *cfg : defaults();
     tp_set_config(&c);
-    TpCaps caps = sim_caps(kind);
+    TpCaps caps = override ? *override : sim_caps(kind);
     dev = tp_new(&caps);
     nout = 0;
     SimGen g;
@@ -115,12 +115,16 @@ static void run(const char *name, int kind, const TpConfig *cfg) {
     g.t = base_t;
     last_tick = base_t;
     const SimGesture *gs = sim_find(name);
-    if (!gs) { fprintf(stderr, "no gesture %s\n", name); exit(2); }
+    if (!gs) { fprintf(stderr, "no gesture %s\\n", name); exit(2); }
     gs->play(&g);
     ticks_until(g.t + 3000);
     base_t = g.t + 10000;
     tp_free(dev);
     dev = NULL;
+}
+
+static void run(const char *name, int kind, const TpConfig *cfg) {
+    run_caps(name, kind, cfg, NULL);
 }
 
 /* ---- summaries ---- */
@@ -224,10 +228,41 @@ static void t_clicks(void) {
     CHECK(!strcmp(s.btns, "Mm"), "physical click with 3 fingers = middle (%s)", s.btns);
     s = go("thumbclick", NULL);
     CHECK(!strcmp(s.btns, "Ll"), "resting thumb + index = left (%s)", s.btns);
+
     TpConfig area = defaults();
     area.secondary = TP_CLICK_BOTTOM_RIGHT;
-    s = go("click2", &area);
-    CHECK(!strcmp(s.btns, "Ll"), "corner mode: 2 fingers up = left (%s)", s.btns);
+    run("click-bottom-right", TP_KIND_TOUCHPAD, &area);
+    s = summary();
+    print_sum("corner-right", &s);
+    CHECK(!strcmp(s.btns, "Rr"), "single-finger physical click in bottom-right = right (%s)", s.btns);
+    run("click-bottom-left", TP_KIND_TOUCHPAD, &area);
+    s = summary();
+    print_sum("corner-left-off", &s);
+    CHECK(!strcmp(s.btns, "Ll"), "bottom-left remains left in bottom-right mode (%s)", s.btns);
+    run("click-center", TP_KIND_TOUCHPAD, &area);
+    s = summary();
+    print_sum("corner-center", &s);
+    CHECK(!strcmp(s.btns, "Ll"), "center remains left in bottom-right mode (%s)", s.btns);
+
+    area.secondary = TP_CLICK_BOTTOM_LEFT;
+    run("click-bottom-left", TP_KIND_TOUCHPAD, &area);
+    s = summary();
+    print_sum("corner-left", &s);
+    CHECK(!strcmp(s.btns, "Rr"), "single-finger physical click in bottom-left = right (%s)", s.btns);
+
+    area.secondary = TP_CLICK_TWO_FINGERS;
+    run("click-bottom-right", TP_KIND_TOUCHPAD, &area);
+    s = summary();
+    print_sum("two-finger-mode", &s);
+    CHECK(!strcmp(s.btns, "Ll"), "single-finger corner click stays left in two-finger mode (%s)", s.btns);
+
+    /* A touchpad with discrete physical buttons must not use clickpad corner mapping. */
+    TpCaps discrete = sim_caps(TP_KIND_TOUCHPAD);
+    discrete.clickpad = 0;
+    run_caps("click-bottom-right", TP_KIND_TOUCHPAD, &area, &discrete);
+    s = summary();
+    print_sum("discrete-buttons", &s);
+    CHECK(!strcmp(s.btns, "Ll"), "discrete-button touchpad keeps BTN_LEFT (%s)", s.btns);
 }
 
 static void t_scroll(void) {
