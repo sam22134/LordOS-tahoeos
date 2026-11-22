@@ -189,7 +189,7 @@ function Poof({ poof, size, reduce }) {
   );
 }
 
-export function Dock({ t, items: list, running, onOpen, onContext, onTrash, onTrashContext, trashFull = false, position = 'bottom', size = 54,
+export function Dock({ t, items: list, running, onOpen, onRestoreWindow, onContext, onTrash, onTrashContext, trashFull = false, position = 'bottom', size = 54,
   magnify = true, maxSize = 86, hideMode = 'never', top = 0, keepOpen = false, area = { x: 0, y: 0, w: screen.width, h: screen.height } }) {
   // area: the display it is on (global coordinates); everything below is placed inside it
   const vert = position !== 'bottom';
@@ -219,6 +219,15 @@ export function Dock({ t, items: list, running, onOpen, onContext, onTrash, onTr
       out.push({ item: it });
     }
     if (!gapDone) out.push({ gap: true });
+    // Minimized windows get their own compact Dock tiles, grouped after apps and before Trash.
+    // Keep the actual window id: restoring one must not merely activate its app's most recent window.
+    const minimized = list.flatMap((app) => (app.windows || [])
+      .filter((w) => w.minimized)
+      .map((window) => ({ id: `minimized:${window.id}`, windowThumb: true, parentId: app.id, name: app.name, Icon: app.Icon, window })));
+    if (minimized.length) {
+      out.push({ sep: true });
+      for (const windowItem of minimized) out.push({ item: windowItem });
+    }
     out.push({ sep: true }, { item: trashItem });
     return flip ? out.reverse() : out;
   };
@@ -406,6 +415,24 @@ export function Dock({ t, items: list, running, onOpen, onContext, onTrash, onTr
             style={{ position: 'absolute', ...place(i), width: sizes[i], height: sizes[i], borderRadius: sizes[i] * 0.22,
               backgroundColor: trashLit ? 'rgba(255,255,255,0.22)' : 'transparent' }}>
             <TrashIcon size={sizes[i]} full={trashFull} />
+          </View>
+        ) : app.windowThumb ? (
+          <View key={app.id} onClick={() => { if (!dockDragJustEnded()) onRestoreWindow?.(app.window.id); }}
+            onContextMenu={() => onContext?.(app.parentId, anchor(i))}
+            style={{ position: 'absolute', ...place(i), width: sizes[i], height: sizes[i], alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ width: sizes[i] * 0.86, height: sizes[i] * 0.76, borderRadius: 5, overflow: 'hidden',
+              backgroundColor: t.mode === 'dark' ? '#34363d' : '#e8eaf0', border: `1px solid ${t.dockBorder}`,
+              boxShadow: '0 2px 5px rgba(0,0,0,0.28)' }}>
+              <View style={{ height: Math.max(4, sizes[i] * 0.13), backgroundColor: t.mode === 'dark' ? '#555861' : '#c7cad2',
+                flexDirection: 'row', alignItems: 'center', paddingHorizontal: 3, gap: 2 }}>
+                {[0, 1, 2].map((n) => <View key={n} style={{ width: 2, height: 2, borderRadius: 1, backgroundColor: t.mode === 'dark' ? '#b7bac2' : '#777b85' }} />)}
+              </View>
+              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 2 }}>
+                {app.Icon ? <app.Icon size={Math.max(12, sizes[i] * 0.38)} /> : null}
+                <Text style={{ fontSize: Math.max(5, sizes[i] * 0.105), color: t.mode === 'dark' ? '#f3f4f6' : '#333640',
+                  maxWidth: '100%', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{app.window.title || app.name}</Text>
+              </View>
+            </View>
           </View>
         ) : (
           <View key={app.id} onClick={() => { if (!dockDragJustEnded()) onOpen(app.id); }} onContextMenu={() => onContext?.(app.id, anchor(i))}
