@@ -16,15 +16,15 @@ import { apps } from '@lordos/apps';
 import { useEffect, useRef, useState, Fragment } from 'react';
 import { makeTheme } from './tokens.js';
 import { minimizeStarts } from '../default/minimize.js';
-import { MenuBars } from '../default/components/MenuBar.jsx';
+import { MenuBars } from './components/MenuBar.jsx';
 import { Dock, LaunchpadIcon, dockThickness } from '../default/components/Dock.jsx';
-import { Window } from '../default/components/Window.jsx';
+import { Window } from './components/Window.jsx';
 import { Launchpad } from '../default/components/Launchpad.jsx';
 import { ControlCenter } from '../default/components/ControlCenter.jsx';
 import { NotificationCenter } from '../default/components/NotificationCenter.jsx';
 import { Menu, menuHasKeys } from '../default/components/Menu.jsx';
 
-const MENU_H = 28;
+const MENU_H = 32;
 // The defaults: Files first and the app launcher after it; the Trash is always last (sdk/dockmodel.js).
 const DOCK_ORDER = ['files', DOCK_LAUNCHER, 'terminal', 'calculator', 'settings', 'about'];
 
@@ -48,7 +48,7 @@ const areaFn = (d) => { const s = settings.get(); return workAreaFor(dockPrefs(s
 // chrome: borders (1 + 1) and title bar (40 + 1 separator) of Window.jsx's frame
 // snap (0.8.8.10, GitHub #182): a window dragged to a side of the screen takes that half, near a corner a quarter, to the
 // top it fills the screen (sdk/snap.js); Settings → Desktop & Dock → Windows turns it off (settings.windowSnap)
-configureWindows({ apps, workArea: areaFn, chrome: { w: 2, h: 43 }, snap: true });
+configureWindows({ apps, workArea: areaFn, chrome: { w: 2, h: 49 }, snap: true });
 
 // Where a dragged window would snap: a translucent rounded rectangle with the accent's edge, under the window.
 function SnapPreview({ t }) {
