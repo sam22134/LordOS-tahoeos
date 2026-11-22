@@ -30,8 +30,9 @@ static void add_device(Input *in, int fd, const char *path) {
     int keyboard = HAS(ev, EV_KEY) && HAS(keys, KEY_A) && HAS(keys, KEY_ENTER);
     int mouse    = HAS(ev, EV_REL) && HAS(keys, BTN_LEFT);
     int tablet   = input_is_abs_pointer(ev, abs, keys, props);
+    int multitouch = input_is_multitouch_touchpad(ev, abs, keys, props);
     int syskeys  = !keyboard && !mouse && !tablet && input_is_system_keys(ev, keys);
-    if ((!keyboard && !mouse && !tablet && !syskeys) || in->count >= INPUT_MAX_DEVICES) { close(fd); return; }
+    if ((!keyboard && !mouse && !tablet && !multitouch && !syskeys) || in->count >= INPUT_MAX_DEVICES) { close(fd); return; }
 
     InputDevice *d = &in->dev[in->count++];
     memset(d, 0, sizeof *d);                /* the slot may have belonged to one that was unplugged */
