@@ -51,7 +51,8 @@ static inline int input_is_multitouch_touchpad(const unsigned long *ev, const un
 static inline int input_is_system_keys(const unsigned long *ev, const unsigned long *keys) {
     if (!IK_BIT(ev, EV_KEY) || IK_BIT(keys, KEY_A) || IK_BIT(keys, BTN_LEFT) || IK_BIT(keys, BTN_TOUCH)) return 0;
     return IK_BIT(keys, KEY_VOLUMEUP) || IK_BIT(keys, KEY_VOLUMEDOWN) || IK_BIT(keys, KEY_MUTE) ||
-           IK_BIT(keys, KEY_PLAYPAUSE) || IK_BIT(keys, KEY_NEXTSONG) || IK_BIT(keys, KEY_PREVIOUSSONG);
+           IK_BIT(keys, KEY_PLAYPAUSE) || IK_BIT(keys, KEY_NEXTSONG) || IK_BIT(keys, KEY_PREVIOUSSONG) ||
+           IK_BIT(keys, KEY_STOPCD) || IK_BIT(keys, KEY_PLAYCD) || IK_BIT(keys, KEY_PAUSECD);
 }
 
 /* What a system-keys device passes on: reports and input_system_key keys, never KEY_POWER (logind's) or a tablet's
