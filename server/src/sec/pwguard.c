@@ -61,6 +61,7 @@ typedef struct {
     uint32_t want, applied;     /* restrictions (FW_R_NO_MIC | FW_R_NO_CAMERA | FW_R_NO_SCREEN) to apply / applied */
     int identity_pid;            /* resolved process whose identity this PipeWire connection was bound to */
     uint64_t identity_start;     /* /proc/<pid>/stat starttime: prevents PID reuse from inheriting identity */
+    int identity_failed;         /* ambiguous namespace PID: never retry it as a different host process */
     int live;
 } PgClient;
 
@@ -683,6 +684,7 @@ static void resolve(PgClient *c) {
     c->app[0] = 0;
     c->unverified = 0;
     c->resolved = 1;
+    if (c->identity_failed) { c->unverified = 1; return; }
     /* A PID is not a durable process identity. If the process that originally established this
      * client has exited, never let a later process reusing its PID inherit the connection's app. */
     if (c->identity_pid > 0 && (!c->identity_start || process_start_time(c->identity_pid) != c->identity_start)) {
@@ -705,13 +707,23 @@ static void resolve(PgClient *c) {
                 if (P.cl[i].live && P.cl[i].pulse && P.cl[i].pid_app == c->pid_app && !strcmp(P.cl[i].fpid, c->fpid)) claims++;
             fp = flatpak_host_pid(c, claims);
             if (fp) pid = fp;
-            else if (!same_pidns(c->pid_app)) { c->unverified = 1; return; }
+            else if (!same_pidns(c->pid_app)) {
+                /* No host PID could be tied to this sandbox PID. Do not retry it later after PID reuse. */
+                c->identity_failed = 1;
+                c->unverified = 1;
+                return;
+            }
             claims = 0;
         }
         if (!fp) {
             for (int i = 0; i < MAX_CLIENTS; i++) if (P.cl[i].live && P.cl[i].pulse && P.cl[i].pid_app == c->pid_app) claims++;
+            if (c->pid_app > 0 && !same_pidns(c->pid_app)) {
+                c->identity_failed = 1;
+                c->unverified = 1;
+                return;
+            }
             int real = c->pid_app > 0 ? pulse_connections(c->pid_sec, c->pid_app) : -1;
-            if (real < claims || !same_pidns(c->pid_app)) { c->unverified = 1; return; }
+            if (real < claims) { c->unverified = 1; return; }
             pid = c->pid_app;
         }
     }
