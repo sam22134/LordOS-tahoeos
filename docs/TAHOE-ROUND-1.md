@@ -189,3 +189,10 @@ A implementação e o guia estão em `packaging/icons/` e `docs/ICONS.md`. A rev
 - [ ] Incluir o tema no manifesto de código verificado/assinado da versão de lançamento.
 
 A especificação da fundação está em `docs/TAHOE-DESIGN-SYSTEM.md`. A criação dos arquivos é implementação de código-fonte; build, seleção em sessão e testes visuais ainda não foram executados nesta etapa.
+
+
+### Native icon accents
+
+- Added a Tahoe app-icon component for a starter set of built-in app IDs.
+- Launchpad and Dock use it while retaining the app-icon fallback for unmapped/third-party apps.
+- This is an initial visual pass; dedicated vector artwork and wider coverage remain follow-up work.
