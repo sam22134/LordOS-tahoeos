@@ -51,6 +51,10 @@ Não inferir clickpad apenas pela ausência de BTN_RIGHT. Essa regra pode classi
 - Próximo passo de UX: expor capabilities sem inferência arriscada e implementar override por dispositivo (Auto / Clickpad / Botões separados), persistido por identidade estável do hardware. Não usar override global.
 - O override ainda não foi implementado; `hasRight` será apenas diagnóstico.
 
+**Caminho do botão direito já existente**
+
+O caminho foi seguido no código: `tp_event_at()` produz o botão direito (código interno 2), `tp_route.c` chama `TpHost.button`, `main.c` enfileira o evento e, no `SYN_REPORT`, `dispatch_pointer()` recebe o clique junto com a posição atual. Portanto, o botão direito emitido pelo driver usa o mesmo despacho do mouse. Isso confirma o caminho de entrada, mas ainda não comprova que todos os alvos da interface abrem o menu correto; essa validação continua pendente.
+
 ### 2. Menus contextuais
 
 - Reutilizar `sdk/contextmenu.jsx` e `sdk/layers.js`.
