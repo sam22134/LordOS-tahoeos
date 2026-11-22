@@ -1,7 +1,6 @@
-/* iconfind_test.c — the order icon names are looked up in (src/iconfind.c), over a made-up tree: PNGs of hicolor
- * (the user's before the system's), /usr/share/pixmaps, then SVG (scalable/ of hicolor, then Adwaita), the
- * AppStream PNG for apps, the symbolic ones last; names that must find nothing; which SVG paths may go to
- * lord-media. Each step removes the file the previous one found. */
+/* iconfind_test.c — lookup order over a made-up tree: MacTahoe (blue/dark/light) and hicolor user
+ * overrides before system themes, both MacTahoe and hicolor PNG/SVG directory layouts, pixmaps, Adwaita,
+ * AppStream PNGs, symbolic icons and SVG allow-list. Each step removes the file the previous one found. */
 #include "../src/iconfind.h"
 
 #include <stdio.h>
@@ -51,6 +50,8 @@ static void expect(int status, const char *name, const char *want) {
 static void test_status(void) {
     const char *files[] = {
         "/home/.local/share/icons/MacTahoe-blue/status/32/vol.png",
+        "/home/.local/share/icons/MacTahoe-blue-dark/status/32/vol.png",
+        "/home/.local/share/icons/MacTahoe-blue-light/status/32/vol.png",
         "/home/.local/share/icons/hicolor/22x22/status/vol.png",
         "/usr/share/icons/MacTahoe-blue/status/32/vol.png",
         "/usr/share/icons/hicolor/32x32/status/vol.png",
@@ -90,6 +91,8 @@ static void test_status(void) {
 static void test_app(void) {
     const char *files[] = {
         "/home/.local/share/icons/MacTahoe-blue/apps/32/ed.png",
+        "/home/.local/share/icons/MacTahoe-blue-dark/apps/32/ed.png",
+        "/home/.local/share/icons/MacTahoe-blue-light/apps/32/ed.png",
         "/home/.local/share/icons/hicolor/48x48/apps/ed.png",
         "/usr/share/icons/MacTahoe-blue/apps/32/ed.png",
         "/usr/share/icons/hicolor/64x64/apps/ed.png",
@@ -126,6 +129,7 @@ static void test_app(void) {
 static void test_allowed(void) {
     struct { const char *path; int ok; } cases[] = {
         { "/usr/share/icons/Adwaita/symbolic/status/a-symbolic.svg", 1 },
+        { "/usr/share/icons/MacTahoe-blue/status/symbolic/a-symbolic.svg", 1 },
         { "/usr/share/icons/MacTahoe-blue/symbolic/status/a-symbolic.svg", 1 },
         { "/usr/share/pixmaps/a.svg", 1 },
         { "/opt/app/icon.svg", 1 },
