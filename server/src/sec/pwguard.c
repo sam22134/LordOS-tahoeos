@@ -167,6 +167,20 @@ int pwguard_parse_nspid(const char *line) {
     return *s ? 0 : pid;
 }
 
+int pwguard_parse_socket_inode(const char *link, uint32_t *inode) {
+    static const char prefix[] = "socket:[";
+    if (!link || !inode || strncmp(link, prefix, sizeof prefix - 1)) return -1;
+    const char *digits = link + sizeof prefix - 1;
+    const char *end = strchr(digits, ']');
+    if (!end || end[1]) return -1;
+    char token[32];
+    size_t n = (size_t)(end - digits);
+    if (!n || n >= sizeof token) return -1;
+    memcpy(token, digits, n);
+    token[n] = 0;
+    return pwguard_parse_u32(token, inode);
+}
+
 static int pwpod_long(PwPod p, int64_t *v) {
     if (p.n < 16 || rd32(p.p + 4) != SPA_LONG || rd32(p.p) != 8) return -1;
     memcpy(v, p.p + 8, 8);
@@ -676,15 +690,15 @@ static int pulse_connections(int pp, int pid) {
             if (e->d_name[0] == '.') continue;
             snprintf(l, sizeof l, "%s/%s", d, e->d_name);
             ssize_t k = readlink(l, t, sizeof t - 1);
-            unsigned long v;
+            uint32_t v;
             if (k <= 0) continue;
             t[k] = 0;
-            if (sscanf(t, "socket:[%lu]", &v) != 1) continue;
+            if (pwguard_parse_socket_inode(t, &v)) continue;
             if (!pass) {
                 /* a socket of pipewire-pulse: its peer is a client's end.
                  * Count socket inodes, not FDs: dup()/fork() may expose one connection
                  * through several descriptors, but it is still only one connection. */
-                for (int i = 0; i < np; i++) if (ino[i] == (uint32_t)v) {
+                for (int i = 0; i < np; i++) if (ino[i] == v) {
                     uint32_t p = peer[i];
                     if (!p) break;
                     int duplicate = 0;
@@ -697,11 +711,11 @@ static int pulse_connections(int pp, int pid) {
                 }
                 continue;
             }
-            for (int i = 0; i < nc; i++) if (clients[i] == (uint32_t)v) {
+            for (int i = 0; i < nc; i++) if (clients[i] == v) {
                 int duplicate = 0;
-                for (int j = 0; j < nseen; j++) if (seen[j] == (uint32_t)v) { duplicate = 1; break; }
+                for (int j = 0; j < nseen; j++) if (seen[j] == v) { duplicate = 1; break; }
                 if (!duplicate) {
-                    seen[nseen++] = (uint32_t)v;
+                    seen[nseen++] = v;
                     count++;
                 }
                 break;
