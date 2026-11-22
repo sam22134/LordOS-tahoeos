@@ -345,7 +345,8 @@ char *pwguard_device_users_json(void) {
         out[at++] = '"'; memcpy(out + at, "name", 4); at += 4; out[at++] = '"'; out[at++] = ':';
         pw_json_string(out, cap, &at, c->app);
         out[at++] = ',';
-        at += (size_t)snprintf(out + at, cap - at, "\\"pid\\":%d", c->pid_sec > 0 ? c->pid_sec : c->pid_app);
+        memcpy(out + at, "\\\"pid\\\":", 6); at += 6;
+        at += (size_t)snprintf(out + at, cap - at, "%d", c->pulse && c->pid_app > 0 ? c->pid_app : (c->pid_sec > 0 ? c->pid_sec : c->pid_app));
         out[at++] = '}';
     }
     out[at++] = ']';
