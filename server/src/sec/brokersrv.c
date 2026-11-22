@@ -637,8 +637,12 @@ static void handle(AppConn *a, BrokerHdr *h, char *payload, int *fds, int nfds) 
         char kind[16] = ""; int on = 0;
         sscanf(payload, "%15s %d", kind, &on);
         int p = perm_from_name(kind);
-        if (p >= 0 && restrict_perm_pkg(a->id, (Perm)p) == PERM_ALLOW)
-            queue_evt("device", "{\"app\":\"%s\",\"kind\":\"%s\",\"on\":%s}", a->id, kind, on ? "true" : "false");
+        if (p >= 0 && restrict_perm_pkg(a->id, (Perm)p) == PERM_ALLOW) {
+            /* An app may report its use, but must not hide a stream the server still owns. */
+            int active = (!strcmp(kind, "microphone") && a->mic) || brokercam_device_active(a->id, kind);
+            if (on || !active)
+                queue_evt("device", "{\"app\":\"%s\",\"kind\":\"%s\",\"on\":%s}", a->id, kind, on ? "true" : "false");
+        }
         send_reply(fd, h->reqid, BST_OK, NULL, 0);
         break;
     }
