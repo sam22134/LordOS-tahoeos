@@ -37,7 +37,7 @@ ISO="$OUT/lordos-live-$VERSION-$ARCH.iso"
 DEB="$OUT/lordos_${VERSION}_$ARCH.deb"
 T0=$(date +%s)
 
-for t in debootstrap mksquashfs xorriso grub-mkrescue mformat dpkg-deb dpkg-query python3; do
+for t in debootstrap mksquashfs xorriso grub-mkrescue mformat dpkg-deb dpkg-query python3 bash curl tar; do
     command -v "$t" >/dev/null || { echo "build.sh: missing $t (see docs/ISO.md, build packages)" >&2; exit 1; }
 done
 [ -d "/usr/lib/grub/$GRUB_DIR" ] || { echo "build.sh: missing /usr/lib/grub/$GRUB_DIR (see docs/ISO.md, build packages)" >&2; exit 1; }
