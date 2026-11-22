@@ -275,6 +275,66 @@ uint32_t pwguard_node_flag(const char *mc, const char *role, const char *name) {
 
 int pwguard_link_state_active(int state) { return state == 4; }
 
+/* Current real capture users: only ACTIVE links from a source node to an app input stream.
+ * App identity comes from the client resolver above, never from node/application display strings.
+ * Caller owns the returned JSON buffer. */
+static void pw_json_string(char *out, size_t cap, size_t *at, const char *s) {
+    if (*at + 1 >= cap) return;
+    out[(*at)++] = '"';
+    for (const unsigned char *p = (const unsigned char *)(s ? s : ""); *p && *at + 7 < cap; p++) {
+        if (*p == '"' || *p == '\\\\') { out[(*at)++] = '\\\\'; out[(*at)++] = (char)*p; }
+        else if (*p < 0x20) { int n = snprintf(out + *at, cap - *at, "\\\\u%04x", *p); if (n > 0) *at += (size_t)n; }
+        else out[(*at)++] = (char)*p;
+    }
+    if (*at + 1 < cap) out[(*at)++] = '"';
+}
+char *pwguard_device_users_json(void) {
+    size_t cap = 65536, at = 0;
+    char *out = malloc(cap);
+    if (!out) return NULL;
+    out[at++] = '[';
+    int first = 1;
+    for (int i = 0; i < MAX_LINKS; i++) {
+        PgLink *ln = &P.link[i];
+        if (!ln->live || !ln->info || !pwguard_link_state_active(ln->state)) continue;
+        PgNode *src = node_by_id(ln->out_node), *dst = node_by_id(ln->in_node);
+        if (!src || !dst || !src->flag || !dst->stream) continue;
+        if ((src->flag & FW_R_NO_SCREEN) || (dst->stream & FW_R_NO_SCREEN)) continue;
+        uint32_t kind = src->flag & (FW_R_NO_MIC | FW_R_NO_CAMERA);
+        if (!kind || !(dst->stream & kind)) continue;
+        PgClient *c = client_by_id(dst->client);
+        if (!c || !c->resolved || c->unverified || c->daemon || !c->app[0]) continue;
+        /* One app/device pair is enough even when PipeWire fans a stream across channels. */
+        int duplicate = 0;
+        for (int k = 0; k < i; k++) {
+            PgLink *old = &P.link[k];
+            if (!old->live || !old->info || !pwguard_link_state_active(old->state)) continue;
+            PgNode *os = node_by_id(old->out_node), *od = node_by_id(old->in_node);
+            PgClient *oc = od ? client_by_id(od->client) : NULL;
+            if (os && od && (os->flag & kind) && (od->stream & kind) && oc && oc->resolved &&
+                !oc->unverified && !oc->daemon && !strcmp(oc->app, c->app)) { duplicate = 1; break; }
+        }
+        if (duplicate) continue;
+        if (!first) out[at++] = ',';
+        first = 0;
+        out[at++] = '{';
+        out[at++] = '"'; memcpy(out + at, "kind", 4); at += 4; out[at++] = '"'; out[at++] = ':';
+        pw_json_string(out, cap, &at, kind == FW_R_NO_MIC ? "microphone" : "camera");
+        out[at++] = ',';
+        out[at++] = '"'; memcpy(out + at, "app", 3); at += 3; out[at++] = '"'; out[at++] = ':';
+        pw_json_string(out, cap, &at, c->app);
+        out[at++] = ',';
+        out[at++] = '"'; memcpy(out + at, "name", 4); at += 4; out[at++] = '"'; out[at++] = ':';
+        pw_json_string(out, cap, &at, c->app);
+        out[at++] = ',';
+        at += (size_t)snprintf(out + at, cap - at, "\\"pid\\":%d", c->pid_sec > 0 ? c->pid_sec : c->pid_app);
+        out[at++] = '}';
+    }
+    out[at++] = ']';
+    out[at] = 0;
+    return out;
+}
+
 uint32_t pwguard_stream_flag(const char *mc) {
     if (!mc) return 0;
     if (!strcmp(mc, "Stream/Input/Audio")) return FW_R_NO_MIC;
