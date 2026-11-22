@@ -1066,6 +1066,16 @@ static void on_link_info(uint32_t proxy, PwPod body) {
     ln->info = 1;
 }
 
+int pwguard_error_matches(uint32_t proxy, uint32_t sync_header,
+                           const uint32_t *permission_seqs, unsigned count,
+                           int32_t resource_id, int32_t request_seq) {
+    if (resource_id == 0 && (uint32_t)request_seq == sync_header) return 1;
+    if (resource_id != (int32_t)proxy || !permission_seqs) return 0;
+    for (unsigned i = 0; i < count; i++)
+        if (permission_seqs[i] == (uint32_t)request_seq) return 1;
+    return 0;
+}
+
 static void on_message(uint32_t id, uint32_t opcode, PwPod body) {
     PwPod f;
     int32_t a, b;
@@ -1120,14 +1130,11 @@ static void on_message(uint32_t id, uint32_t opcode, PwPod body) {
         for (int i = 0; i < MAX_CLIENTS; i++) {
             PgClient *c = &P.cl[i];
             if (!c->live || !c->pending) continue;
-            int matched = 0;
-            if (have_request_seq && resource_id == (int32_t)c->proxy) {
-                for (unsigned k = 0; k < c->pending_count; k++)
-                    if (c->pending_seq[k] == (uint32_t)request_seq) { matched = 1; break; }
-            }
-            if (have_request_seq && resource_id == 0 &&
-                c->pending_sync_header == (uint32_t)request_seq) matched = 1;
-            if (matched) c->pending_failed = 1;
+            if (have_request_seq &&
+                pwguard_error_matches(c->proxy, c->pending_sync_header,
+                                      c->pending_seq, c->pending_count,
+                                      resource_id, request_seq))
+                c->pending_failed = 1;
         }
     } else if (id == 0 && opcode == 4) {                        /* core.remove_id */
         if (!pwpod_struct_field(body, 0, &f) && !pwpod_int(f, &a) && a > 2 && a < MAX_PROXY) {
