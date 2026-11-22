@@ -1066,6 +1066,16 @@ static void on_link_info(uint32_t proxy, PwPod body) {
     ln->info = 1;
 }
 
+/* Complete one permission batch only after its matching Core::Done barrier. */
+int pwguard_sync_complete(uint32_t pending_flags, uint32_t want,
+                          int pending_failed, int pending_dirty,
+                          uint32_t *applied) {
+    if (pending_failed) return -1;
+    if (!applied) return -1;
+    *applied = pending_flags;
+    return pending_dirty || want != pending_flags;
+}
+
 int pwguard_error_matches(uint32_t proxy, uint32_t sync_header,
                            const uint32_t *permission_seqs, unsigned count,
                            int32_t resource_id, int32_t request_seq) {
@@ -1096,20 +1106,19 @@ static void on_message(uint32_t id, uint32_t opcode, PwPod body) {
         for (int i = 0; i < MAX_CLIENTS; i++) {
             PgClient *c = &P.cl[i];
             if (!c->live || !c->pending || c->pending_sync != (uint32_t)done_seq) continue;
-            uint32_t flags = c->pending_flags;
-            int failed = c->pending_failed;
-            int dirty = c->pending_dirty;
+            int reapply = pwguard_sync_complete(c->pending_flags, c->want,
+                                                   c->pending_failed, c->pending_dirty,
+                                                   &c->applied);
             c->pending = 0;
             c->pending_count = 0;
-            if (failed) {
+            if (reapply < 0) {
                 fprintf(stderr, "pwguard: permission update failed; disconnecting client %u (%s)\n",
                         c->id, c->app[0] ? c->app : "unresolved");
                 destroy_global(c->id);
                 c->live = 0;
                 break;
             }
-            c->applied = flags;
-            if (dirty || c->want != c->applied) apply_permissions(c, c->want);
+            if (reapply) apply_permissions(c, c->want);
             break;
         }
     } else if (id == 0 && opcode == 3) {                        /* core.error */
