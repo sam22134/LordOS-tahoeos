@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import { switcherPrefs, switcherMods, switcherGrabName, groupWindows, digitOf, stepWindow, validColor, skinColors, fitScale, switcherBits } from '../sdk/switchermodel.js';
 
 assert.equal(switcherPrefs(null).keys, 'alt');
+assert.equal(switcherPrefs({ keys: 'invalid' }).keys, 'alt');
+assert.deepEqual(switcherMods(switcherPrefs({ keys: 'invalid' }).keys, 'meta'), ['alt']);
+assert.deepEqual(switcherMods(switcherPrefs(switcherPrefs(null)).keys, 'meta'), ['alt']);
 assert.deepEqual(switcherMods(switcherPrefs(null).keys, 'meta'), ['alt']);
 assert.equal(switcherGrabName('flow', switcherPrefs(null).keys), 'flow+tab-alt');
 assert.equal(switcherPrefs({ keys: 'x', scope: 'x', size: 'x', skin: 'x', excluded: 1 }).scope, 'all');
