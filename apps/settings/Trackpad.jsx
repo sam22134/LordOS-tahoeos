@@ -142,7 +142,7 @@ export function TrackpadSettings() {
         </Section>
       )}
       {devices.map((d, i) => (
-        <Note key={i}>{tr('trackpad.device', { name: d.name, w: d.width, h: d.height })}{d.clickpad ? ` · ${tr('trackpad.clickpad')}` : ''}</Note>
+        <Note key={i}>{tr('trackpad.device', { name: d.name, w: d.width, h: d.height })}{d.clickpad ? ` · ${tr('trackpad.clickpad')}` : d.hasRight ? ' · botão direito físico' : ''}</Note>
       ))}
     </Stack>
   );
