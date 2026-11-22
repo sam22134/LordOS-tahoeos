@@ -276,9 +276,14 @@ export function dockActivate(e) {
   const wants = e.windows.find((w) => w.attention);
   if (wants) { wm.focus(wants.id); return; }
   const top = wm.focused();
+  // Clicking the active app's Dock icon toggles that foreground window into the minimized
+  // group beside the Trash. If another app is in front, keep the usual bring-to-front behavior.
+  if (top && e.windows.some((w) => w.id === top && onActiveDesktop(w))) {
+    wm.minimize(top);
+    return;
+  }
   const here = e.windows.filter(onActiveDesktop);
-  const idx = here.findIndex((w) => w.id === top);
-  const next = idx >= 0 && here.length > 1 ? here[(idx + here.length - 1) % here.length] : pickWindow(e.windows, activeDesktop.get());
+  const next = pickWindow(here.length ? here : e.windows, activeDesktop.get());
   wm.focus(next.id);
 }
 
