@@ -1078,7 +1078,7 @@ static void on_message(uint32_t id, uint32_t opcode, PwPod body) {
         int32_t done_id, done_seq;
         if (pwpod_struct_field(body, 0, &f) || pwpod_int(f, &done_id) ||
             pwpod_struct_field(body, 1, &f) || pwpod_int(f, &done_seq)) {
-            fprintf(stderr, "pwguard: malformed PipeWire Core::Done; resetting connection\\n");
+            fprintf(stderr, "pwguard: malformed PipeWire Core::Done; resetting connection\n");
             drop();
             return;
         }
@@ -1110,7 +1110,7 @@ static void on_message(uint32_t id, uint32_t opcode, PwPod body) {
             pwpod_struct_field(body, 1, &f) || pwpod_int(f, &request_seq) ||
             pwpod_struct_field(body, 2, &f) || pwpod_int(f, &result) ||
             pwpod_struct_field(body, 3, &f) || pwpod_string(f, &msg)) {
-            fprintf(stderr, "pwguard: malformed PipeWire Core::Error; resetting connection\\n");
+            fprintf(stderr, "pwguard: malformed PipeWire Core::Error; resetting connection\n");
             drop();
             return;
         }
