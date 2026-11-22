@@ -260,6 +260,12 @@ function BluetoothTile({ t, onClose, bt }) {
     setBtError(key ? tr(`prefs.bt.err.${key}`) : '');
   }), []);
   useEffect(() => {
+    if (!adapter.powered) {
+      pending.current = null;
+      setBtError('');
+    }
+  }, [adapter.powered, adapter.path]);
+  useEffect(() => {
     if (!expanded || !adapter.powered) { setSearch(false); return undefined; }
     if (typeof lord === 'undefined' || !lord.bt) { setSearch(false); return undefined; }
     setSearch(true);
@@ -299,7 +305,7 @@ function BluetoothTile({ t, onClose, bt }) {
     <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 9, paddingHorizontal: 9, borderRadius: 14,
         backgroundColor: adapter.powered ? t.accent : t.hover, border: `1px solid ${adapter.powered ? t.accent : t.separator}` }}>
-        <View onClick={(e) => { e?.stopPropagation?.(); setBluetoothPower(!adapter.powered); }}>
+        <View onClick={(e) => { e?.stopPropagation?.(); if (!setBluetoothPower(!adapter.powered)) setBtError(tr('prefs.bt.err.failed')); }}>
           <TileIcon t={t} on={!!adapter.powered}>{(color) => <BluetoothGlyph color={color} size={14} />}</TileIcon>
         </View>
         <View onClick={() => setExpanded((x) => !x)} style={{ flex: 1, minWidth: 0, gap: 1 }}>
