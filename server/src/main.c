@@ -92,6 +92,7 @@
 #include "sec/pkgstate.h"
 #include "sec/sign.h"
 #include "sec/netconn.h"
+#include "sec/pwguard.h"
 #include "bench/lbframes.h"
 #include "fpipe.h"
 
@@ -3070,6 +3071,7 @@ int main(int argc, char **argv) {
         if (bwd >= 0 && (delay < 0 || bwd < delay)) delay = bwd;
         /* Settings → Displays or a hotplug: displays, modes, scales, arrangement (between frames) */
         if (!s.headless && !any_flip_pending(&s) && display_take_resync()) outputs_apply(&s);
+        if (!s.greeter) pwguard_tick();     /* Linux-app camera/microphone restrictions (sec/pwguard.c) */
         netrec_tick();                      /* traffic history: every 5 s while on (monitor/netrec.c) */
         double nrd = netrec_timeout();
         if (nrd >= 0 && (delay < 0 || nrd < delay)) delay = nrd;
@@ -3180,6 +3182,8 @@ int main(int argc, char **argv) {
         if (wbase >= 0) pfd[n++] = (struct pollfd){ wl_fd(), POLLIN, 0 };
         int nbase = net_fd() >= 0 ? n : -1;
         if (nbase >= 0) pfd[n++] = (struct pollfd){ net_fd(), POLLIN, 0 };
+        int pwbase = pwguard_fd() >= 0 ? n : -1;
+        if (pwbase >= 0) pfd[n++] = (struct pollfd){ pwguard_fd(), (short)(POLLIN | (pwguard_wants_write() ? POLLOUT : 0)), 0 };
         int dkbase = disk_watch_fd() >= 0 ? n : -1;          /* Disks app open: mounts and udev */
         if (dkbase >= 0) pfd[n++] = (struct pollfd){ disk_watch_fd(), POLLIN, 0 };
         int bkbase = backup_fd() >= 0 ? n : -1;
@@ -3301,6 +3305,7 @@ int main(int argc, char **argv) {
         if (abase >= 0 && pfd[abase].revents) admin_dispatch(js_admin_event);
         if (wbase >= 0 && pfd[wbase].revents) wl_dispatch();
         if (nbase >= 0 && pfd[nbase].revents) net_dispatch(js_net_event);
+        if (pwbase >= 0 && pfd[pwbase].revents) pwguard_dispatch();
         if (dkbase >= 0 && pfd[dkbase].revents && disk_watch_dispatch()) js_disk_event("change");
         if (sbase >= 0 && pfd[sbase].revents) snd_dispatch();
         if (pbase >= 0 && pfd[pbase].revents) portal_dispatch();
