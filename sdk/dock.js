@@ -441,13 +441,19 @@ export function trashMenu({ onEmpty }) {
 const DRAG_START = 6, REMOVE_HOLD = 350;
 export const dockDrag = createStore(null);   // { id, Icon, x, y, source, over, out, removing, removable }
 export const dockPoof = createStore(null);   // { x, y, Icon, t0 }: the removal animation, drawn by the theme
-let press = null, holdTimer = 0, endedAt = 0;
+let press = null, holdTimer = 0, endedAt = 0, endedX = 0, endedY = 0;
 const targets = new Set();
 export function registerDockTarget(tg) { targets.add(tg); return () => { targets.delete(tg); }; }
 const hitTarget = (x, y) => { for (const tg of targets) { const r = tg.hit(x, y); if (r) return r; } return null; };
 const nearTarget = (x, y) => { for (const tg of targets) if (tg.near(x, y)) return true; return false; };
 // true just after a drag ended (the click that follows a release must not open the app)
-export const dockDragJustEnded = () => Date.now() - endedAt < 250;
+export const dockDragJustEnded = (e) => {
+  if (Date.now() - endedAt >= 250) return false;
+  // Suppress only the synthetic click generated at the drag's release point. A fast,
+  // deliberate click on a different Dock item must not be swallowed by the global timer.
+  if (!e || !Number.isFinite(e.x) || !Number.isFinite(e.y)) return true;
+  return Math.hypot(e.x - endedX, e.y - endedY) <= 12;
+};
 
 export function beginDockDrag({ id, Icon, x, y, source = 'dock', onStart }) {
   const d = dockIdOf(id);
@@ -482,6 +488,7 @@ addListener('pointerup', (e) => {
   clearTimeout(holdTimer);
   if (!p || !p.started) return;
   endedAt = Date.now();
+  endedX = e.x; endedY = e.y;
   const over = hitTarget(e.x, e.y);
   const st = dockDrag.get();
   dockDrag.set(null);
@@ -498,9 +505,10 @@ addListener('pointerup', (e) => {
 // Escape cancels a drag.
 addListener('keydown', (e) => {
   if (e.key !== 'Escape' || !press) return;
+  const p = press;
   press = null;
   clearTimeout(holdTimer);
-  if (dockDrag.get()) { endedAt = Date.now(); dockDrag.set(null); }
+  if (dockDrag.get()) { endedAt = Date.now(); endedX = p.lx ?? p.x; endedY = p.ly ?? p.y; dockDrag.set(null); }
 });
 
 // ---- Open at Login and display assignments (0.8.5) ----
