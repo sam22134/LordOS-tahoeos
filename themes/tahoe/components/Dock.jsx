@@ -197,14 +197,20 @@ export function Dock({ t, items: list, running, onOpen, onRestoreWindow, onConte
   const [m, setM] = useState(null);             // mouse position along the Dock's axis
   const [activating, setActivating] = useState(null);
   const activationTimer = useRef(null);
-  useEffect(() => () => clearTimeout(activationTimer.current), []);
+  const activationEndTimer = useRef(null);
+  useEffect(() => () => {
+    clearTimeout(activationTimer.current);
+    clearTimeout(activationEndTimer.current);
+  }, []);
   const activateItem = (id) => {
     if (dockDragJustEnded()) return;
-    setActivating(id);
     clearTimeout(activationTimer.current);
-    // This is acknowledgement of the click, not a claim that the app has finished launching.
-    // The short timeout prevents a stuck pulse without pretending the app is ready.
-    activationTimer.current = setTimeout(() => setActivating(null), 420);
+    clearTimeout(activationEndTimer.current);
+    // A quick press followed by a small spring-like release gives immediate click feedback;
+    // it acknowledges the click, not that the app has finished launching.
+    setActivating({ id, phase: 'press' });
+    activationTimer.current = setTimeout(() => setActivating({ id, phase: 'bounce' }), 85);
+    activationEndTimer.current = setTimeout(() => setActivating(null), 245);
     onOpen(id);
   };
   const { dir } = useLocale();
@@ -273,11 +279,19 @@ export function Dock({ t, items: list, running, onOpen, onRestoreWindow, onConte
   const base = layout(() => BASE);
   const baseStart = origin + (avail - base.len) / 2;
   const centers = base.c.map((c) => baseStart + c);
-  const sizes = centers.map((c) => {
-    if (m == null || MAX === BASE) return BASE;
-    const d = Math.abs(m - c) / RANGE;
-    return d < 1 ? Math.round(BASE + (MAX - BASE) * Math.cos((d * Math.PI) / 2)) : BASE;
+  const targetSizes = {};
+  centers.forEach((c, i) => {
+    let target = BASE;
+    if (m != null && MAX > BASE) {
+      const d = Math.abs(m - c) / RANGE;
+      target = d < 1 ? BASE + (MAX - BASE) * Math.cos((d * Math.PI) / 2) : BASE;
+    }
+    targetSizes[items[i].id] = target;
   });
+  // Smooth the magnification itself, not only the icons' positions. This avoids the
+  // stepped size changes produced by rounding every raw pointer coordinate.
+  const sizeGlide = useGlide(targetSizes, !dragging, reduce ? 0 : 115, () => BASE);
+  const sizes = centers.map((_, i) => Math.max(BASE, Math.round(sizeGlide[items[i].id] ?? BASE)));
   const hovered = m == null || dragging ? -1 : centers.findIndex((c) => Math.abs(m - c) <= (BASE + GAP) / 2);
   const real = layout((i) => sizes[i]);
   const len = real.len;
@@ -451,9 +465,11 @@ export function Dock({ t, items: list, running, onOpen, onRestoreWindow, onConte
           <View key={app.id} onClick={() => activateItem(app.id)} onContextMenu={() => onContext?.(app.id, anchor(i))}
             onMouseDown={(e) => { if (!e.button) beginDockDrag({ id: app.id, Icon: app.Icon, x: e.x, y: e.y, source: 'dock' }); }}
             style={{ position: 'absolute', ...place(i), width: sizes[i], height: sizes[i],
-              transform: !reduce && activating === app.id ? 'scale(0.9)' : 'scale(1)',
-              opacity: !reduce && activating === app.id ? 0.82 : 1,
-              transition: reduce ? 'none' : 'transform 150ms ease, opacity 150ms ease' }}>
+              transform: !reduce && activating?.id === app.id
+                ? activating.phase === 'press' ? 'scale(0.84)' : 'scale(1.10)'
+                : 'scale(1)',
+              opacity: !reduce && activating?.id === app.id && activating.phase === 'press' ? 0.9 : 1,
+              transition: reduce ? 'none' : 'transform 190ms cubic-bezier(0.2, 0.85, 0.25, 1), opacity 130ms ease-out' }}>
             <TahoeIconForApp app={app} size={sizes[i]} />
             {/* a web app's unread count (SetBadge, docs/WEBAPPS.md): a red badge, "99+" past 99 */}
             {app.badge ? (() => {
