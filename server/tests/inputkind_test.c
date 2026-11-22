@@ -51,6 +51,9 @@ int main(void) {
     CHECK(!SK());                                             /* a "Video Bus": the kernel may act on it itself */
     memset(keys, 0, sizeof keys); set(keys, KEY_MUTE); set(keys, KEY_PLAYPAUSE); set(keys, KEY_CALC);
     CHECK(SK());                                              /* a keyboard's "Consumer Control" node */
+    memset(keys, 0, sizeof keys); set(keys, KEY_STOPCD); CHECK(SK());
+    memset(keys, 0, sizeof keys); set(keys, KEY_PLAYCD); CHECK(SK());
+    memset(keys, 0, sizeof keys); set(keys, KEY_PAUSECD); CHECK(SK());
     set(keys, KEY_A); set(keys, KEY_ENTER);                   CHECK(!SK());   /* a full keyboard stays a keyboard */
     memset(keys, 0, sizeof keys); set(keys, BTN_LEFT); set(keys, KEY_VOLUMEUP); CHECK(!SK());   /* a mouse stays a mouse */
     memset(keys, 0, sizeof keys); set(keys, BTN_TOUCH); set(keys, KEY_VOLUMEUP); CHECK(!SK());  /* a touch panel too */
@@ -60,6 +63,7 @@ int main(void) {
     CHECK(!input_syskeys_event(EV_KEY, KEY_POWER));           /* logind's: never handled twice */
     CHECK(!input_syskeys_event(EV_KEY, KEY_LEFTMETA) && !input_syskeys_event(EV_KEY, KEY_A) && !input_syskeys_event(EV_MSC, MSC_SCAN));
     CHECK(input_system_key(KEY_BRIGHTNESSUP) && input_system_key(KEY_SYSRQ) && !input_system_key(KEY_SLEEP));
+    CHECK(input_syskeys_event(EV_KEY, KEY_STOPCD) && input_syskeys_event(EV_KEY, KEY_PLAYCD) && input_syskeys_event(EV_KEY, KEY_PAUSECD));
 
     /* pointer buttons (issue #159) */
     CHECK(input_dom_button(BTN_LEFT) == 0 && input_dom_button(BTN_MIDDLE) == 1 && input_dom_button(BTN_RIGHT) == 2);
