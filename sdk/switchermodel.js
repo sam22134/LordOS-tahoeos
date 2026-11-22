@@ -1,7 +1,7 @@
 // switchermodel.js — the app switcher's rules, with no UI (sdk/appswitcher.jsx, docs/SHORTCUTS.md, tests/switcher_model_test.mjs).
 
 export const SWITCHER_DEFAULTS = {
-  keys: 'theme',        // 'theme': ❖Tab in Lord Flow, ⌥Tab in Lord Classic; or 'meta', 'alt', 'both'
+  keys: 'alt',          // Tahoe default: Alt+Tab; users can still choose theme, meta, or both
   scope: 'all',         // 'all', 'desktop' (this desktop) or 'display' (this display)
   hideMinimized: false, // an app with every window minimized stays out
   numbers: true,        // 1 to 9 on the first apps; pressing one goes to it
