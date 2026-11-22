@@ -126,6 +126,20 @@ static void test_app(void) {
     expect(0, "../ed", "");
 }
 
+static void test_variants(void) {
+    touch("/home/.local/share/icons/MacTahoe-blue-light/status/32/mode.svg");
+    iconfind_set_variant("MacTahoe-blue-light");
+    expect(1, "mode", "/home/.local/share/icons/MacTahoe-blue-light/status/32/mode.svg");
+
+    touch("/home/.local/share/icons/MacTahoe-blue-dark/status/32/mode.svg");
+    iconfind_set_variant("MacTahoe-blue-dark");
+    expect(1, "mode", "/home/.local/share/icons/MacTahoe-blue-dark/status/32/mode.svg");
+
+    touch("/home/.local/share/icons/MacTahoe-blue-dark/status/32/mode.svg");
+    iconfind_set_variant("not-a-theme");
+    expect(1, "mode", "/home/.local/share/icons/MacTahoe-blue-dark/status/32/mode.svg");
+}
+
 static void test_allowed(void) {
     struct { const char *path; int ok; } cases[] = {
         { "/usr/share/icons/Adwaita/symbolic/status/a-symbolic.svg", 1 },
@@ -157,6 +171,7 @@ int main(void) {
     snprintf(home, sizeof home, "%s/home", root);
     test_status();
     test_app();
+    test_variants();
     test_allowed();
     char cmd[PATH_MAX + 16];
     snprintf(cmd, sizeof cmd, "rm -rf '%s'", root);
