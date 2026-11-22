@@ -61,8 +61,11 @@ int main(void) {
     CHECK(pwguard_parse_u32("+1", &parsed) != 0);
     CHECK(pwguard_parse_u32(" 1", &parsed) != 0);
     CHECK(pwguard_parse_u32("1 ", &parsed) != 0);
-    CHECK(pwguard_parse_u32("\\t1", &parsed) != 0);
-    CHECK(pwguard_parse_u32("1\\n", &parsed) != 0);
+    CHECK(pwguard_parse_u32("\t1", &parsed) != 0);
+    CHECK(pwguard_parse_u32("1\n", &parsed) != 0);
+    CHECK(pwguard_parse_u32("1\r", &parsed) != 0);
+    CHECK(pwguard_parse_u32("1\v", &parsed) != 0);
+    CHECK(pwguard_parse_u32("1\f", &parsed) != 0);
     CHECK(pwguard_parse_u32("12x", &parsed) != 0);
     CHECK(pwguard_parse_u32("4294967296", &parsed) != 0);
     CHECK(pwguard_parse_pid("") == 0);
