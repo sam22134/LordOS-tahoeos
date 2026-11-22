@@ -68,22 +68,25 @@ function useAutohide(mode, position, rectRef, keepOpen, areaRef, force, covered)
     if (!enabled) { want.current = true; setP(1); return undefined; }
     want.current = !mayHide.current;
     setP(want.current ? 1 : 0);
-    let timer = 0, raf = 0, from = 0, t0 = 0, px = -1, py = -1;
+    let timer = 0, raf = 0, from = mayHide.current ? 0 : 1, progress = from, t0 = 0, px = -1, py = -1;
     const animate = (to) => {
       cancelAnimationFrame(raf);
+      // Reverse from the last rendered position instead of jumping to an endpoint. Pointer
+      // movement can cross the reveal/hide boundary several times during one slide.
+      from = progress;
       t0 = performance.now();
       const step = (now) => {
         const k = Math.min(1, (now - t0) / SLIDE_MS), e = 1 - (1 - k) * (1 - k);
-        setP(from + (to - from) * e);
+        progress = from + (to - from) * e;
+        setP(progress);
         if (k < 1) raf = requestAnimationFrame(step);
-        else from = to;
+        else { progress = to; from = to; }
       };
       raf = requestAnimationFrame(step);
     };
     const set = (on) => {
       if (want.current === on) return;
       want.current = on;
-      from = on ? 0 : 1;
       animate(on ? 1 : 0);
     };
     const stop = () => { if (timer) { clearTimeout(timer); timer = 0; } };
