@@ -34,6 +34,20 @@ static inline int input_system_key(int code) {
  * reading; and only input_system_key codes are passed on, so the power key never reaches the desktop twice. A
  * "Power Button" (KEY_POWER only) or a "Video Bus" (brightness only, which the kernel's ACPI video driver may
  * already act on) isn't one. Keyboards, mice and tablets are checked first: a device that is one of them stays one. */
+/* A multitouch touchpad can expose only ABS_MT_* coordinates, with no legacy ABS_X/Y.
+ * Admit exactly the capability combination that tp_open() accepts; don't treat arbitrary
+ * accelerometers, joysticks or direct touchscreens as relative mice. */
+static inline int input_is_multitouch_touchpad(const unsigned long *ev, const unsigned long *abs,
+                                               const unsigned long *keys, const unsigned long *props) {
+    if (!IK_BIT(ev, EV_ABS) || !IK_BIT(abs, ABS_MT_POSITION_X) ||
+        !IK_BIT(abs, ABS_MT_POSITION_Y) || !IK_BIT(abs, ABS_MT_SLOT) ||
+        !IK_BIT(keys, BTN_TOOL_FINGER)) return 0;
+    return IK_BIT(props, INPUT_PROP_DIRECT) ||
+           IK_BIT(props, INPUT_PROP_POINTER) ||
+           IK_BIT(keys, BTN_LEFT) ||
+           IK_BIT(props, INPUT_PROP_BUTTONPAD);
+}
+
 static inline int input_is_system_keys(const unsigned long *ev, const unsigned long *keys) {
     if (!IK_BIT(ev, EV_KEY) || IK_BIT(keys, KEY_A) || IK_BIT(keys, BTN_LEFT) || IK_BIT(keys, BTN_TOUCH)) return 0;
     return IK_BIT(keys, KEY_VOLUMEUP) || IK_BIT(keys, KEY_VOLUMEDOWN) || IK_BIT(keys, KEY_MUTE) ||
