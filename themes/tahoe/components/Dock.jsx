@@ -392,6 +392,9 @@ export function Dock({ t, items: list, running, onOpen, onRestoreWindow, onConte
   const hit = hovered >= 0 ? items[hovered] : null;
   const showTip = hovered >= 0 && !keepOpen;
   const label = !hit ? '' : hit.trash ? tr('shell.trash.name') : hit.windowThumb ? (hit.window.title || hit.name) : hit.launcher ? tr('shell.menu.apps') : appName(hit);
+  const previewWidth = Math.max(0, Math.min(area.w - 16, 620, (preview?.windows.length || 0) * 150 + 16));
+  const previewColumns = Math.max(1, Math.floor((previewWidth - 16) / 150));
+  const previewHeight = 16 + Math.ceil((preview?.windows.length || 0) / previewColumns) * 96;
   const tip = (
     <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 7, backgroundColor: t.panelBg,
       backdropFilter: `blur(${t.blur}px)`, border: `1px solid ${t.windowBorder}` }}>
@@ -511,12 +514,12 @@ export function Dock({ t, items: list, running, onOpen, onRestoreWindow, onConte
             style={{
               position: 'absolute',
               ...(position === 'bottom'
-                ? { left: Math.max(area.x + 8, Math.min(area.x + area.w - Math.min(620, preview.windows.length * 150 + 16) - 8, preview.at.x - Math.min(620, preview.windows.length * 150 + 16) / 2)),
+                ? { left: Math.max(area.x + 8, Math.min(area.x + area.w - previewWidth - 8, preview.at.x - Math.min(620, preview.windows.length * 150 + 16) / 2)),
                     bottom: screen.height - (AB - MARGIN - hide) + bar + 14 }
                 : position === 'left'
-                  ? { left: AX + MARGIN + bar + 14 - hide, top: Math.max(area.y + 8, Math.min(area.y + area.h - 112 - 8, preview.at.y - 56)) }
+                  ? { left: AX + MARGIN + bar + 14 - hide, top: Math.max(area.y + 8, Math.min(area.y + area.h - previewHeight - 8, preview.at.y - previewHeight / 2)) }
                   : { right: screen.width - (AR - MARGIN - bar - 14 + hide), top: Math.max(area.y + 8, Math.min(area.y + area.h - 112 - 8, preview.at.y - 56)) }),
-              width: Math.min(620, preview.windows.length * 150 + 16), maxWidth: area.w - 16,
+              width: previewWidth, maxWidth: area.w - 16,
               padding: 8, borderRadius: 14, flexDirection: 'row', flexWrap: 'wrap', gap: 8,
               backgroundColor: t.panelBg, backdropFilter: `blur(${t.blur}px)`,
               border: `1px solid ${t.windowBorder}`, boxShadow: t.dockShadow,
@@ -536,7 +539,7 @@ export function Dock({ t, items: list, running, onOpen, onRestoreWindow, onConte
                 <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3 }}>
                   <TahoeIconForApp app={{ id: preview.id, Icon: preview.Icon }} size={26} />
                   <Text style={{ fontSize: 9, color: t.mode === 'dark' ? '#f3f4f6' : '#333640' }}>
-                    {w.minimized ? tr('shell.dock.minimized') : tr('shell.dock.open')}
+                    {w.minimized ? '–' : ''}
                   </Text>
                 </View>
               </View>
