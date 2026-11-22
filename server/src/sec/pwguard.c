@@ -75,7 +75,7 @@ static struct {
     PgPort port[MAX_PORTS];
     uint8_t proxy_used[MAX_PROXY];
     double next_try, next_tick;
-    int up;
+    int up, connecting;
 } P = { .fd = -1 };
 
 static double now_ms(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return t.tv_sec * 1e3 + t.tv_nsec / 1e6; }
@@ -162,6 +162,7 @@ static void drop(void) {
     if (P.fd >= 0) close(P.fd);
     P.fd = -1;
     P.up = 0;
+    P.connecting = 0;
     P.inlen = P.outlen = 0;
     memset(P.cl, 0, sizeof P.cl);
     memset(P.node, 0, sizeof P.node);
@@ -196,16 +197,7 @@ static uint32_t proxy_new(void) {
     return 0;
 }
 
-int pwguard_start(void) {
-    if (P.fd >= 0) return 0;
-    const char *rt = getenv("XDG_RUNTIME_DIR");
-    if (!rt || rt[0] != '/') { P.next_try = now_ms() + 2000; return -1; }
-    struct sockaddr_un sa = { .sun_family = AF_UNIX };
-    if ((size_t)snprintf(sa.sun_path, sizeof sa.sun_path, "%s/pipewire-0-manager", rt) >= sizeof sa.sun_path) { P.next_try = now_ms() + 2000; return -1; }
-    int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
-    if (fd < 0) { P.next_try = now_ms() + 2000; return -1; }
-    if (connect(fd, (struct sockaddr *)&sa, sizeof sa) && errno != EINPROGRESS) { close(fd); P.next_try = now_ms() + 2000; return -1; }
-    P.fd = fd;
+static void start_protocol(void) {
     P.seq = 0;
     P.proxy_used[0] = P.proxy_used[1] = P.proxy_used[2] = 1;
     Pb b = { .n = 0 };
@@ -223,13 +215,36 @@ int pwguard_start(void) {
     b.n = 0;
     s = pb_begin(&b); pb_int(&b, 3); pb_int(&b, 2); pb_end(&b, s);
     send_msg(0, 5, &b);                                         /* core.get_registry(3, new id 2) */
-    flush_out();
     P.up = 1;
+}
+
+int pwguard_start(void) {
+    if (P.fd >= 0) return 0;
+    const char *rt = getenv("XDG_RUNTIME_DIR");
+    if (!rt || rt[0] != '/') { P.next_try = now_ms() + 2000; return -1; }
+    struct sockaddr_un sa = { .sun_family = AF_UNIX };
+    if ((size_t)snprintf(sa.sun_path, sizeof sa.sun_path, "%s/pipewire-0-manager", rt) >= sizeof sa.sun_path) { P.next_try = now_ms() + 2000; return -1; }
+    int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
+    if (fd < 0) { P.next_try = now_ms() + 2000; return -1; }
+    int rc = connect(fd, (struct sockaddr *)&sa, sizeof sa);
+    if (rc && errno != EINPROGRESS) { close(fd); P.next_try = now_ms() + 2000; return -1; }
+    P.fd = fd;
+    P.connecting = rc != 0;
+    P.up = 0;
+    P.inlen = P.outlen = 0;
+    memset(P.cl, 0, sizeof P.cl);
+    memset(P.node, 0, sizeof P.node);
+    memset(P.port, 0, sizeof P.port);
+    memset(P.proxy_used, 0, sizeof P.proxy_used);
+    if (!P.connecting) {
+        start_protocol();
+        flush_out();
+    }
     return 0;
 }
 
 int pwguard_fd(void) { return P.fd; }
-int pwguard_wants_write(void) { return P.fd >= 0 && P.outlen > 0; }
+int pwguard_wants_write(void) { return P.fd >= 0 && (P.connecting || P.outlen > 0); }
 
 /* ---- the policy ---------------------------------------------------------------------------- */
 
@@ -718,6 +733,14 @@ static void on_message(uint32_t id, uint32_t opcode, PwPod body) {
 
 void pwguard_dispatch(void) {
     if (P.fd < 0) return;
+    if (P.connecting) {
+        int error = 0;
+        socklen_t n = sizeof error;
+        if (getsockopt(P.fd, SOL_SOCKET, SO_ERROR, &error, &n) || error) { drop(); return; }
+        P.connecting = 0;
+        start_protocol();
+        if (P.fd < 0) return;
+    }
     flush_out();
     for (;;) {
         if (P.fd < 0) return;
