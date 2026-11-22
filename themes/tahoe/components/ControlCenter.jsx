@@ -11,7 +11,7 @@
 import {
   View, Text, Image, Slider, useSettings, settings, useCpuUsage, useSystemInfo, memUsedKB, formatBytes, wm, session, addListener, t as tr,
   useSound, defaultSink, sound, NowPlayingTile, findWallpaper, wallpaperThumb, wallpaperIdFor, wallpaperPatch, screenDisplays, menuBarPrefs, SoundOutputList, useSoundOutputs, useBluetooth, setBluetoothPower,
-  panelLeft, inBar, ScrollView, screen, nightActive, setNightManual, notifyPrefs, dndActive, useBacklight, wifiTile, wifiTileView, admin, DisclosureGlyph,
+  panelLeft, inBar, ScrollView, screen, nightActive, setNightManual, notifyPrefs, dndActive, useBacklight, wifiTile, wifiTileView, admin, onBluetoothResult, btErrorKey, DisclosureGlyph,
   MoonGlyph, SunGlyph, ContrastGlyph, LayersGlyph, BluetoothGlyph, SignalGlyph, wifiBars, keyring, TextInput, Button, nearbyDevices,
 } from '@lordos/sdk';
 import { useEffect, useRef, useState } from 'react';
@@ -241,6 +241,17 @@ function BluetoothTile({ t, onClose, bt }) {
   const dev = (bt.devices || []).find((d) => d.connected);
   const [expanded, setExpanded] = useState(false);
   const [search, setSearch] = useState(false);
+  const [btError, setBtError] = useState('');
+  const devicesRef = useRef([]);
+  const pendingPath = useRef(null);
+  devicesRef.current = bt.devices || [];
+  useEffect(() => onBluetoothResult((r) => {
+    if (!r || r.path !== pendingPath.current || r.op === 'stop') return;
+    pendingPath.current = null;
+    if (r.ok) { setBtError(''); return; }
+    const key = btErrorKey(r, devicesRef.current);
+    setBtError(key ? tr(`prefs.bt.err.${key}`) : '');
+  }), []);
   useEffect(() => {
     if (!expanded || !adapter.powered) { setSearch(false); return undefined; }
     if (typeof lord === 'undefined' || !lord.bt) { setSearch(false); return undefined; }
@@ -260,10 +271,18 @@ function BluetoothTile({ t, onClose, bt }) {
   const paired = devices.filter((d) => d.paired);
   const nearby = nearbyDevices(devices);
   const action = (d) => {
-    if (d.busy) return;
-    if (!d.paired) lord.bt.pair(d.path);
-    else if (d.connected) lord.bt.disconnect(d.path);
-    else lord.bt.connect(d.path);
+    if (d.busy || pendingPath.current) return;
+    setBtError('');
+    try {
+      if (typeof lord === 'undefined' || !lord.bt || !adapter.powered) throw new Error('Bluetooth unavailable');
+      pendingPath.current = d.path;
+      if (!d.paired) lord.bt.pair(d.path);
+      else if (d.connected) lord.bt.disconnect(d.path);
+      else lord.bt.connect(d.path);
+    } catch (e) {
+      pendingPath.current = null;
+      setBtError(tr('prefs.bt.err.failed'));
+    }
   };
   return (
     <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
@@ -296,6 +315,7 @@ function BluetoothTile({ t, onClose, bt }) {
             <Text style={{ fontSize: 10, color: t.accent }}>{d.busy ? tr('prefs.bt.working') : tr('prefs.bt.connect')}</Text>
           </View>)}
           {!nearby.length ? <Text style={{ fontSize: 10, color: t.textDim }}>{search ? tr('prefs.bt.searching') : tr('prefs.bt.noneNearby')}</Text> : null}
+          {btError ? <Text style={{ fontSize: 10, color: t.textDim }}>{btError}</Text> : null}
         </>}
       </Tile> : null}
     </View>
