@@ -3,8 +3,8 @@
  * A minimal client of PipeWire's native protocol (version 3): each message is a 16-byte header
  * (object id; opcode << 24 | payload size; sequence; number of fds) and a SPA POD Struct.
  * We only use: core.hello, client.update_properties, core.get_registry, core.pong,
- * registry.bind (clients and links), registry.destroy (a restricted app's capture streams) and
- * client.update_permissions; and we read core.ping/error/remove_id, registry.global /
+ * registry.bind (clients and links), registry.destroy (a restricted app's capture streams),
+ * client.update_permissions and core.sync barriers; and we read core.ping/done/error/remove_id, registry.global /
  * global_remove, client.info and Link::Info. Link state is observational and never changes policy.
  * Everything is non-blocking: lord-server never waits for it. */
 #include "pwguard.h"
@@ -1099,10 +1099,11 @@ static void on_message(uint32_t id, uint32_t opcode, PwPod body) {
             break;
         }
     } else if (id == 0 && opcode == 3) {                        /* core.error */
-        int32_t resource_id = -1, request_seq = -1, result = 0;
+        int32_t resource_id = -1, request_seq = 0, result = 0;
+        int have_request_seq = 0;
         const char *msg = "";
         (void)(!pwpod_struct_field(body, 0, &f) && !pwpod_int(f, &resource_id));
-        (void)(!pwpod_struct_field(body, 1, &f) && !pwpod_int(f, &request_seq));
+        have_request_seq = !pwpod_struct_field(body, 1, &f) && !pwpod_int(f, &request_seq);
         (void)(!pwpod_struct_field(body, 2, &f) && !pwpod_int(f, &result));
         if (!pwpod_struct_field(body, 3, &f)) (void)pwpod_string(f, &msg);
         fprintf(stderr, "pwguard: PipeWire error (object %d, seq %d, result %d): %s\n",
@@ -1111,11 +1112,11 @@ static void on_message(uint32_t id, uint32_t opcode, PwPod body) {
             PgClient *c = &P.cl[i];
             if (!c->live || !c->pending) continue;
             int matched = 0;
-            if (request_seq >= 0 && resource_id == (int32_t)c->proxy) {
+            if (have_request_seq && resource_id == (int32_t)c->proxy) {
                 for (unsigned k = 0; k < c->pending_count; k++)
                     if (c->pending_seq[k] == (uint32_t)request_seq) { matched = 1; break; }
             }
-            if (request_seq >= 0 && resource_id == 0 &&
+            if (have_request_seq && resource_id == 0 &&
                 c->pending_sync_header == (uint32_t)request_seq) matched = 1;
             if (matched) c->pending_failed = 1;
         }
