@@ -32,7 +32,7 @@ The shell now has Tahoe-specific presentation for its Menu Bar, Dock, window fra
 - No compositor, Wayland, window-manager, application runtime, MIME or security code is changed by this visual slice.
 - The menu bar, Dock, window chrome, Control Center, Notification Center, Launchpad and general menus now have Tahoe-specific presentation components. The underlying shell services and interaction contracts remain shared with LordOS.
 - The freedesktop/GTK MacTahoe icon theme is already integrated into LordOS packaging and Linux-app/status-icon lookup (`packaging/icons/` and `docs/ICONS.md`). Tahoe-native artwork for built-in React apps is still pending; third-party Linux app icons should continue using their installed icon theme.
-- Tahoe-specific wallpapers and sound assets have not yet been added. The theme currently offers the LordOS wallpaper collection.
+- Tahoe wallpaper experience has begun with a curated ordering of existing LordOS wallpaper entries, leading with calmer abstract/light-friendly images. It still reuses the original wallpaper assets; dedicated Tahoe artwork and sounds are not yet added. Existing per-display selection, motion wallpaper and user-imported images remain on the SDK path.
 - A source-level registration is not a build or runtime validation. Run `npm run build`, switch to Tahoe in Settings → Appearance → Desktop style, and test multi-display, RTL, Reduce Motion, fullscreen and low-effects configurations before calling the theme validated.
 - Themes not present in the signed release manifest remain development-build-only, as described in `docs/THEMES-GUIDE.md`. A release must include the new theme in the verified-code signing pipeline.
 
