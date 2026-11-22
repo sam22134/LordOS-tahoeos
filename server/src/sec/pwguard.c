@@ -133,7 +133,7 @@ int pwpod_int(PwPod p, int32_t *v) {
 
 int pwpod_string(PwPod p, const char **s) {
     uint32_t size = p.n >= 8 ? rd32(p.p) : 0;
-    if (p.n < 9 || rd32(p.p + 4) != SPA_STRING || !size || p.p[8 + size - 1]) return -1;
+    if (p.n < 9 || rd32(p.p + 4) != SPA_STRING || !size || size > p.n - 8 || p.p[8 + size - 1]) return -1;
     *s = (const char *)p.p + 8;
     return 0;
 }
