@@ -1077,7 +1077,11 @@ static void on_message(uint32_t id, uint32_t opcode, PwPod body) {
     } else if (id == 0 && opcode == 1) {                        /* core.done(id, seq) */
         int32_t done_id, done_seq;
         if (pwpod_struct_field(body, 0, &f) || pwpod_int(f, &done_id) ||
-            pwpod_struct_field(body, 1, &f) || pwpod_int(f, &done_seq)) return;
+            pwpod_struct_field(body, 1, &f) || pwpod_int(f, &done_seq)) {
+            fprintf(stderr, "pwguard: malformed PipeWire Core::Done; resetting connection\\n");
+            drop();
+            return;
+        }
         if (done_id != 0) return;
         for (int i = 0; i < MAX_CLIENTS; i++) {
             PgClient *c = &P.cl[i];
@@ -1102,10 +1106,15 @@ static void on_message(uint32_t id, uint32_t opcode, PwPod body) {
         int32_t resource_id = -1, request_seq = 0, result = 0;
         int have_request_seq = 0;
         const char *msg = "";
-        (void)(!pwpod_struct_field(body, 0, &f) && !pwpod_int(f, &resource_id));
-        have_request_seq = !pwpod_struct_field(body, 1, &f) && !pwpod_int(f, &request_seq);
-        (void)(!pwpod_struct_field(body, 2, &f) && !pwpod_int(f, &result));
-        if (!pwpod_struct_field(body, 3, &f)) (void)pwpod_string(f, &msg);
+        if (pwpod_struct_field(body, 0, &f) || pwpod_int(f, &resource_id) ||
+            pwpod_struct_field(body, 1, &f) || pwpod_int(f, &request_seq) ||
+            pwpod_struct_field(body, 2, &f) || pwpod_int(f, &result) ||
+            pwpod_struct_field(body, 3, &f) || pwpod_string(f, &msg)) {
+            fprintf(stderr, "pwguard: malformed PipeWire Core::Error; resetting connection\\n");
+            drop();
+            return;
+        }
+        have_request_seq = 1;
         fprintf(stderr, "pwguard: PipeWire error (object %d, seq %d, result %d): %s\n",
                 resource_id, request_seq, result, msg);
         for (int i = 0; i < MAX_CLIENTS; i++) {
