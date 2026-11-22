@@ -49,7 +49,7 @@ int main(void) {
     PwPod os = { oversized, sizeof oversized };
     CHECK(pwpod_string(os, &str) != 0); /* claimed string length exceeds POD buffer */
     uint8_t embedded[16] = { 0 };
-    put(embedded, 0, 4); put(embedded, 4, 8); memcpy(embedded + 8, "a\\0b", 4);
+    put(embedded, 0, 4); put(embedded, 4, 8); memcpy(embedded + 8, "a\0b", 4);
     PwPod es = { embedded, sizeof embedded };
     CHECK(pwpod_string(es, &str) != 0); /* embedded NUL makes the value ambiguous */
 
