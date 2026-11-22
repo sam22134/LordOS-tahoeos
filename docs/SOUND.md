@@ -91,6 +91,7 @@ Events: `globalThis.__lordSound = (type, data) => …`
 - `type === 'state'`: `data` is the same as `state()`.
 - `type === 'peak'`: `data` is `{ source, level }` (0..1), about 23 times per second while the meter
   is on.
+- `type === 'error'`: `data` is `{ command, code, index }` when PipeWire rejects a command after it was sent. The SDK exposes it through `useSoundError()`; a later state update clears the warning.
 
 Shape of the state:
 
