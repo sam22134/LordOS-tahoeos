@@ -58,6 +58,7 @@ function fxStyle(fx, geo) {
 
 export function Window({ win, app, t, focused, fx }) {
   const drag = useRef(null);
+  const [titleMenu, setTitleMenu] = useState(null);
   const { atStart, order } = useWindowButtons(true);
   const geo = wm.frame(win);
   const fxs = fxStyle(fx, geo);
@@ -125,6 +126,7 @@ export function Window({ win, app, t, focused, fx }) {
       ...fxs,
     }}>
       <View onMouseDown={(e) => { if (!wm.beginMove(win.id)) drag.current = { x0: e.x, y0: e.y, rel: geo.w ? (e.x - geo.x) / geo.w : 0.5, moving: false }; }}
+        onContextMenu={(e) => { e.stopPropagation(); setTitleMenu({ x: e.x, y: e.y }); }}
         onDoubleClick={() => wm.toggleMaximize(win.id)}
         style={{ height: TITLE_H, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, backgroundColor: t.titleBg }}>
         {/* a transparent app: under the bar, the separator and the app's first row, so their edges let nothing through
@@ -138,6 +140,13 @@ export function Window({ win, app, t, focused, fx }) {
       </View>
       <View style={{ height: 1, backgroundColor: app.transparent ? solidOver(t.separator, t.titleBg) : t.separator }} />
       <View style={{ flex: 1 }}><AppHost id={win.id} focused={focused} /></View>
+      {titleMenu && <Menu x={titleMenu.x} y={titleMenu.y} onClose={() => setTitleMenu(null)} items={[
+        { label: tr('shell.window.minimize'), onClick: () => wm.minimize(win.id) },
+        { label: tr('shell.window.maximize'), checked: !!win.maximized, onClick: () => wm.toggleMaximize(win.id) },
+        { label: tr('shell.desktops.moveTo'), submenu: moveToDesktopItems(win.id) },
+        '-',
+        { label: tr('shell.window.close'), danger: true, onClick: () => wm.close(win.id) },
+      ]} />}
       {/* a web app's profile: a thin strip in its color on top of the frame */}
       {windowAccent(win) ? <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 3, backgroundColor: windowAccent(win), pointerEvents: 'none' }} /> : null}
     </WindowShell>
