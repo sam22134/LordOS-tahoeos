@@ -44,6 +44,8 @@ int  pwpod_string(PwPod p, const char **s);
 uint32_t pwguard_capture_flag(const char *media_class);
 /* The same for a stream an app creates to capture ("Stream/Input/Audio" → FW_R_NO_MIC). */
 uint32_t pwguard_stream_flag(const char *media_class);
+/* PipeWire pw_link_state: only ACTIVE (4) means the graph connection is running. */
+int pwguard_link_state_active(int state);
 /* A node's flag from its global's properties: a screen shared with an app (the ScreenCast portal's lord-screencast: a
  * Video/Source whose media.role is Screen, or named lordos-screencast-*) is FW_R_NO_SCREEN, not a camera; else as
  * pwguard_capture_flag. Any app's node that says so is hidden from no-screen apps, which only hides it more. */
