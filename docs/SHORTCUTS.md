@@ -84,7 +84,7 @@ Switching brings the app's top window, on this desktop if it has one. Listing ap
 name, and choosing one elsewhere jumps there. ❖\` and ❖⇧\` in Lord Flow go through the visible windows of the app in front on this
 desktop.
 
-Settings → Keyboard (`settings.switcher`): which keys open it (the theme's, ❖Tab, ⌥Tab or both; the grab profile gets `+tab-meta`, `+tab-alt` or `+tab-both`), apps from everywhere, this desktop or this display,
+Settings → Keyboard (`settings.switcher`): defaults to ⌥Tab for Tahoe; users can choose the theme's shortcut, ❖Tab, ⌥Tab or both (the grab profile gets `+tab-meta`, `+tab-alt` or `+tab-both`), apps from everywhere, this desktop or this display,
 leaving out apps with everything minimized, numbers, the windows row, size, a look (System, Glass, Solid, High contrast, Custom colors) and apps that never show. In Lord Classic, when ❖Tab opens the switcher, the Overview moves to ❖W.
 
 ## Stopping a screen share
