@@ -619,7 +619,10 @@ int bt_connect(const char *path) {
 
 int bt_disconnect(const char *path) {
     BtDevice *d = known(path);
-    return d ? call_op("disconnect", d->path, "org.bluez.Device1", "Disconnect", NULL, NULL) : -1;
+    if (!d || call_op("disconnect", d->path, "org.bluez.Device1", "Disconnect", NULL, NULL)) return -1;
+    d->busy = 1;
+    dirty = 1;
+    return 0;
 }
 
 int bt_forget(const char *path) {
@@ -631,6 +634,7 @@ int bt_forget(const char *path) {
     Op *o = op_new("forget", d->path);
     int ok = o && sysbus_call(BLUEZ, d->adapter, "org.bluez.Adapter1", "RemoveDevice", "o", &b, op_done, o);
     if (!ok) free(o);
+    else { d->busy = 1; dirty = 1; }
     dw_free(&b);
     return ok ? 0 : -1;
 }
