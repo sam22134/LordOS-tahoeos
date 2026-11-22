@@ -20,8 +20,8 @@ blocklists arrived ("Network, second generation").
 ## Microphone and camera activity
 
 The menu-bar privacy indicators and the Monitor's device-user store combine two sources:
-the PulseAudio compatibility view (which provides source names for recording streams) and
-the native PipeWire graph. The latter follows `Link::Info` and reports only `ACTIVE`
+the native PipeWire graph (which verifies direct and PulseAudio client identities) and
+the PulseAudio compatibility view (which contributes microphone source names only). The latter follows `Link::Info` and reports only `ACTIVE`
 connections from a microphone or camera source to an application's input stream. The application
 identity comes from `pwguard`'s verified PipeWire client resolution (process credentials and
 the app's session scope), not from a display name supplied by the stream. Duplicate microphone
@@ -1266,6 +1266,6 @@ It runs outside the frame. While it draws, the screen shows the previous frame s
 
 ## Device privacy activity
 
-The Monitor SDK exposes `monitor.deviceUsers()` and the `monitorDevices` store. The native PipeWire graph reports verified applications only when an `ACTIVE` link connects an audio or video source to an application's input stream. It includes direct PipeWire clients and camera capture. PulseAudio compatibility data enriches microphone rows with source names; duplicate app/device rows are merged. Paused, incomplete or unverified streams are omitted rather than guessed.
+The Monitor SDK exposes `monitor.deviceUsers()` and the `monitorDevices` store. The native PipeWire graph reports verified applications only when an `ACTIVE` link connects an audio or video source to an application's input stream. It includes direct PipeWire clients and camera capture. PulseAudio compatibility data enriches verified microphone rows with source names only; its application and PID metadata never creates an indicator entry. Paused, incomplete or unverified streams are omitted rather than guessed.
 
 Screen sharing is not inferred from generic video nodes. Its attribution remains tied to the ScreenCast portal's session lifecycle.
