@@ -53,6 +53,20 @@ int main(void) {
     PwPod es = { embedded, sizeof embedded };
     CHECK(pwpod_string(es, &str) != 0); /* embedded NUL makes the value ambiguous */
 
+    uint32_t parsed;
+    CHECK(!pwguard_parse_u32("0", &parsed) && parsed == 0);
+    CHECK(!pwguard_parse_u32("4294967295", &parsed) && parsed == UINT32_MAX);
+    CHECK(pwguard_parse_u32("", &parsed) != 0);
+    CHECK(pwguard_parse_u32("-1", &parsed) != 0);
+    CHECK(pwguard_parse_u32("+1", &parsed) != 0);
+    CHECK(pwguard_parse_u32("12x", &parsed) != 0);
+    CHECK(pwguard_parse_u32("4294967296", &parsed) != 0);
+    CHECK(pwguard_parse_pid("1") == 1);
+    CHECK(pwguard_parse_pid("2147483647") == INT32_MAX);
+    CHECK(pwguard_parse_pid("0") == 0);
+    CHECK(pwguard_parse_pid("2147483648") == 0);
+    CHECK(pwguard_parse_pid("123junk") == 0);
+
     CHECK(pwguard_link_state_active(-2) == 0);       /* ERROR */
     CHECK(pwguard_link_state_active(-1) == 0);       /* UNLINKED */
     CHECK(pwguard_link_state_active(0) == 0);        /* INIT */
