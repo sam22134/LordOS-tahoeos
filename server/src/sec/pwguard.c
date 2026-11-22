@@ -661,7 +661,7 @@ static int pulse_connections(int pp, int pid) {
     return -1;
 }
 
-/* The pid as pid's innermost PID namespace sees it (the last NSpid field), or -1. */
+/* Parse the whitespace-separated NSpid values without accepting numeric prefixes or overflow. */
 static int inner_pid(int pid) {
     char p[64], line[256];
     snprintf(p, sizeof p, "/proc/%d/status", pid);
@@ -669,13 +669,26 @@ static int inner_pid(int pid) {
     int in = -1;
     while (f && fgets(line, sizeof line, f)) {
         if (strncmp(line, "NSpid:", 6)) continue;
-        char *s = line + 6, *end;
-        for (;;) {
-            long v = strtol(s, &end, 10);
-            if (end == s) break;
-            in = (int)v;
+        char *s = line + 6;
+        int last = -1, count = 0;
+        while (*s) {
+            while (*s == ' ' || *s == '\\t' || *s == '\\r' || *s == '\\n') s++;
+            if (!*s) break;
+            char *end = s;
+            while (*end >= '0' && *end <= '9') end++;
+            if (end == s || (*end && *end != ' ' && *end != '\\t' && *end != '\\r' && *end != '\\n')) {
+                last = -1; count = 0; break;
+            }
+            char saved = *end;
+            *end = 0;
+            int value = pwguard_parse_pid(s);
+            *end = saved;
+            if (!value) { last = -1; count = 0; break; }
+            last = value;
+            count++;
             s = end;
         }
+        in = count ? last : -1;
         break;
     }
     if (f) fclose(f);
@@ -700,9 +713,14 @@ static int flatpak_host_pid(const PgClient *c, int claims) {
              (unsigned)getuid(), c->fpid);
     FILE *f = fopen(path, "re");
     if (!f) return 0;
-    int found = 0, pid;
-    while (!found && fscanf(f, "%d", &pid) == 1)
-        if (pid > 0 && inner_pid(pid) == c->pid_app && pulse_connections(c->pid_sec, pid) >= claims) found = pid;
+    int found = 0;
+    char line[64];
+    while (!found && fgets(line, sizeof line, f)) {
+        line[strcspn(line, "\\r\\n")] = 0;
+        int pid = pwguard_parse_pid(line);
+        if (pid > 0 && inner_pid(pid) == c->pid_app &&
+            pulse_connections(c->pid_sec, pid) >= claims) found = pid;
+    }
     fclose(f);
     return found;
 }
