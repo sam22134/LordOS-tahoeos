@@ -63,8 +63,10 @@ O caminho foi seguido no código: `tp_event_at()` produz o botão direito (códi
 
 - Auditoria do dispatcher: `runtime/events.js` gera `onContextMenu` no `pointerup` quando o botão é `2`, usando a cadeia comum entre pressionar e soltar; `stopPropagation()` encerra o bubbling. Files (itens, cabeçalho e fundo), Dock, Lixeira e papel de parede já possuem handlers. Não foi encontrado defeito universal no dispatcher; ainda falta validar o botão emitido pelo hardware e testar cada alvo no desktop real.
 - Reutilizar `sdk/contextmenu.jsx` e `sdk/layers.js`.
-- Garantir botão direito no desktop, arquivos, Dock, lixeira e janelas.
-- Validar que o evento secundário emitido pelo touchpad percorre o mesmo caminho do mouse.
+- [x] Adicionar menu contextual à barra de título das janelas Lord Flow: minimizar, maximizar/restaurar, mover para outro desktop e fechar.
+- O menu usa o componente `Menu` existente, que é renderizado na camada popover; não cria um segundo dispatcher nem um sistema de menus paralelo.
+- Apps Linux com CSD/ownFrame continuam usando `win.windowMenu`, alimentado pelo caminho próprio do compositor.
+- Desktop/papel de parede, Files (itens, cabeçalho e fundo), Dock e Lixeira já possuem handlers; ainda falta validar em hardware e sessão real o caminho físico completo.
 - Fechar menus por clique externo e Escape; respeitar limites da tela e foco.
 
 ### 3. Alternador de janelas
