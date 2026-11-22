@@ -25,7 +25,7 @@ static size_t put(uint8_t *b, size_t o, uint32_t v) { memcpy(b + o, &v, 4); retu
 
 static void test_malformed_done_resets_connection(void) {
     char dir[] = "/tmp/lordos-pwguard-XXXXXX";
-    CHECK(mkdtemp(dir) != NULL);
+    if (!mkdtemp(dir)) { CHECK(0); return; }
     char path[sizeof(((struct sockaddr_un *)0)->sun_path)];
     snprintf(path, sizeof path, "%s/pipewire-0-manager", dir);
 
@@ -35,10 +35,16 @@ static void test_malformed_done_resets_connection(void) {
 
     struct sockaddr_un sa = { .sun_family = AF_UNIX };
     snprintf(sa.sun_path, sizeof sa.sun_path, "%s", path);
-    CHECK(bind(server, (struct sockaddr *)&sa, sizeof sa) == 0);
-    CHECK(listen(server, 1) == 0);
-    CHECK(setenv("XDG_RUNTIME_DIR", dir, 1) == 0);
-    CHECK(pwguard_start() == 0);
+    if (bind(server, (struct sockaddr *)&sa, sizeof sa) != 0 ||
+        listen(server, 1) != 0 || setenv("XDG_RUNTIME_DIR", dir, 1) != 0 ||
+        pwguard_start() != 0) {
+        CHECK(0);
+        close(server);
+        unlink(path);
+        rmdir(dir);
+        return;
+    }
+    CHECK(1);
     int peer = accept(server, NULL, NULL);
     CHECK(peer >= 0);
     if (peer >= 0) {
