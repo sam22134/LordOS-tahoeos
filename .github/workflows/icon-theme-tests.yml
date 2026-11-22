@@ -14,6 +14,9 @@ on:
       - "server/tests/inputkind_test.c"
       - "tests/touchpad-sim/**"
       - "packaging/icons/**"
+      - "apps/**"
+      - "sdk/iconsrc.js"
+      - "server/tests/iconsrc_test.mjs"
       - ".github/workflows/icon-theme-tests.yml"
   pull_request:
     paths:
@@ -26,6 +29,9 @@ on:
       - "server/tests/inputkind_test.c"
       - "tests/touchpad-sim/**"
       - "packaging/icons/**"
+      - "apps/**"
+      - "sdk/iconsrc.js"
+      - "server/tests/iconsrc_test.mjs"
       - ".github/workflows/icon-theme-tests.yml"
 
 permissions:
@@ -40,6 +46,8 @@ jobs:
         run: cc -D_GNU_SOURCE -std=c11 -Wall -Wextra -o /tmp/iconfind-test server/tests/iconfind_test.c server/src/iconfind.c
       - name: Run icon resolver regression test
         run: /tmp/iconfind-test
+      - name: Test Linux app icon source conversion
+        run: node server/tests/iconsrc_test.mjs
       - name: Validate installer shell syntax
         run: bash -n packaging/icons/install-mactahoe.sh
       - name: Compile and run input capability classification tests
