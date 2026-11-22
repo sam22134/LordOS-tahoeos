@@ -49,8 +49,7 @@ static void expect(int status, const char *name, const char *want) {
 
 static void test_status(void) {
     const char *files[] = {
-        "/home/.local/share/icons/MacTahoe-blue/status/32/vol.png",
-        "/home/.local/share/icons/MacTahoe-blue-dark/status/32/vol.png",
+        "/home/.local/share/icons/MacTahoe-blue-dark/status/32/vol.png",        "/home/.local/share/icons/MacTahoe-blue/status/32/vol.png",
         "/home/.local/share/icons/MacTahoe-blue-light/status/32/vol.png",
         "/home/.local/share/icons/hicolor/22x22/status/vol.png",
         "/usr/share/icons/MacTahoe-blue/status/32/vol.png",
@@ -90,8 +89,7 @@ static void test_status(void) {
 
 static void test_app(void) {
     const char *files[] = {
-        "/home/.local/share/icons/MacTahoe-blue/apps/32/ed.png",
-        "/home/.local/share/icons/MacTahoe-blue-dark/apps/32/ed.png",
+        "/home/.local/share/icons/MacTahoe-blue-dark/apps/32/ed.png",        "/home/.local/share/icons/MacTahoe-blue/apps/32/ed.png",
         "/home/.local/share/icons/MacTahoe-blue-light/apps/32/ed.png",
         "/home/.local/share/icons/hicolor/48x48/apps/ed.png",
         "/usr/share/icons/MacTahoe-blue/apps/32/ed.png",
