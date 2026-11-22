@@ -19,10 +19,10 @@ import { minimizeStarts } from '../default/minimize.js';
 import { MenuBars } from './components/MenuBar.jsx';
 import { Dock, LaunchpadIcon, dockThickness } from './components/Dock.jsx';
 import { Window } from './components/Window.jsx';
-import { Launchpad } from '../default/components/Launchpad.jsx';
+import { Launchpad } from './components/Launchpad.jsx';
 import { ControlCenter } from './components/ControlCenter.jsx';
 import { NotificationCenter } from './components/NotificationCenter.jsx';
-import { Menu, menuHasKeys } from '../default/components/Menu.jsx';
+import { Menu, menuHasKeys } from './components/Menu.jsx';
 
 const MENU_H = 32;
 // The defaults: Files first and the app launcher after it; the Trash is always last (sdk/dockmodel.js).
