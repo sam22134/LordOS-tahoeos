@@ -119,7 +119,7 @@ static int find_appstream(const IconRoots *r, const char *name, char *out, size_
 
 int iconfind_app(const IconRoots *r, const char *name, char *out, size_t n) {
     /* Prefer sources that stay sharp at the Dock's largest (128 px) size; smaller themes remain fallbacks. */
-    static const int sizes[] = { 128, 96, 256, 64, 48, 72, 32, 512 };
+    static const int sizes[] = { 128, 256, 96, 64, 48, 72, 32, 512 };
     static const char *const kinds[] = { "apps", NULL };
     out[0] = 0;
     if (!name || !name[0] || strstr(name, "..") || strlen(name) >= 256) return 0;
