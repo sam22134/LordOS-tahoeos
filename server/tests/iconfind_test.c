@@ -145,6 +145,15 @@ static void test_app(void) {
     expect(0, "../ed", "");
 }
 
+static void test_app_resolution(void) {
+    /* A high-resolution source must win over a smaller PNG in the same active theme. */
+    touch("/usr/share/icons/MacTahoe-blue-dark/apps/64/hires.png");
+    touch("/usr/share/icons/MacTahoe-blue-dark/apps/128/hires.png");
+    expect(0, "hires", "/usr/share/icons/MacTahoe-blue-dark/apps/128/hires.png");
+    expect(0, "hires", "/usr/share/icons/MacTahoe-blue-dark/apps/64/hires.png");
+    expect(0, "hires", "");
+}
+
 static void test_variants(void) {
     touch("/home/.local/share/icons/MacTahoe-blue-light/status/32/mode.svg");
     iconfind_set_variant("MacTahoe-blue-light");
@@ -190,6 +199,7 @@ int main(void) {
     snprintf(home, sizeof home, "%s/home", root);
     test_status();
     test_app();
+    test_app_resolution();
     test_variants();
     test_allowed();
     char cmd[PATH_MAX + 16];
