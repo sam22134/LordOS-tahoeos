@@ -12,9 +12,10 @@ import {
   View, Text, Image, Slider, useSettings, settings, useCpuUsage, useSystemInfo, memUsedKB, formatBytes, wm, session, addListener, t as tr,
   useSound, defaultSink, sound, NowPlayingTile, findWallpaper, wallpaperThumb, wallpaperIdFor, wallpaperPatch, screenDisplays, menuBarPrefs, SoundOutputList, useSoundOutputs, useBluetooth, setBluetoothPower,
   panelLeft, inBar, ScrollView, screen, nightActive, setNightManual, notifyPrefs, dndActive, useBacklight, wifiTile, wifiTileView, admin, DisclosureGlyph,
-  MoonGlyph, SunGlyph, ContrastGlyph, LayersGlyph, BluetoothGlyph, SignalGlyph,
+  MoonGlyph, SunGlyph, ContrastGlyph, LayersGlyph, BluetoothGlyph, SignalGlyph, wifiBars, keyring, TextInput, Button,
 } from '@lordos/sdk';
 import { useEffect, useRef, useState } from 'react';
+import { wifiRows, markCurrent } from '../../../apps/settings/wifimodel.js';
 
 // Four wallpapers fit in the tile: the current one and a few from the collection (all of them are
 // in Settings → Wallpaper, which «Change Wallpaper…» opens).
@@ -142,37 +143,76 @@ function SoundTile({ t, onClose }) {
 // accent, as Settings → Network → Wi-Fi does, and the line under the name is the network's name (or Not connected, or
 // Off). Anywhere else opens Settings → Network → Wi-Fi. onChanged: read the interfaces again once the helper answers.
 function WifiTile({ t, onClose, w, onChanged }) {
-  const [want, setWant] = useState(null);           // the state asked for, while the helper works
-  const [err, setErr] = useState(null);
+  const [want, setWant] = useState(null);
+  const [err, setErr] = useState('');
   const [hover, setHover] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [networks, setNetworks] = useState([]);
+  const [scanning, setScanning] = useState(false);
+  const [passwordFor, setPasswordFor] = useState(null);
+  const [password, setPassword] = useState('');
   const open = () => openSettings(onClose, 'network', 'wifi');
   const v = wifiTileView(w, want);
+  const scan = () => {
+    if (!w.name || scanning || !v.on) return;
+    setScanning(true); setErr('');
+    const found = [];
+    admin.run('net-wifi-scan', w.name, (line) => { try { found.push(JSON.parse(line)); } catch (e) {} }, { quiet: true })
+      .then(() => setNetworks(wifiRows(found)), (e) => setErr(e.message))
+      .finally(() => setScanning(false));
+  };
+  useEffect(() => { if (expanded && v.on && networks.length === 0) scan(); }, [expanded, v.on]);
   const toggle = (e) => {
     e?.stopPropagation?.();
     if (!w.canSwitch || !admin.available()) { open(); return; }
     if (want != null) return;
-    const to = !w.on;
-    setWant(to);
-    setErr(null);
+    const to = !w.on; setWant(to); setErr('');
     admin.run(to ? 'net-up' : 'net-down', w.name, undefined, { quiet: true })
-      .then(() => { setWant(null); onChanged(); }, (er) => { setWant(null); setErr(er.message); });
+      .then(() => { setWant(null); setNetworks([]); onChanged(); }, (er) => { setWant(null); setErr(er.message); });
   };
-  const on = v.on;
-  const fg = on ? '#ffffff' : t.text;
-  const dim = on ? 'rgba(255,255,255,0.8)' : t.textDim;
+  const join = (n, secret = '') => {
+    setPasswordFor(null); setPassword('');
+    if (secret && n.ssid) keyring.set('settings', { service: `wifi:${n.ssid}`, secret, label: `Wi-Fi ${n.ssid}` }).catch(() => {});
+    admin.run('net-wifi-connect', `${w.name}\\n${n.ssid}\\n${secret}`, undefined, { quiet: true })
+      .then(() => { setNetworks((list) => markCurrent(list, n.ssid)); setErr(tr('network.wifi.connecting', { ssid: n.ssid })); }, (e) => setErr(e.message));
+  };
+  const on = v.on, fg = on ? '#ffffff' : t.text, dim = on ? 'rgba(255,255,255,0.8)' : t.textDim;
   const detail = err || v.ssid || tr(v.key);
   return (
-    <View onClick={open} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
-      style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 9, paddingHorizontal: 9, borderRadius: 12,
-        backgroundColor: on ? t.accent : t.hover, border: `1px solid ${on ? t.accent : t.separator}`, opacity: hover ? 0.9 : 1 }}>
-      <View onClick={toggle} title={tr('shell.cc.wifiSwitch')}>
-        <TileIcon t={t} on={on}>{(c) => <SignalGlyph color={c} size={14} level={v.bars} off={v.dim} />}</TileIcon>
+    <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
+      <View onClick={() => setExpanded((x) => !x)} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 9, paddingHorizontal: 9, borderRadius: 12,
+          backgroundColor: on ? t.accent : t.hover, border: `1px solid ${on ? t.accent : t.separator}`, opacity: hover ? 0.9 : 1 }}>
+        <View onClick={toggle} title={tr('shell.cc.wifiSwitch')}>
+          <TileIcon t={t} on={on}>{(c) => <SignalGlyph color={c} size={14} level={v.bars} off={v.dim} />}</TileIcon>
+        </View>
+        <View style={{ flex: 1, minWidth: 0, gap: 1 }}>
+          <Text style={{ fontSize: 12, fontWeight: 600, color: fg }}>{tr('shell.cc.wifi')}</Text>
+          <Text style={{ fontSize: 11, color: dim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{detail}</Text>
+        </View>
+        <MoreButton color={dim} onClick={open} />
       </View>
-      <View style={{ flex: 1, minWidth: 0, gap: 1 }}>
-        <Text style={{ fontSize: 12, fontWeight: 600, color: fg, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'start' }}>{tr('shell.cc.wifi')}</Text>
-        <Text style={{ fontSize: 11, color: dim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'start' }}>{detail}</Text>
-      </View>
-      <MoreButton color={dim} onClick={open} />
+      {expanded ? <Tile t={t} style={{ padding: 8, gap: 7 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={{ fontSize: 11, fontWeight: 600, color: t.text }}>{tr('network.wifi.available')}</Text>
+          <View onClick={scan}><Text style={{ fontSize: 11, color: t.accent }}>{scanning ? tr('network.wifi.scanning') : tr('network.wifi.scan')}</Text></View>
+        </View>
+        {!v.on ? <Text style={{ fontSize: 11, color: t.textDim }}>{tr('shell.cc.off')}</Text> :
+          networks.map((n, i) => <View key={n.bssid || `${n.ssid}-${i}`} style={{ gap: 5, paddingVertical: 4 }}>
+            <View onClick={() => n.current ? null : (n.security === 'open' || n.known ? join(n) : (setPasswordFor(n.ssid), setPassword('')))}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+              <SignalGlyph color={n.current ? t.accent : t.textDim} size={14} level={wifiBars(n.signal)} />
+              <Text style={{ flex: 1, minWidth: 0, fontSize: 11, color: t.text }}>{n.current ? '✓ ' : ''}{n.ssid || tr('network.wifi.hidden')}</Text>
+              <Text style={{ fontSize: 10, color: t.textDim }}>{n.security === 'open' ? tr('network.wifi.open') : n.security.toUpperCase()}</Text>
+            </View>
+            {passwordFor === n.ssid ? <View style={{ flexDirection: 'row', gap: 5 }}>
+              <TextInput secure value={password} onChange={setPassword} placeholder={tr('network.wifi.password')} style={{ flex: 1 }} />
+              <Button small label={tr('network.wifi.join')} onClick={() => join(n, password)} />
+            </View> : null}
+          </View>)}
+        {err ? <Text style={{ fontSize: 10, color: t.textDim }}>{err}</Text> : null}
+        <View onClick={open}><Text style={{ fontSize: 10, color: t.accent }}>{tr('settings.section.network')} ›</Text></View>
+      </Tile> : null}
     </View>
   );
 }
