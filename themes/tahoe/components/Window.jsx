@@ -1,0 +1,154 @@
+// Tahoe window frame: taller title bar, softer corners and layered shadow. The content is the app
+// (the SDK's AppHost); the theme only decides how the frame looks. Moving and resizing (invisible
+// borders on all 4 sides and 4 corners, <WindowShell>) is done by lord-server in C
+// (docs/WINDOWS.md); the JS drag below is only kept for a maximized window.
+// The lights go at the start of the bar (close, minimize, maximize), or at the end (minimize, maximize, close) when
+// Settings → Desktop & Dock → Title bars puts the buttons on that side (useWindowButtons, issue #58).
+import { View, Text, addListener, wm, snapZoneAt, AppHost, windowTitle, windowAccent, WindowShell, moveToDesktopItems, t as tr, solidOver, useWindowButtons, SeamCover } from '@lordos/sdk';
+import { useEffect, useRef, useState } from 'react';
+import { Menu } from '../default/components/Menu.jsx';
+
+const TITLE_H = 46;
+const DRAG_START = 6;      // px the pointer moves before a maximized window is dragged out
+const LIGHT = 12;          // a traffic light's diameter
+// bars: the glyph shown on hover, as [length, angle] bars crossing the light's center
+const LIGHTS = {
+  close: { color: '#ff5f57', bars: [[8, 45], [8, -45]], act: (id) => wm.close(id) },
+  minimize: { color: '#febc2e', bars: [[7, 0]], act: (id) => wm.minimize(id) },
+  maximize: { color: '#28c840', bars: [[7, 0], [7, 90]], act: (id) => wm.toggleMaximize(id) },
+};
+
+// The ×, − and + drawn as bars centered on the light (issue #69: text glyphs sat off-center by their
+// font metrics). Solid colors, so where two bars cross the color does not darken twice.
+function LightGlyph({ l }) {
+  const color = solidOver('rgba(0,0,0,0.6)', l.color), w = 1.5;
+  return l.bars.map(([len, deg], i) => (
+    <View key={i} style={{ position: 'absolute', left: (LIGHT - len) / 2, top: (LIGHT - w) / 2, width: len, height: w, borderRadius: w / 2,
+      backgroundColor: color, pointerEvents: 'none', transform: deg ? `rotate(${deg}deg)` : undefined }} />
+  ));
+}
+
+// The three lights in `order` (useWindowButtons); hovering the group shows every glyph.
+function Lights({ win, t, focused, order, style }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <View onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+      style={{ flexDirection: 'row', gap: 8, paddingVertical: 6, ...style }}>
+      {order.map((key) => {
+        const l = LIGHTS[key];
+        return (
+          <View key={key} onMouseDown={(e) => e.stopPropagation()} onClick={() => l.act(win.id)}
+            style={{ width: LIGHT, height: LIGHT, borderRadius: LIGHT / 2, direction: 'ltr',
+              backgroundColor: focused || hover ? l.color : t.lightOff }}>
+            {hover && <LightGlyph l={l} />}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+// fx: the minimize effect ({ p: 0..1, x, y: where the Dock is}): the frame shrinks towards it.
+function fxStyle(fx, geo) {
+  if (!fx) return null;
+  const e = fx.p * fx.p;                                // ease-in
+  const dx = (fx.x - (geo.x + geo.w / 2)) * e, dy = (fx.y - (geo.y + geo.h / 2)) * e;
+  return { transform: `translate(${dx}px, ${dy}px) scale(${1 - 0.9 * e})`, opacity: 1 - 0.7 * e, pointerEvents: 'none' };
+}
+
+export function Window({ win, app, t, focused, fx }) {
+  const drag = useRef(null);
+  const [titleMenu, setTitleMenu] = useState(null);
+  const { atStart, order } = useWindowButtons(true);
+  const geo = wm.frame(win);
+  const fxs = fxStyle(fx, geo);
+
+  // A maximized window is dragged out of its place by JS, but only once the pointer really moved: a
+  // click on its bar (to bring it forward) jitters a pixel or two on a trackpad, or half a pixel at
+  // 200 %, and that must not restore it to its own size.
+  useEffect(() => {
+    const offMove = addListener('pointermove', (e) => {
+      const d = drag.current;
+      if (!d) return;
+      if (!d.moving) {
+        if (Math.abs(e.x - d.x0) + Math.abs(e.y - d.y0) < DRAG_START) return;
+        d.moving = true;
+        // back to its own size, under the pointer where it was grabbed
+        d.dx = Math.round(d.rel * win.w);
+        d.dy = Math.min(TITLE_H / 2, d.y0 - geo.y);
+      }
+      wm.move(win.id, e.x - d.dx, e.y - d.dy);
+    });
+    // dropped at an edge of the screen: it snaps there (snapZoneAt is null with snapping off)
+    const offUp = addListener('pointerup', (e) => {
+      const d = drag.current;
+      drag.current = null;
+      if (d && d.moving) { const z = snapZoneAt(e.x, e.y); if (z) wm.snap(win.id, z); }
+    });
+    return () => { offMove(); offUp(); };
+  }, [win.id, win.w, geo.y]);
+
+  // Linux app that draws its own frame (GTK, Chromium and Firefox with their own bar): only the
+  // content, with the theme's shadow. A right click on its bar asks for the window menu
+  // (w.windowMenu): the same items as the menu bar's Window menu.
+  if (win.args?.csd || app.ownFrame) {
+    const wmenu = win.windowMenu;
+    return (
+      <WindowShell win={win} leaving={!!fx} onMouseDown={() => wm.focus(win.id)}
+        style={{ ...(app.ownFrame ? { borderRadius: win.maximized ? 0 : 16, overflow: 'hidden' } : null), boxShadow: focused ? t.windowShadow : t.windowShadowInactive, ...fxs }}>
+        <AppHost id={win.id} focused={focused} />
+        {/* an app that draws its own frame (Cleaner) draws its lights at the start; at the end they are the theme's */}
+        {app.ownFrame && !atStart ? (
+          <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: TITLE_H, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, pointerEvents: 'box-none' }}>
+            <View style={{ flex: 1, pointerEvents: 'none' }} />
+            <Lights win={win} t={t} focused={focused} order={order} />
+          </View>
+        ) : null}
+        {wmenu && (
+          <Menu x={wmenu.x} y={wmenu.y} onClose={() => wm.closeWindowMenu(win.id)} items={[
+            { label: tr('shell.window.minimize'), onClick: () => wm.minimize(win.id) },
+            { label: tr('shell.window.maximize'), checked: !!win.maximized, onClick: () => wm.toggleMaximize(win.id) },
+            { label: tr('shell.desktops.moveTo'), submenu: moveToDesktopItems(win.id) },
+            '-',
+            { label: tr('shell.window.close'), onClick: () => wm.close(win.id) },
+          ]} />
+        )}
+      </WindowShell>
+    );
+  }
+
+  return (
+    <WindowShell win={win} leaving={!!fx} onMouseDown={() => wm.focus(win.id)} style={{
+      borderRadius: win.maximized ? 0 : 16, backgroundColor: app.transparent ? 'transparent' : t.windowBg, overflow: 'hidden',
+      // a transparent app (the Terminal) has nothing behind its border: the border is drawn opaque
+      border: `1px solid ${app.transparent ? solidOver(t.windowBorder, t.titleBg) : t.windowBorder}`,
+      boxShadow: focused ? t.windowShadow : t.windowShadowInactive,
+      ...fxs,
+    }}>
+      <View onMouseDown={(e) => { if (e.button !== 0) return; if (!wm.beginMove(win.id)) drag.current = { x0: e.x, y0: e.y, rel: geo.w ? (e.x - geo.x) / geo.w : 0.5, moving: false }; }}
+        onContextMenu={(e) => { e.stopPropagation(); setTitleMenu({ x: e.x, y: e.y }); }}
+        onDoubleClick={() => wm.toggleMaximize(win.id)}
+        style={{ height: TITLE_H, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, backgroundColor: t.titleBg }}>
+        {/* a transparent app: under the bar, the separator and the app's first row, so their edges let nothing through
+            at 125 % or 150 % (GitHub #162) */}
+        {app.transparent ? <SeamCover color={t.titleBg} below={2} /> : null}
+        <Text style={{ position: 'absolute', left: 0, right: 0, top: 0, lineHeight: TITLE_H, textAlign: 'center',
+          fontSize: 13, fontWeight: 600, color: focused ? t.text : t.textDim, pointerEvents: 'none', whiteSpace: 'nowrap',
+          paddingHorizontal: 80 }}>{windowTitle(win)}</Text>
+        {atStart ? null : <View style={{ flex: 1 }} />}
+        <Lights win={win} t={t} focused={focused} order={order} />
+      </View>
+      <View style={{ height: 1, backgroundColor: app.transparent ? solidOver(t.separator, t.titleBg) : t.separator }} />
+      <View style={{ flex: 1 }}><AppHost id={win.id} focused={focused} /></View>
+      {titleMenu && <Menu x={titleMenu.x} y={titleMenu.y} onClose={() => setTitleMenu(null)} items={[
+        { label: tr('shell.window.minimize'), onClick: () => wm.minimize(win.id) },
+        { label: tr('shell.window.maximize'), checked: !!win.maximized, onClick: () => wm.toggleMaximize(win.id) },
+        { label: tr('shell.desktops.moveTo'), submenu: moveToDesktopItems(win.id) },
+        '-',
+        { label: tr('shell.window.close'), danger: true, onClick: () => wm.close(win.id) },
+      ]} />}
+      {/* a web app's profile: a thin strip in its color on top of the frame */}
+      {windowAccent(win) ? <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 3, backgroundColor: windowAccent(win), pointerEvents: 'none' }} /> : null}
+    </WindowShell>
+  );
+}
