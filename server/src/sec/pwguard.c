@@ -31,7 +31,8 @@
 #define MAX_CLIENTS 256
 #define MAX_NODES   1024
 #define MAX_PORTS   4096
-#define MAX_PROXY   (MAX_CLIENTS + 8)
+#define MAX_LINKS   2048
+#define MAX_PROXY   (MAX_CLIENTS + MAX_LINKS + 8)
 #define IN_MAX      (1u << 20)
 #define OUT_MAX     (1u << 20)
 
@@ -62,6 +63,7 @@ typedef struct {
 
 typedef struct { uint32_t id, client, flag, stream; int live; } PgNode;   /* flag: capture node; stream: capture stream */
 typedef struct { uint32_t id, node; int live; } PgPort;
+typedef struct { uint32_t id, proxy, out_node, out_port, in_node, in_port; int state, live, info; } PgLink;
 
 static struct {
     int fd;
@@ -73,6 +75,7 @@ static struct {
     PgClient cl[MAX_CLIENTS];
     PgNode node[MAX_NODES];
     PgPort port[MAX_PORTS];
+    PgLink link[MAX_LINKS];
     uint8_t proxy_used[MAX_PROXY];
     double next_try, next_tick;
     int up, connecting;
@@ -83,6 +86,12 @@ static double now_ms(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &
 /* ---- SPA POD: reading ---------------------------------------------------------------------- */
 
 static uint32_t rd32(const uint8_t *p) { uint32_t v; memcpy(&v, p, 4); return v; }
+
+static int pwpod_long(PwPod p, int64_t *v) {
+    if (p.n < 16 || rd32(p.p + 4) != SPA_LONG || rd32(p.p) != 8) return -1;
+    memcpy(v, p.p + 8, 8);
+    return 0;
+}
 
 /* The pod at p (size + type + body), within n bytes. */
 static int pod_at(const uint8_t *p, size_t n, PwPod *out, uint32_t *type) {
@@ -167,6 +176,7 @@ static void drop(void) {
     memset(P.cl, 0, sizeof P.cl);
     memset(P.node, 0, sizeof P.node);
     memset(P.port, 0, sizeof P.port);
+    memset(P.link, 0, sizeof P.link);
     memset(P.proxy_used, 0, sizeof P.proxy_used);
     P.next_try = now_ms() + 2000;
 }
@@ -235,6 +245,7 @@ int pwguard_start(void) {
     memset(P.cl, 0, sizeof P.cl);
     memset(P.node, 0, sizeof P.node);
     memset(P.port, 0, sizeof P.port);
+    memset(P.link, 0, sizeof P.link);
     memset(P.proxy_used, 0, sizeof P.proxy_used);
     if (!P.connecting) {
         start_protocol();
@@ -667,6 +678,29 @@ static void on_global(PwPod body) {
         if (flag)                                               /* a new microphone or camera: hidden from the restricted at once */
             for (int i = 0; i < MAX_CLIENTS; i++) if (P.cl[i].live && (P.cl[i].applied & flag)) apply_permissions(&P.cl[i], P.cl[i].applied);
         if (stream) kill_streams();
+    } else if (!strcmp(type, "PipeWire:Interface:Link")) {
+        PgLink *ln = NULL;
+        for (int i = 0; i < MAX_LINKS && !ln; i++) if (!P.link[i].live) ln = &P.link[i];
+        uint32_t px = ln ? proxy_new() : 0;
+        if (!ln || !px) {
+            /* Link tracking is observational: never destroy a user's media connection because
+             * the privacy guard ran out of bookkeeping slots. */
+            fprintf(stderr, "pwguard: link tracking capacity reached for link %d\\n", (int)id);
+            return;
+        }
+        memset(ln, 0, sizeof *ln);
+        ln->live = 1;
+        ln->id = (uint32_t)id;
+        ln->proxy = px;
+        int32_t version = 1;
+        if (!pwpod_struct_field(body, 3, &f)) pwpod_int(f, &version);
+        if (version < 1) version = 1;
+        if (version > 3) version = 3;
+        Pb b = { .n = 0 };
+        size_t z = pb_begin(&b);
+        pb_int(&b, id); pb_str(&b, "PipeWire:Interface:Link"); pb_int(&b, version); pb_int(&b, (int32_t)px);
+        pb_end(&b, z);
+        send_msg(2, 1, &b);                                 /* registry.bind → Link::Info */
     } else if (!strcmp(type, "PipeWire:Interface:Port") && has_props) {
         const char *nid = dict_get(props, "node.id");
         if (!nid) return;
@@ -687,6 +721,7 @@ static void on_global_remove(uint32_t id) {
     for (int i = 0; i < MAX_CLIENTS; i++) if (P.cl[i].live && P.cl[i].id == id) P.cl[i].live = 0;   /* its proxy: remove_id */
     for (int i = 0; i < MAX_NODES; i++) if (P.node[i].live && P.node[i].id == id) P.node[i].live = 0;
     for (int i = 0; i < MAX_PORTS; i++) if (P.port[i].live && P.port[i].id == id) P.port[i].live = 0;
+    for (int i = 0; i < MAX_LINKS; i++) if (P.link[i].live && P.link[i].id == id) P.link[i].live = 0;
 }
 
 /* client.info(id, change_mask, props): who it is */
@@ -711,6 +746,26 @@ static void on_client_info(uint32_t proxy, PwPod body) {
     kill_streams();
 }
 
+static void on_link_info(uint32_t proxy, PwPod body) {
+    PgLink *ln = NULL;
+    for (int i = 0; i < MAX_LINKS && !ln; i++) if (P.link[i].live && P.link[i].proxy == proxy) ln = &P.link[i];
+    if (!ln) return;
+    PwPod f;
+    int32_t v;
+    int64_t mask;
+    if (pwpod_struct_field(body, 0, &f) || pwpod_int(f, &v)) return;
+    if (pwpod_struct_field(body, 1, &f) || pwpod_int(f, &v)) return; ln->out_node = (uint32_t)v;
+    if (pwpod_struct_field(body, 2, &f) || pwpod_int(f, &v)) return; ln->out_port = (uint32_t)v;
+    if (pwpod_struct_field(body, 3, &f) || pwpod_int(f, &v)) return; ln->in_node = (uint32_t)v;
+    if (pwpod_struct_field(body, 4, &f) || pwpod_int(f, &v)) return; ln->in_port = (uint32_t)v;
+    if (pwpod_struct_field(body, 5, &f) || pwpod_long(f, &mask)) return;
+    if (mask & 1) {
+        if (pwpod_struct_field(body, 6, &f) || pwpod_int(f, &v)) return;
+        ln->state = v;
+    }
+    ln->info = 1;
+}
+
 static void on_message(uint32_t id, uint32_t opcode, PwPod body) {
     PwPod f;
     int32_t a, b;
@@ -728,7 +783,12 @@ static void on_message(uint32_t id, uint32_t opcode, PwPod body) {
     } else if (id == 2 && opcode == 0) on_global(body);
     else if (id == 2 && opcode == 1) {
         if (!pwpod_struct_field(body, 0, &f) && !pwpod_int(f, &a)) on_global_remove((uint32_t)a);
-    } else if (id > 2 && opcode == 0) on_client_info(id, body); /* our bound clients: info */
+    } else if (id > 2 && opcode == 0) {
+        int client = 0;
+        for (int i = 0; i < MAX_CLIENTS; i++) if (P.cl[i].live && P.cl[i].proxy == id) { client = 1; break; }
+        if (client) on_client_info(id, body);
+        else on_link_info(id, body);             /* bound Link proxies have their own Info layout */
+    }
 }
 
 void pwguard_dispatch(void) {
