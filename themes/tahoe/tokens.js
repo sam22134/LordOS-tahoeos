@@ -47,6 +47,7 @@ export function makeTheme({ mode, accent, effects }) {
     dockBg: dark ? (glass ? 'rgba(45,48,59,0.62)' : '#292c34') : (glass ? 'rgba(248,249,253,0.68)' : '#f0f1f5'),
     dockBorder: dark ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.78)',
     dockShadow: dark ? '0 12px 36px rgba(0,0,0,0.42)' : '0 12px 36px rgba(35,45,65,0.18)',
+    panelShadow: dark ? '0 18px 48px rgba(0,0,0,0.48)' : '0 18px 48px rgba(35,45,65,0.20)',
     lightOff: dark ? '#555965' : '#c7cad3',
     scrollThumb: dark ? 'rgba(255,255,255,0.34)' : 'rgba(20,25,35,0.28)',
     scrollThumbHover: dark ? 'rgba(255,255,255,0.52)' : 'rgba(20,25,35,0.44)',
