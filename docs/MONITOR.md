@@ -927,8 +927,7 @@ four switches, saved in `settings.monitor`, and a button:
 
 
 - **Connection alerts** (the "ask" mode, `FIREWALL.md`) and rules per country.
-- **Devices:** `monitor.deviceUsers()` → `[{ kind: 'camera' | 'microphone', app, name, pid }]` and
-  the `monitorDevices` store (already exported, empty).
+- **Devices:** richer source labels and per-device usage history; live app attribution for active microphone/camera links is implemented.
 - Usage alerts (the history is in place since 0.8.2).
 
 ## Measurements
@@ -1267,6 +1266,6 @@ It runs outside the frame. While it draws, the screen shows the previous frame s
 
 ## Device privacy activity
 
-The Monitor SDK exposes monitor.deviceUsers() and the monitorDevices store. Active microphone recordings are derived from PipeWire's source-output streams, matched to real input sources (not speaker-monitor sources), and include the reported application ID, process ID and source name. Corked streams and disconnected audio sessions are not reported as active. This currently covers applications using PipeWire's PulseAudio compatibility server, including ordinary Linux applications.
+The Monitor SDK exposes `monitor.deviceUsers()` and the `monitorDevices` store. The native PipeWire graph reports verified applications only when an `ACTIVE` link connects an audio or video source to an application's input stream. It includes direct PipeWire clients and camera capture. PulseAudio compatibility data enriches microphone rows with source names; duplicate app/device rows are merged. Paused, incomplete or unverified streams are omitted rather than guessed.
 
-Camera and screen-capture users are not yet included in this list. Their process ownership needs a separate native PipeWire/portal event integration; a permission grant alone is not treated as proof of an active capture.
+Screen sharing is not inferred from generic video nodes. Its attribution remains tied to the ScreenCast portal's session lifecycle.
