@@ -20,21 +20,39 @@
 //   monitor.history({ from, step, n, app })  → { res, oldest, now, rx: [n], tx: [n], top: [[app, rx, tx]] } | null
 //   monitor.clearHistory()                   → true when it is gone
 //
-// Phase 2 (not implemented yet): monitor.deviceUsers() → [{ kind: 'camera' | 'microphone',
-// app, name, pid }] and the monitorDevices store; and the firewall with per-app and per-domain rules,
-// which rely on the same connection records (the `verdict` field, always 'allow' today).
+// Device users: active microphone recording streams are taken from PipeWire's source-output list.
+// Camera and screen-capture process tracking still need a native PipeWire/portal event source.
+// The firewall's per-app and per-domain rules rely on connection records (the verdict field,
+// always 'allow' today).
 import { useEffect, useRef, useState } from 'react';
 import { createStore, useStore } from './store.js';
 import { locale } from './i18n.js';
 import { admin } from './admin.js';
 import { codeError } from './errors.js';
 import { settings } from './settings.js';
+import { soundState } from './sound.js';
 
 export const MONITOR_HISTORY = 240;             // 60 s at 4 samples per second
 export const monitorSamples = createStore([]);
 export const monitorProcesses = createStore(null);
 export const monitorConnections = createStore(null);
-export const monitorDevices = createStore([]);  // phase 2
+export const monitorDevices = createStore([]);  // active microphone capture streams reported by PipeWire
+// PipeWire's PulseAudio compatibility server reports each recording stream with its owning PID,
+// application ID and source. Only real input sources count: monitor-of-output streams are not microphones.
+function soundDeviceUsers(st) {
+  if (!st?.connected) return [];
+  const sources = new Map((st.sources || []).filter((x) => x.monitorOf === -1).map((x) => [x.index, x]));
+  return (st.outputs || []).filter((x) => !x.corked && sources.has(x.source)).map((x) => ({
+    kind: 'microphone',
+    app: x.appId || x.app || x.binary || '',
+    name: x.app || x.binary || x.name || x.appId || 'Unknown application',
+    pid: Number.isInteger(x.pid) ? x.pid : 0,
+    source: sources.get(x.source)?.name || '',
+  }));
+}
+function syncSoundDeviceUsers(st) { monitorDevices.set(soundDeviceUsers(st)); }
+syncSoundDeviceUsers(soundState.get());
+soundState.subscribe(syncSoundDeviceUsers);
 export const monitorDetail = createStore(null); // Get Info of one process (procctl.c's JSON)
 // Disk temperatures while the Monitor is open: { [disk]: { t: [ms], v: [°C] } }, one point per new
 // reading (every 3 s; a resting spinning disk is not read), the last DISK_TEMP_HISTORY points.
@@ -292,7 +310,7 @@ export const monitor = {
   machineNames,
   available,
   info: () => (infoCache ||= available() ? lord.monitor.info() : null),
-  deviceUsers: () => [],                        // phase 2
+  deviceUsers: () => monitorDevices.get(),
   watchProcess,
   stopProcess,
   history,
