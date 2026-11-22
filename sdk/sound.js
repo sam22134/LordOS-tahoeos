@@ -36,7 +36,14 @@ function apply(plan) {
 function onState(st) {
   const arr = arrivals(st, seenCards);                  // a headset that came back in headset mode: high fidelity
   seenCards = arr.seen;
-  for (const [card, profile] of arr.profiles) call('setProfile', card, profile);
+  for (const [card, profile] of arr.profiles) {
+    // Do not mark a newly seen headset as handled if the profile request was rejected locally:
+    // the next PipeWire state update gets another chance instead of leaving it stuck in HSP/HFP.
+    if (!call('setProfile', card, profile)) {
+      const failed = (st.cards || []).find((c) => c.index === card);
+      if (failed) seenCards.delete(failed.name);
+    }
+  }
   if (!pending) return;
   if (Date.now() > pending.until) { pending = null; return; }
   const name = pendingTarget(st, pending);
