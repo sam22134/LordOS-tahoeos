@@ -44,6 +44,7 @@
 #   /usr/share/doc/lordos/                README, copyright, changelog, OFL-Noto.txt
 #   /usr/share/glib-2.0/schemas/90_lordos.gschema.override, /etc/gtk-{3,4}.0/settings.ini
 #                                         GTK's window-button layout where the session can't give its own (#52)
+#   /usr/share/icons/MacTahoe-*            the upstream MacTahoe icon and cursor theme (GPL-3.0)
 #   (not here: /usr/lib/lordos/assets/hwreport/, the signed tested-hardware snapshot, is the lordos-hwdata
 #   package from tools/iso/mkdeb-hwdata.sh, which this one Depends on; docs/BENCHMARK.md)
 #   /usr/lib/lordos/apt/lordos.sources    the signed LordOS repository on lordos.org (updates from the
@@ -72,6 +73,7 @@ set -eu
 OUT=${1:?uso: mkdeb.sh salida.deb}
 ROOT=$(pwd)
 VERSION=$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' package.json | head -1)
+for t in bash curl tar; do command -v "$t" >/dev/null || { echo "missing $t (needed to fetch the pinned MacTahoe icon theme)" >&2; exit 1; }; done
 [ -x server/build/lord-server ] || { echo "missing server/build/lord-server (make -C server)" >&2; exit 1; }
 [ -x server/build/lord-netperm ] || { echo "missing server/build/lord-netperm (make -C server; clang for BPF)" >&2; exit 1; }
 # Without clang, make builds lord-netperm with no BPF programs: the firewall then enforces no rule at all, and only
@@ -382,6 +384,8 @@ find "$PKG/usr/share/themes" -type d -exec chmod 755 {} +; find "$PKG/usr/share/
 install -D -m 644 assets/gtk/90_lordos.gschema.override "$PKG/usr/share/glib-2.0/schemas/90_lordos.gschema.override"
 install -D -m 644 assets/gtk/settings.ini "$PKG/etc/gtk-3.0/settings.ini"
 install -D -m 644 assets/gtk/settings.ini "$PKG/etc/gtk-4.0/settings.ini"
+# System icon theme for Linux apps, GTK and status items; pinned source and GPL attribution: packaging/icons/README.md
+DESTDIR="$PKG" bash packaging/icons/install-mactahoe.sh
 install -m 644 tools/iso/rootfs/etc/systemd/system/lord-netperm.service "$PKG/usr/lib/systemd/system/lord-netperm.service"
 # fans by temperature from the first boot (docs/FANS.md): enabled by postinst, also in a chroot
 install -m 644 tools/iso/rootfs/etc/systemd/system/lord-fand.service "$PKG/usr/lib/systemd/system/lord-fand.service"
@@ -458,6 +462,13 @@ License: public-domain
 Files: third_party/quickjs/* third_party/stb/*
 License: MIT and public-domain
  QuickJS (MIT) and stb (public domain / MIT), compiled into lord-server.
+
+Files: usr/share/icons/MacTahoe-*
+Copyright: MacTahoe icon theme contributors (see AUTHORS in each theme directory)
+License: GPL-3.0
+ The complete upstream COPYING file is retained in each installed theme directory.
+ On Debian systems, the GPL-3 license text is also available in
+ /usr/share/common-licenses/GPL-3.
 
 Files: usr/lib/lordos/assets/geo/cities.tsv
 Copyright: GeoNames (https://www.geonames.org)
