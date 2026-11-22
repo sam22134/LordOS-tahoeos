@@ -1,0 +1,34 @@
+name: Icon theme regression tests
+
+on:
+  push:
+    branches:
+      - "tahoe/**"
+    paths:
+      - "server/src/iconfind.c"
+      - "server/src/iconfind.h"
+      - "server/tests/iconfind_test.c"
+      - "packaging/icons/**"
+      - ".github/workflows/icon-theme-tests.yml"
+  pull_request:
+    paths:
+      - "server/src/iconfind.c"
+      - "server/src/iconfind.h"
+      - "server/tests/iconfind_test.c"
+      - "packaging/icons/**"
+      - ".github/workflows/icon-theme-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  icon-theme:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile icon resolver regression test
+        run: cc -D_GNU_SOURCE -std=c11 -Wall -Wextra -o /tmp/iconfind-test server/tests/iconfind_test.c server/src/iconfind.c
+      - name: Run icon resolver regression test
+        run: /tmp/iconfind-test
+      - name: Validate installer shell syntax
+        run: bash -n packaging/icons/install-mactahoe.sh
