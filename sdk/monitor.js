@@ -50,9 +50,27 @@ function soundDeviceUsers(st) {
     source: sources.get(x.source)?.name || '',
   }));
 }
-function syncSoundDeviceUsers(st) { monitorDevices.set(soundDeviceUsers(st)); }
+const pipewireDeviceUsers = createStore([]);
+function syncSoundDeviceUsers(st) {
+  const pulse = soundDeviceUsers(st);
+  const native = pipewireDeviceUsers.get();
+  // The native PipeWire graph covers direct clients and cameras; PulseAudio gives richer source names.
+  // Merge by verified app/device and prefer the PulseAudio row when both report the same microphone.
+  const seen = new Set(pulse.map((d) => `${d.kind}:${d.app || d.pid || d.name}`));
+  monitorDevices.set([...pulse, ...native.filter((d) => !seen.has(`${d.kind}:${d.app || d.pid || d.name}`))]);
+}
+function pollPipewireDeviceUsers() {
+  try {
+    if (typeof lord === 'undefined' || !lord.monitor || typeof lord.monitor.deviceUsers !== 'function') return;
+    const rows = lord.monitor.deviceUsers();
+    if (Array.isArray(rows)) pipewireDeviceUsers.set(() => rows);
+  } catch (e) { /* keep the last valid snapshot */ }
+  syncSoundDeviceUsers(soundState.get());
+}
 syncSoundDeviceUsers(soundState.get());
 soundState.subscribe(syncSoundDeviceUsers);
+pollPipewireDeviceUsers();
+setInterval(pollPipewireDeviceUsers, 500);
 export const monitorDetail = createStore(null); // Get Info of one process (procctl.c's JSON)
 // Disk temperatures while the Monitor is open: { [disk]: { t: [ms], v: [°C] } }, one point per new
 // reading (every 3 s; a resting spinning disk is not read), the last DISK_TEMP_HISTORY points.
