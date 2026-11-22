@@ -7,7 +7,7 @@
  *                                 sensitivity: 'low'|'medium'|'high', pointerSize, tap, tapDrag,
  *                                 natural, secondary, threeDrag, dwt, scroll, kinetic, pinch,
  *                                 swipe3, swipe4, middlePaste }
- *   lord.input.configure(obj) → applies the valid fields (the rest stay as they are); true
+ *   lord.input.configure(obj) → applies the valid fields (the rest stay as they are); true\n *   lord.input.configureDevice(id, mode) → 'auto' | 'clickpad' | 'buttons'; false if unavailable/ambiguous
  *
  * The on-screen keyboard (docs/ON-SCREEN-KEYBOARD.md). The theme's and the login screen's context
  * only: an isolated app's process has the broker's `lord`, without any of these.
@@ -52,6 +52,23 @@ static JSValue f_devices(JSContext *c, JSValueConst this, int argc, JSValueConst
     char buf[4096];
     tp_list_json(buf, sizeof buf);
     return JS_ParseJSON(c, buf, strlen(buf), "<input>");
+}
+
+static JSValue f_configure_device(JSContext *c, JSValueConst this, int argc, JSValueConst *argv) {
+    (void)this;
+    if (argc < 2 || !JS_IsString(argv[0]) || !JS_IsString(argv[1])) return JS_FALSE;
+    const char *id = JS_ToCString(c, argv[0]);
+    const char *mode_name = JS_ToCString(c, argv[1]);
+    int mode = -1;
+    if (mode_name) {
+        if (!strcmp(mode_name, "auto")) mode = 0;
+        else if (!strcmp(mode_name, "clickpad")) mode = 1;
+        else if (!strcmp(mode_name, "buttons")) mode = 2;
+    }
+    int ok = id && mode >= 0 && tp_set_device_mode(id, mode);
+    JS_FreeCString(c, id);
+    JS_FreeCString(c, mode_name);
+    return JS_NewBool(c, ok);
 }
 
 static const struct { const char *name; size_t off; } flags[] = {
@@ -238,6 +255,7 @@ void js_pointer_lock_flush(void) {
 
 static const JSCFunctionListEntry input_funcs[] = {
     JS_CFUNC_DEF("devices", 0, f_devices),
+    JS_CFUNC_DEF("configureDevice", 2, f_configure_device),
     JS_CFUNC_DEF("config", 0, f_config),
     JS_CFUNC_DEF("configure", 1, f_configure),
     JS_CFUNC_DEF("hasKeyboard", 0, f_has_keyboard),
