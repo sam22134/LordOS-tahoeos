@@ -69,6 +69,8 @@ typedef struct {
     int has_pressure, has_major;
     int bus, vendor, product;           /* struct input_id (EVIOCGID) */
     char name[80];
+    char id[24];                     /* stable fingerprint; never the transient /dev/input/eventN path */
+    int identity_stable;             /* physical/unique sysfs identity was available */
 } TpCaps;
 
 typedef struct TpDevice TpDevice;
