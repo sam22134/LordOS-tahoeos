@@ -15,7 +15,7 @@ The first Tahoe desktop theme lives in `themes/tahoe/` and is independently sele
 - `components/Launchpad.jsx`: Tahoe app launcher with a frosted search field, rounded category chips and individual elevated icon tiles; app discovery, search, drag-to-Dock and context actions remain the SDK implementations.
 - `components/Menu.jsx`: Tahoe menu surface with 27 px rows, larger rounded highlights, popup material and theme-driven shadow. Keyboard navigation, safe submenu placement, focus restoration and accessibility behavior remain unchanged.
 
-The shell now has Tahoe-specific presentation for its Menu Bar, Dock and window frame. These components retain LordOS's existing interaction and window-management paths; the remaining panels and menus are still shared from Lord Flow. This avoids forking system behavior while allowing the visual layer to evolve independently.
+The shell now has Tahoe-specific presentation for its Menu Bar, Dock, window frame, Control Center, Notification Center, Launchpad and menus. These components retain LordOS's existing interaction and window-management paths instead of forking system behavior.
 
 ## Visual contract
 
@@ -31,6 +31,7 @@ The shell now has Tahoe-specific presentation for its Menu Bar, Dock and window 
 - This is a new theme, not a replacement for Lord Flow or Lord Classic.
 - No compositor, Wayland, window-manager, application runtime, MIME or security code is changed by this visual slice.
 - The menu bar, Dock, window chrome, Control Center, Notification Center, Launchpad and general menus now have Tahoe-specific presentation components. The underlying shell services and interaction contracts remain shared with LordOS.
-- Tahoe-specific wallpapers, icon artwork and sound assets have not yet been added. The theme currently offers the LordOS wallpaper collection.
+- The freedesktop/GTK MacTahoe icon theme is already integrated into LordOS packaging and Linux-app/status-icon lookup (`packaging/icons/` and `docs/ICONS.md`). Tahoe-native artwork for built-in React apps is still pending; third-party Linux app icons should continue using their installed icon theme.
+- Tahoe-specific wallpapers and sound assets have not yet been added. The theme currently offers the LordOS wallpaper collection.
 - A source-level registration is not a build or runtime validation. Run `npm run build`, switch to Tahoe in Settings → Appearance → Desktop style, and test multi-display, RTL, Reduce Motion, fullscreen and low-effects configurations before calling the theme validated.
 - Themes not present in the signed release manifest remain development-build-only, as described in `docs/THEMES-GUIDE.md`. A release must include the new theme in the verified-code signing pipeline.
