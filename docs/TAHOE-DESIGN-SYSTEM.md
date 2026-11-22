@@ -35,3 +35,8 @@ The shell now has Tahoe-specific presentation for its Menu Bar, Dock, window fra
 - Tahoe-specific wallpapers and sound assets have not yet been added. The theme currently offers the LordOS wallpaper collection.
 - A source-level registration is not a build or runtime validation. Run `npm run build`, switch to Tahoe in Settings → Appearance → Desktop style, and test multi-display, RTL, Reduce Motion, fullscreen and low-effects configurations before calling the theme validated.
 - Themes not present in the signed release manifest remain development-build-only, as described in `docs/THEMES-GUIDE.md`. A release must include the new theme in the verified-code signing pipeline.
+
+
+## Tahoe native application icons
+
+The Tahoe shell has a mapped icon accent component for selected built-in LordOS app IDs, rendered in Launchpad and Dock. It falls back to the app's own icon for unmapped IDs, including third-party desktop, Flatpak and web apps. This initial set uses lightweight runtime primitives rather than a separate image dependency.
