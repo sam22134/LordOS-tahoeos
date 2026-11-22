@@ -792,6 +792,12 @@ static void do_tap(TpDevice *d) {
     out_button(b, 0);
 }
 
+static void cancel_tap_for_physical_button(TpDevice *d) {
+    /* A real hardware button is already the click. Do not also turn the finger lift into a tap. */
+    if (d->tap_down) tap_release(d);
+    if (d->tap != T_IDLE) d->tap = T_DEAD;
+}
+
 static void tap_frame(TpDevice *d, int nf) {
     int moved = tap_moved(d);
     switch (d->tap) {
@@ -1022,9 +1028,16 @@ void tp_event_at(TpDevice *d, const struct input_event *ev, double now) {
         if (n) { if (ev->value) d->tool = n; else if (d->tool == n) d->tool = 0; break; }
         if (ev->value == 2) break;
         if (ev->code == BTN_LEFT && d->c.clickpad) d->phys = ev->value != 0;
-        else if (ev->code == BTN_LEFT) d->btn_pending[0] = ev->value != 0;
-        else if (ev->code == BTN_MIDDLE) d->btn_pending[1] = ev->value != 0;
-        else if (ev->code == BTN_RIGHT) d->btn_pending[2] = ev->value != 0;
+        else if (ev->code == BTN_LEFT) {
+            if (ev->value) cancel_tap_for_physical_button(d);
+            d->btn_pending[0] = ev->value != 0;
+        } else if (ev->code == BTN_MIDDLE) {
+            if (ev->value) cancel_tap_for_physical_button(d);
+            d->btn_pending[1] = ev->value != 0;
+        } else if (ev->code == BTN_RIGHT) {
+            if (ev->value) cancel_tap_for_physical_button(d);
+            d->btn_pending[2] = ev->value != 0;
+        }
         break;
     }
     case EV_SYN:
