@@ -195,6 +195,17 @@ int main(void) {
     PwPod es = { embedded, sizeof embedded };
     CHECK(pwpod_string(es, &str) != 0); /* embedded NUL makes the value ambiguous */
 
+    uint64_t parsed64;
+    CHECK(!pwguard_parse_u64("0", &parsed64) && parsed64 == 0);
+    CHECK(!pwguard_parse_u64("18446744073709551615", &parsed64) && parsed64 == UINT64_MAX);
+    CHECK(pwguard_parse_u64("", &parsed64) != 0);
+    CHECK(pwguard_parse_u64("-1", &parsed64) != 0);
+    CHECK(pwguard_parse_u64("+1", &parsed64) != 0);
+    CHECK(pwguard_parse_u64(" 1", &parsed64) != 0);
+    CHECK(pwguard_parse_u64("1 ", &parsed64) != 0);
+    CHECK(pwguard_parse_u64("12x", &parsed64) != 0);
+    CHECK(pwguard_parse_u64("18446744073709551616", &parsed64) != 0);
+
     uint32_t parsed;
     CHECK(!pwguard_parse_u32("0", &parsed) && parsed == 0);
     CHECK(!pwguard_parse_u32("4294967295", &parsed) && parsed == UINT32_MAX);
