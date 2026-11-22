@@ -259,6 +259,8 @@ static void tp_identity(TpCaps *c, int fd) {
     char phys[256] = {0}, uniq[256] = {0}, key[640];
     ioctl(fd, EVIOCGPHYS(sizeof phys), phys);
     ioctl(fd, EVIOCGUNIQ(sizeof uniq), uniq);
+    phys[sizeof phys - 1] = 0;
+    uniq[sizeof uniq - 1] = 0;
     c->identity_stable = phys[0] || uniq[0];
     snprintf(key, sizeof key, "%04x:%04x:%04x|%s|%s|%s",
              c->bus, c->vendor, c->product, c->name, phys, uniq);
