@@ -193,14 +193,16 @@ static void flush_out(void) {
     }
 }
 
-static void send_msg(uint32_t id, uint32_t opcode, const Pb *b) {
-    if (P.fd < 0 || b->err) return;
-    if (!P.out && !(P.out = malloc(OUT_MAX))) return;
-    if (P.outlen + 16 + b->n > OUT_MAX) { drop(); return; }   /* PipeWire isn't reading: start over */
+static int send_msg(uint32_t id, uint32_t opcode, const Pb *b) {
+    if (P.fd < 0) return -1;
+    if (b->err) { drop(); return -1; }
+    if (!P.out && !(P.out = malloc(OUT_MAX))) { drop(); return -1; }
+    if (P.outlen + 16 + b->n > OUT_MAX) { drop(); return -1; }   /* PipeWire isn't reading: start over */
     uint32_t h[4] = { id, opcode << 24 | (uint32_t)(b->n & 0xffffff), P.seq++, 0 };
     memcpy(P.out + P.outlen, h, 16);
     memcpy(P.out + P.outlen + 16, b->b, b->n);
     P.outlen += 16 + b->n;
+    return 0;
 }
 
 static uint32_t proxy_new(void) {
@@ -226,7 +228,7 @@ static void start_protocol(void) {
     b.n = 0;
     s = pb_begin(&b); pb_int(&b, 3); pb_int(&b, 2); pb_end(&b, s);
     send_msg(0, 5, &b);                                         /* core.get_registry(3, new id 2) */
-    P.up = 1;
+    P.up = P.fd >= 0;
 }
 
 int pwguard_start(void) {
@@ -379,14 +381,14 @@ static uint32_t client_restrictions(PgClient *c) {
  * every other client. In chunks: PipeWire merges successive update_permissions, so a list longer
  * than one message is never dropped (that would leave the client with every permission). */
 #define PERM_CHUNK 400
-static void send_perm_chunk(PgClient *c, const int32_t *pairs, int32_t n) {
+static int send_perm_chunk(PgClient *c, const int32_t *pairs, int32_t n) {
     Pb b = { .n = 0 };
     size_t s = pb_begin(&b);
     pb_int(&b, n);
     for (int32_t i = 0; i < n; i++) { pb_int(&b, pairs[2 * i]); pb_int(&b, pairs[2 * i + 1]); }
     pb_end(&b, s);
-    if (b.err) { fprintf(stderr, "pwguard: permission chunk too long for %s\n", c->app); drop(); return; }
-    send_msg(c->proxy, 4, &b);                                  /* client.update_permissions */
+    if (b.err) { fprintf(stderr, "pwguard: permission chunk too long for %s\n", c->app); drop(); return -1; }
+    return send_msg(c->proxy, 4, &b);                           /* client.update_permissions */
 }
 
 static void apply_permissions(PgClient *c, uint32_t flags) {
@@ -394,7 +396,7 @@ static void apply_permissions(PgClient *c, uint32_t flags) {
     int32_t pairs[2 * PERM_CHUNK];
     int32_t n = 0;
 #define PERM_ADD(id_, perm_) do { pairs[2 * n] = (int32_t)(id_); pairs[2 * n + 1] = (int32_t)(perm_); \
-                                 if (++n == PERM_CHUNK) { send_perm_chunk(c, pairs, n); n = 0; if (P.fd < 0) return; } } while (0)
+                                 if (++n == PERM_CHUNK) { if (send_perm_chunk(c, pairs, n)) return; n = 0; if (P.fd < 0) return; } } while (0)
     uint32_t perm_clients = flags ? 0 : PW_ALL;
     for (int i = 0; i < MAX_NODES; i++) {
         PgNode *nd = &P.node[i];
@@ -410,7 +412,7 @@ static void apply_permissions(PgClient *c, uint32_t flags) {
         PERM_ADD(o->id, perm_clients);
     }
 #undef PERM_ADD
-    if (n) send_perm_chunk(c, pairs, n);
+    if (n && send_perm_chunk(c, pairs, n)) return;
     if (P.fd >= 0) c->applied = flags;
 }
 
