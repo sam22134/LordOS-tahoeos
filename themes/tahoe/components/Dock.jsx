@@ -392,9 +392,14 @@ export function Dock({ t, items: list, running, onOpen, onRestoreWindow, onConte
   const hit = hovered >= 0 ? items[hovered] : null;
   const showTip = hovered >= 0 && !keepOpen;
   const label = !hit ? '' : hit.trash ? tr('shell.trash.name') : hit.windowThumb ? (hit.window.title || hit.name) : hit.launcher ? tr('shell.menu.apps') : appName(hit);
-  const previewWidth = Math.max(0, Math.min(area.w - 16, 620, (preview?.windows.length || 0) * 150 + 16));
+  // Keep only the app id and anchor in state. Window objects are derived from the live Dock
+  // entries so a closed/restored window cannot remain as a stale card in an open chooser.
+  const previewApp = preview ? list.find((app) => app.id === preview.id) : null;
+  const previewWindows = previewApp?.windows || [];
+  const previewCount = previewWindows.length;
+  const previewWidth = Math.max(0, Math.min(area.w - 16, 620, previewCount * 150 + 16));
   const previewColumns = Math.max(1, Math.floor((previewWidth - 16) / 150));
-  const previewHeight = 16 + Math.ceil((preview?.windows.length || 0) / previewColumns) * 96;
+  const previewHeight = 16 + Math.ceil(previewCount / previewColumns) * 96;
   const tip = (
     <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 7, backgroundColor: t.panelBg,
       backdropFilter: `blur(${t.blur}px)`, border: `1px solid ${t.windowBorder}` }}>
@@ -474,7 +479,7 @@ export function Dock({ t, items: list, running, onOpen, onRestoreWindow, onConte
           <View key={app.id} onClick={(e) => activateItem(app.id, e)} onContextMenu={() => onContext?.(app.id, anchor(i))}
             onMouseEnter={() => {
               clearTimeout(previewTimer.current);
-              if (app.windows?.length > 1) setPreview({ id: app.id, name: app.name, Icon: app.Icon, windows: app.windows, at: anchor(i) });
+              if (app.windows?.length > 1) setPreview({ id: app.id, at: anchor(i) });
               else setPreview(null);
             }}
             onMouseLeave={() => { previewTimer.current = setTimeout(() => setPreview(null), 180); }}
@@ -507,14 +512,14 @@ export function Dock({ t, items: list, running, onOpen, onRestoreWindow, onConte
       </View>
       {/* the name tooltip (not while the icon's menu is open: the menu takes that place) */}
       <Layer name="popover">
-        {preview && preview.windows.length > 1 && !drag && (
+        {preview && previewApp && previewCount > 1 && !drag && (
           <View
             onMouseEnter={() => clearTimeout(previewTimer.current)}
             onMouseLeave={() => { clearTimeout(previewTimer.current); setPreview(null); }}
             style={{
               position: 'absolute',
               ...(position === 'bottom'
-                ? { left: Math.max(area.x + 8, Math.min(area.x + area.w - previewWidth - 8, preview.at.x - Math.min(620, preview.windows.length * 150 + 16) / 2)),
+                ? { left: Math.max(area.x + 8, Math.min(area.x + area.w - previewWidth - 8, preview.at.x - Math.min(620, previewCount * 150 + 16) / 2)),
                     bottom: screen.height - (AB - MARGIN - hide) + bar + 14 }
                 : position === 'left'
                   ? { left: AX + MARGIN + bar + 14 - hide, top: Math.max(area.y + 8, Math.min(area.y + area.h - previewHeight - 8, preview.at.y - previewHeight / 2)) }
@@ -524,7 +529,7 @@ export function Dock({ t, items: list, running, onOpen, onRestoreWindow, onConte
               backgroundColor: t.panelBg, backdropFilter: `blur(${t.blur}px)`,
               border: `1px solid ${t.windowBorder}`, boxShadow: t.dockShadow,
             }}>
-            {preview.windows.map((w) => (
+            {previewWindows.map((w) => (
               <View key={w.id} onClick={() => { clearTimeout(previewTimer.current); setPreview(null); onRestoreWindow?.(w.id); }}
                 style={{ width: 142, height: 88, borderRadius: 8, overflow: 'hidden',
                   backgroundColor: t.mode === 'dark' ? '#34363d' : '#e8eaf0',
@@ -533,11 +538,11 @@ export function Dock({ t, items: list, running, onOpen, onRestoreWindow, onConte
                   backgroundColor: t.mode === 'dark' ? '#555861' : '#c7cad2' }}>
                   {[0,1,2].map((n) => <View key={n} style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: t.mode === 'dark' ? '#b7bac2' : '#777b85' }} />)}
                   <Text style={{ marginLeft: 4, fontSize: 9, color: t.mode === 'dark' ? '#f3f4f6' : '#333640', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {w.title || preview.name}
+                    {w.title || previewApp.name}
                   </Text>
                 </View>
                 <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3 }}>
-                  <TahoeIconForApp app={{ id: preview.id, Icon: preview.Icon }} size={26} />
+                  <TahoeIconForApp app={previewApp} size={26} />
                   <Text style={{ fontSize: 9, color: t.mode === 'dark' ? '#f3f4f6' : '#333640' }}>
                     {w.minimized ? '–' : ''}
                   </Text>
