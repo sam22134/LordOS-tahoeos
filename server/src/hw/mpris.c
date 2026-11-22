@@ -76,13 +76,15 @@ static uint32_t call(const char *dest, const char *path, const char *iface, cons
     Player *target = by_id(player);
     if (target) {
         if (kind == Q_POS) { generation = target->pos_query + 1; if (!generation) generation++; }
-        else if (kind == Q_ROOT) generation = target->root_revision;
-        else if (kind == Q_PLAYER) generation = target->player_revision;
+        else if (kind == Q_ROOT) { generation = target->root_revision + 1; if (!generation) generation++; }
+        else if (kind == Q_PLAYER) { generation = target->player_revision + 1; if (!generation) generation++; }
     }
     DHdr h = { .type = DBUS_CALL, .path = path, .iface = iface, .member = member, .dest = dest, .sig = sig };
     uint32_t s = dbus_send(&conn, &h, body);
     if (s) {
         if (target && kind == Q_POS) target->pos_query = generation;
+        else if (target && kind == Q_ROOT) target->root_revision = generation;
+        else if (target && kind == Q_PLAYER) target->player_revision = generation;
         pending[slot] = (Pending){ .serial = s, .player = player, .generation = generation, .kind = kind, .since = mono_ms() };
     }
     return s;
