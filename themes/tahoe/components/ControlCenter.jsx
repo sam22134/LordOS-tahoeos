@@ -334,7 +334,9 @@ export function ControlCenter({ t, top, onClose, area = null, at = null }) {
   const left = panelLeft(at, W, area), ay = area ? area.y : 0;
   // several displays: the quick wallpapers are the picture of the display it opened on (sdk/wallpapers.js)
   const wd = area && screenDisplays().length > 1 ? screenDisplays().find((d) => d.id === area.id) || null : null;
-  const maxH = Math.max(240, (area ? area.h : screen.height) - top - 16);
+  // The panel starts below the menu bar; never force a 240 px minimum that can push it
+  // beyond the bottom edge on compact displays. ScrollView owns the remaining height.
+  const maxH = Math.max(1, (area ? area.h : screen.height) - top - 16);
   const [s, set] = useSettings();
   const curWall = wallpaperIdFor(s, wd);
   const p = menuBarPrefs(s);
