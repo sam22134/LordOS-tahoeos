@@ -103,6 +103,19 @@ static uint32_t rd32(const uint8_t *p) { uint32_t v; memcpy(&v, p, 4); return v;
 
 /* PipeWire publishes these identifiers as decimal strings. Reject prefixes, signs,
  * whitespace and overflow instead of accepting atoi()/strtoul() partial parses. */
+uint32_t pwguard_next_sync_token(uint32_t current, const uint32_t *pending, unsigned count) {
+    uint32_t candidate = current;
+    for (unsigned attempt = 0; attempt <= count; attempt++) {
+        candidate++;
+        if (!candidate || candidate > INT32_MAX) candidate = 1;
+        int used = 0;
+        for (unsigned i = 0; pending && i < count; i++)
+            if (pending[i] == candidate) { used = 1; break; }
+        if (!used) return candidate;
+    }
+    return 0;
+}
+
 int pwguard_parse_u64(const char *s, uint64_t *value) {
     if (!s || !*s || !value) return -1;
     uint64_t v = 0;
@@ -494,8 +507,14 @@ static void apply_permissions(PgClient *c, uint32_t flags) {
     /* Core::Sync is a barrier: Done echoes this unique token after earlier methods are handled. */
     Pb sync = { .n = 0 };
     size_t at = pb_begin(&sync);
-    uint32_t token = ++P.sync_token;
-    if (!token || token > INT32_MAX) { P.sync_token = token = 1; }
+    uint32_t active_tokens[MAX_CLIENTS];
+    unsigned active_count = 0;
+    for (int i = 0; i < MAX_CLIENTS; i++)
+        if (&P.cl[i] != c && P.cl[i].live && P.cl[i].pending)
+            active_tokens[active_count++] = P.cl[i].pending_sync;
+    uint32_t token = pwguard_next_sync_token(P.sync_token, active_tokens, active_count);
+    if (!token) { drop(); return; }
+    P.sync_token = token;
     pb_int(&sync, 0);
     pb_int(&sync, (int32_t)token);
     pb_end(&sync, at);
