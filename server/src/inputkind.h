@@ -40,12 +40,12 @@ static inline int input_system_key(int code) {
 static inline int input_is_multitouch_touchpad(const unsigned long *ev, const unsigned long *abs,
                                                const unsigned long *keys, const unsigned long *props) {
     if (!IK_BIT(ev, EV_ABS) || !IK_BIT(abs, ABS_MT_POSITION_X) ||
-        !IK_BIT(abs, ABS_MT_POSITION_Y) || !IK_BIT(abs, ABS_MT_SLOT) ||
-        !IK_BIT(keys, BTN_TOOL_FINGER)) return 0;
-    return IK_BIT(props, INPUT_PROP_DIRECT) ||
-           IK_BIT(props, INPUT_PROP_POINTER) ||
-           IK_BIT(keys, BTN_LEFT) ||
-           IK_BIT(props, INPUT_PROP_BUTTONPAD);
+        !IK_BIT(abs, ABS_MT_POSITION_Y) || !IK_BIT(abs, ABS_MT_SLOT)) return 0;
+    if (IK_BIT(props, INPUT_PROP_DIRECT)) return 1; /* tp_open classifies this as a touchscreen */
+    return IK_BIT(keys, BTN_TOOL_FINGER) &&
+           (IK_BIT(props, INPUT_PROP_POINTER) ||
+            IK_BIT(keys, BTN_LEFT) ||
+            IK_BIT(props, INPUT_PROP_BUTTONPAD));
 }
 
 static inline int input_is_system_keys(const unsigned long *ev, const unsigned long *keys) {
