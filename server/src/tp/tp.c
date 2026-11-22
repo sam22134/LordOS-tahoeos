@@ -311,8 +311,8 @@ int tp_list_json(char *out, int size) {
         int k = 0;
         for (const char *p = d->c.name; *p && k < 78; p++) if (*p != '"' && *p != '\\' && (unsigned char)*p >= 32) name[k++] = *p;
         name[k] = 0;
-        o += snprintf(out + o, (size_t)(size - o), "%s{\"name\":\"%s\",\"kind\":\"%s\",\"clickpad\":%d,\"width\":%.0f,\"height\":%.0f,\"fingers\":%d}",
-                      i ? "," : "", name, d->c.kind == TP_KIND_TOUCHSCREEN ? "touchscreen" : "touchpad", d->c.clickpad, d->wmm, d->hmm, d->c.max_fingers);
+        o += snprintf(out + o, (size_t)(size - o), "%s{\"name\":\"%s\",\"kind\":\"%s\",\"clickpad\":%d,\"hasRight\":%d,\"width\":%.0f,\"height\":%.0f,\"fingers\":%d}",
+                      i ? "," : "", name, d->c.kind == TP_KIND_TOUCHSCREEN ? "touchscreen" : "touchpad", d->c.clickpad, d->c.has_right, d->wmm, d->hmm, d->c.max_fingers);
     }
     if (o < size - 1) o += snprintf(out + o, (size_t)(size - o), "]");
     return o;
