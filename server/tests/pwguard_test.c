@@ -44,6 +44,10 @@ int main(void) {
     put(nonul, 0, 24); put(nonul, 4, 14); put(nonul, 8, 4); put(nonul, 12, 8); memcpy(nonul + 16, "abcd", 4);
     PwPod nn = { nonul, 32 };
     CHECK(!pwpod_struct_field(nn, 0, &f) && pwpod_string(f, &str) != 0); /* string without its 0 */
+    uint8_t oversized[16] = { 0 };
+    put(oversized, 0, 64); put(oversized, 4, 8);
+    PwPod os = { oversized, sizeof oversized };
+    CHECK(pwpod_string(os, &str) != 0); /* claimed string length exceeds POD buffer */
 
     CHECK(pwguard_link_state_active(-2) == 0);       /* ERROR */
     CHECK(pwguard_link_state_active(-1) == 0);       /* UNLINKED */
