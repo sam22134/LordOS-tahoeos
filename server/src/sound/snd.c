@@ -93,6 +93,8 @@ static struct {
     int spec_pending, spec_again;
     Spectrum spec;
     int debug;                          /* LORD_SND_DEBUG=1: every packet to stderr */
+    int error_ready, error_command;
+    uint32_t error_code, error_index;
     int samples_uploaded, uploading, play_after;   /* bits: pop, notify, error, chime, ping, drop */
     char last_error[128];
 } S = { .fd = -1, .timer = -1, .meter_source = PA_INVALID_INDEX, .meter_channel = PA_INVALID_INDEX,
@@ -557,6 +559,12 @@ static void on_error(Pending p, uint32_t code) {
     if (p.kind == R_SPEC) { S.spec_pending = S.spec_again = 0; S.spec_source = S.spec_direct = PA_INVALID_INDEX; S.dirty = 1; }
     snprintf(S.last_error, sizeof S.last_error, "comando %d: error %u", p.what, code);
     fprintf(stderr, "sonido: %s\n", S.last_error);
+    if (p.kind == R_ACK) {
+        S.error_command = p.what;
+        S.error_code = code;
+        S.error_index = p.arg;
+        S.error_ready = 1;
+    }
     if (p.kind == R_AUTH || p.kind == R_NAME) disconnect("connection refused");
 }
 
@@ -663,6 +671,13 @@ void snd_events(SndEventFn fn) {
         char j[96];
         snprintf(j, sizeof j, "{\"source\":%u,\"level\":%.4f}", S.meter_source, S.peak);
         fn("peak", j);
+    }
+    if (S.error_ready) {
+        S.error_ready = 0;
+        char j[160];
+        snprintf(j, sizeof j, "{\\"command\\":%d,\\"code\\":%u,\\"index\\":%u}",
+                 S.error_command, S.error_code, S.error_index);
+        fn("error", j);
     }
 }
 
