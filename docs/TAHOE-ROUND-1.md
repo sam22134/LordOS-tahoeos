@@ -173,9 +173,12 @@ A implementação e o guia estão em `packaging/icons/` e `docs/ICONS.md`. A rev
 - [x] Registrar o tema no catálogo de aparências e documentar em `themes/README.md`.
 - [x] Criar tokens próprios para superfícies claras/escuras, materiais translúcidos, blur adaptável, sombras, bordas e acentos.
 - [x] Definir geometria compartilhada para controles, grupos e menus pelo contrato de tokens do `ThemeProvider`.
+- [x] Criar Menu Bar Tahoe própria (32 px, material translúcido, destaque arredondado, borda e sombra sutis).
+- [x] Criar moldura de janela Tahoe própria (barra de título de 46 px, cantos de 16 px e sombras ativas/inativas por token).
+- [x] Criar Dock Tahoe próprio com material de vidro e sombra elevada, mantendo magnificação, reordenação, miniaturas e menus do modelo original.
 - [x] Definir `Alt+Tab` na tabela de atalhos do shell Tahoe.
 - [x] Reutilizar os componentes nativos atuais de Lord Flow nesta primeira fatia, preservando a lógica do Dock, janelas, menus, Control Center, notificações, widgets e multi-monitor.
-- [ ] Separar progressivamente componentes visuais Tahoe próprios: Window chrome, Menu Bar, Dock, Control Center e Notification Center.
+- [ ] Separar progressivamente os componentes visuais Tahoe próprios restantes: Control Center, Notification Center, Launchpad e menus.
 - [ ] Adicionar arte original de ícones, wallpapers e sons Tahoe.
 - [ ] Executar `npm run build`, selecionar Tahoe em Configurações → Aparência e validar visualmente em hardware e em múltiplos monitores.
 - [ ] Incluir o tema no manifesto de código verificado/assinado da versão de lançamento.
