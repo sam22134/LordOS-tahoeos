@@ -91,6 +91,21 @@ static void test_well_formed_events_keep_connection(void) {
     rmdir(dir);
 }
 
+static void test_permission_sync_completion(void) {
+    uint32_t applied = 0xdeadbeefu;
+    CHECK(pwguard_sync_complete(1, 1, 0, 0, &applied) == 0);
+    CHECK(applied == 1);
+    CHECK(pwguard_sync_complete(2, 4, 0, 0, &applied) == 1);
+    CHECK(applied == 2); /* confirmed state advances before the newer desired state is resent */
+    CHECK(pwguard_sync_complete(8, 8, 0, 1, &applied) == 1);
+    CHECK(applied == 8); /* a policy change during the pending batch forces another batch */
+    applied = 0xdeadbeefu;
+    CHECK(pwguard_sync_complete(16, 16, 1, 0, &applied) == -1);
+    CHECK(applied == 0xdeadbeefu); /* failed update never becomes applied */
+    CHECK(pwguard_sync_complete(16, 16, 1, 1, NULL) == -1);
+    CHECK(pwguard_sync_complete(16, 16, 0, 0, NULL) == -1);
+}
+
 static void test_permission_error_sequence_matching(void) {
     const uint32_t seqs[] = { 7u, 0x80000001u, UINT32_MAX };
     CHECK(pwguard_error_matches(23, 91, seqs, 3, 23, 7));
@@ -226,6 +241,7 @@ int main(void) {
     CHECK(pwguard_node_flag("Video/Source", NULL, NULL) == FW_R_NO_CAMERA);
     CHECK(pwguard_node_flag("Audio/Source", "Screen", "lordos-screencast-0") == FW_R_NO_MIC);   /* only a video source is a screen */
     CHECK(pwguard_node_flag("Audio/Sink", NULL, NULL) == 0);
+    test_permission_sync_completion();
     test_permission_error_sequence_matching();
     test_well_formed_events_keep_connection();
     test_malformed_event_resets_connection(1); /* Core::Done */
