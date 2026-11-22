@@ -8,6 +8,10 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
 void brokersrv_revoke(const char *app, const char *perm) { (void)app; (void)perm; }
 PermState perm_get(const char *app_id, Perm p) { (void)app_id; (void)p; return PERM_ASK; }
@@ -16,6 +20,41 @@ static int fails, total;
 #define CHECK(c) do { total++; if (!(c)) { fails++; fprintf(stderr, "%s:%d: failed: %s\n", __FILE__, __LINE__, #c); } } while (0)
 
 static size_t put(uint8_t *b, size_t o, uint32_t v) { memcpy(b + o, &v, 4); return o + 4; }
+
+
+static void test_malformed_done_resets_connection(void) {
+    char dir[] = "/tmp/lordos-pwguard-XXXXXX";
+    CHECK(mkdtemp(dir) != NULL);
+    char path[sizeof(((struct sockaddr_un *)0)->sun_path)];
+    snprintf(path, sizeof path, "%s/pipewire-0-manager", dir);
+
+    int server = socket(AF_UNIX, SOCK_STREAM, 0);
+    CHECK(server >= 0);
+    if (server < 0) { rmdir(dir); return; }
+
+    struct sockaddr_un sa = { .sun_family = AF_UNIX };
+    snprintf(sa.sun_path, sizeof sa.sun_path, "%s", path);
+    CHECK(bind(server, (struct sockaddr *)&sa, sizeof sa) == 0);
+    CHECK(listen(server, 1) == 0);
+    CHECK(setenv("XDG_RUNTIME_DIR", dir, 1) == 0);
+    CHECK(pwguard_start() == 0);
+    int peer = accept(server, NULL, NULL);
+    CHECK(peer >= 0);
+    if (peer >= 0) {
+        /* Core::Done with an empty body is malformed: the guard must drop the socket. */
+        uint32_t header[4] = { 0, 1u << 24, 0, 0 };
+        CHECK(send(peer, header, sizeof header, 0) == (ssize_t)sizeof header);
+        pwguard_dispatch();
+        CHECK(pwguard_fd() == -1);
+        close(peer);
+    } else if (pwguard_fd() >= 0) {
+        /* Avoid leaving a live test connection if accept unexpectedly failed. */
+        pwguard_dispatch();
+    }
+    close(server);
+    unlink(path);
+    rmdir(dir);
+}
 
 int main(void) {
     /* Struct { Int 7, String "Audio/Source", Int -1 } */
@@ -99,6 +138,7 @@ int main(void) {
     CHECK(pwguard_node_flag("Video/Source", NULL, NULL) == FW_R_NO_CAMERA);
     CHECK(pwguard_node_flag("Audio/Source", "Screen", "lordos-screencast-0") == FW_R_NO_MIC);   /* only a video source is a screen */
     CHECK(pwguard_node_flag("Audio/Sink", NULL, NULL) == 0);
-    printf("pwguard-test: %d/%d passed\n", total - fails, total);
+    test_malformed_done_resets_connection();
+    printf("pwguard-test: %d/%d passed\n", total - fails, total - fails + fails);
     return fails ? 1 : 0;
 }
