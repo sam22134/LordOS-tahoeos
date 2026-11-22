@@ -17,6 +17,7 @@ Website: [lordos.org](https://lordos.org) · Brand kit: [LORDOS-BRAND.md](LORDOS
 | [ROADMAP.md](ROADMAP.md) | Milestones, what is done and what comes next |
 | [DESKTOP-PARITY.md](DESKTOP-PARITY.md) | What KDE Plasma and GNOME have that LordOS still lacks, in phases by priority, with what needs approval |
 | [DESIGN.md](DESIGN.md) | Design guide for LordOS apps |
+| [ICONS.md](ICONS.md) | Icon architecture, MacTahoe system theme and Tahoe-native app icon direction |
 | [LORDOS-BRAND.md](LORDOS-BRAND.md) | Logo, colours, typography and the Lumo mascot |
 
 ## Install and build
