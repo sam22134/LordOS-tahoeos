@@ -20,8 +20,9 @@ blocklists arrived ("Network, second generation").
 ## Microphone and camera activity
 
 The menu-bar privacy indicators and the Monitor's device-user store combine two sources:
-the native PipeWire graph (which verifies direct and PulseAudio client identities) and
-the PulseAudio compatibility view (which contributes microphone source names only). The latter follows `Link::Info` and reports only `ACTIVE`
+the native PipeWire graph (which verifies direct and PulseAudio client identities, even when
+no per-app restriction is active) and the PulseAudio compatibility view (which contributes microphone
+source names only). The latter follows `Link::Info` and reports only `ACTIVE`
 connections from a microphone or camera source to an application's input stream. The application
 identity comes from `pwguard`'s verified PipeWire client resolution (process credentials and
 the app's session scope), not from a display name supplied by the stream. Duplicate microphone
