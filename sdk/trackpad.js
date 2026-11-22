@@ -91,6 +91,7 @@ export function setTrackpadDeviceMode(id, mode) {
   else modes[id] = mode;
   if (!native() || !lord.input.configureDevice(id, mode)) return false;
   settings.set((s) => ({ ...s, trackpadDevices: modes }));
+  refreshTrackpads();
   return true;
 }
 
