@@ -542,10 +542,21 @@ static void op_done(const DMsg *m, void *ctx) {
     BtDevice *d = o->path[0] ? device(&model, o->path, 0) : NULL;
     if (d && bt_should_trust(o->op, err, d)) trust(d);
     if (!strcmp(o->op, "pair") && !err && d) {
-        /* paired (and trusted above): connect */
+        /* Pairing succeeded; report it, then report the automatic connection as its own operation. */
         Op *c = op_new("connect", o->path);
-        if (c && !sysbus_call(BLUEZ, o->path, "org.bluez.Device1", "Connect", NULL, NULL, op_done, c)) free(c);
-        else if (c) { result("pair", o->path, 1, NULL); free(o); dirty = 1; return; }
+        if (c && sysbus_call(BLUEZ, o->path, "org.bluez.Device1", "Connect", NULL, NULL, op_done, c)) {
+            result("pair", o->path, 1, NULL);
+            free(o);
+            dirty = 1;
+            return;
+        }
+        free(c);
+        d->busy = 0;
+        result("pair", o->path, 1, NULL);
+        result("connect", o->path, 0, "org.freedesktop.DBus.Error.Disconnected");
+        free(o);
+        dirty = 1;
+        return;
     }
     if (d) d->busy = 0;
     result(o->op, o->path, !err, err);
