@@ -243,6 +243,16 @@ int main(void) {
     CHECK(pwguard_parse_nspid("NSpid: 2147483648\n") == 0);
     CHECK(pwguard_parse_nspid("Pid: 123\n") == 0);
 
+    uint32_t socket_inode = 0;
+    CHECK(!pwguard_parse_socket_inode("socket:[12345]", &socket_inode) && socket_inode == 12345);
+    CHECK(!pwguard_parse_socket_inode("socket:[4294967295]", &socket_inode) && socket_inode == UINT32_MAX);
+    CHECK(pwguard_parse_socket_inode("socket:[]", &socket_inode) != 0);
+    CHECK(pwguard_parse_socket_inode("socket:[123]junk", &socket_inode) != 0);
+    CHECK(pwguard_parse_socket_inode("socket:[123junk]", &socket_inode) != 0);
+    CHECK(pwguard_parse_socket_inode("socket:[4294967296]", &socket_inode) != 0);
+    CHECK(pwguard_parse_socket_inode("pipe:[123]", &socket_inode) != 0);
+    CHECK(pwguard_parse_socket_inode("socket:[123]", NULL) != 0);
+
     CHECK(pwguard_link_state_active(-2) == 0);       /* ERROR */
     CHECK(pwguard_link_state_active(-1) == 0);       /* UNLINKED */
     CHECK(pwguard_link_state_active(0) == 0);        /* INIT */
