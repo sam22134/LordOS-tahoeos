@@ -782,9 +782,20 @@ static void on_global(PwPod body) {
 
 static void on_global_remove(uint32_t id) {
     for (int i = 0; i < MAX_CLIENTS; i++) if (P.cl[i].live && P.cl[i].id == id) P.cl[i].live = 0;   /* its proxy: remove_id */
-    for (int i = 0; i < MAX_NODES; i++) if (P.node[i].live && P.node[i].id == id) P.node[i].live = 0;
+    int removed_node = 0;
+    for (int i = 0; i < MAX_NODES; i++) {
+        if (P.node[i].live && P.node[i].id == id) {
+            P.node[i].live = 0;
+            removed_node = 1;
+        }
+    }
     for (int i = 0; i < MAX_PORTS; i++) if (P.port[i].live && P.port[i].id == id) P.port[i].live = 0;
-    for (int i = 0; i < MAX_LINKS; i++) if (P.link[i].live && P.link[i].id == id) P.link[i].live = 0;
+    for (int i = 0; i < MAX_LINKS; i++) {
+        PgLink *ln = &P.link[i];
+        if (!ln->live) continue;
+        if (ln->id == id || (removed_node && (ln->out_node == id || ln->in_node == id)))
+            ln->live = 0;                 /* don't let a stale link bind to a later reused node ID */
+    }
 }
 
 /* client.info(id, change_mask, props): who it is */
