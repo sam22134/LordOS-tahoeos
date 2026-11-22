@@ -1,7 +1,7 @@
 // Settings → Sound: outputs, inputs (with meter), per-app volume (PipeWire, sdk/sound.js).
 import {
   View, Text, useTheme, useLocale, Slider, Toggle, Button, Segmented, useSound, useSoundPeak, sound, defaultSink,
-  microphones, defaultSource, headsetMics, useSoundError, spacing, typeScale,
+  microphones, defaultSource, headsetMics, useSoundError, markDeviceUse, spacing, typeScale,
 } from '@lordos/sdk';
 import { useEffect } from 'react';
 import { Stack, Section, SettingRow, Note, tint } from './ui.jsx';
@@ -71,7 +71,17 @@ function Ports({ kind, dev }) {
 function Meter({ source }) {
   const t = useTheme();
   const peak = useSoundPeak();
-  useEffect(() => { if (source) sound.meter(source.index); return () => sound.meter(-1); }, [source?.index]);
+  useEffect(() => {
+    if (!source) return undefined;
+    // The meter opens a real capture stream. It is hidden from PipeWire's app list
+    // (org.lordos.Server), so report its use directly to the system privacy indicator.
+    const active = sound.meter(source.index);
+    if (active) markDeviceUse('settings', 'microphone', true);
+    return () => {
+      sound.meter(-1);
+      if (active) markDeviceUse('settings', 'microphone', false);
+    };
+  }, [source?.index]);
   const v = peak.source === source?.index ? Math.min(1, peak.level) : 0;
   const n = 16;
   // segmented level meter
