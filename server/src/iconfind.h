@@ -3,7 +3,7 @@
  * order over a made-up tree.
  *
  * PNGs first: the user's MacTahoe variants and hicolor, then the system's MacTahoe variants and hicolor,
- * at the sizes asked for, then /usr/share/pixmaps. Then SVG, which lord-media draws (media/svgicon.c): category/size
+ * preferring high-resolution PNGs suitable for the Dock, then /usr/share/pixmaps. Then SVG, which lord-media draws (media/svgicon.c): category/size
  * and category/scalable (MacTahoe), scalable/category (hicolor), then Adwaita and /usr/share/pixmaps; an app's
  * AppStream PNG; and last symbolic/ icons, which
  * the bar recolors to its text color. */
