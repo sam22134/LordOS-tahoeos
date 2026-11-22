@@ -13,6 +13,7 @@ import { appStatusEvent } from './appstatus.jsx';
 import { createElement as h, Fragment, useRef } from 'react';
 import { View, Text, mainBox } from '@lordos/runtime';
 import { createStore, useStore } from './store.js';
+import { monitorDevices } from './monitor.js';
 import { statusPanelAt } from './statusitems.js';
 import { t, locale, direction, regionData } from './i18n.js';
 import { appName } from './i18n.js';
@@ -149,7 +150,7 @@ const glyph = (p) => (p === 'camera' ? '📷' : p === 'microphone' ? '🎙' : p 
 
 // ---- camera/microphone indicators ----
 // Own source (isolated .lpk apps: the broker knows and reflects it here with markDeviceUse) +
-// the Monitor's source (Linux apps, via PipeWire: globalThis.__lordos.monitorDevices, phase 2).
+// external Linux microphone streams reported by PipeWire through the Monitor SDK.
 const brokerDevices = createStore([]);    // [{ app, kind: 'camera'|'microphone' }]
 
 export function markDeviceUse(app, kind, on) {
@@ -173,15 +174,10 @@ function brokerDevicesByApp(app, kind, on) {
   });
 }
 
-function monitorDeviceStore() {
-  try { return globalThis.__lordos && globalThis.__lordos.monitorDevices; } catch (e) { return null; }
-}
-
 // [{ kind, apps: [name] }] for each device in use.
 export function useIndicators() {
   const own = useStore(brokerDevices);
-  const md = monitorDeviceStore();
-  const ext = md ? useStore(md) : [];
+  const ext = useStore(monitorDevices);
   const all = [...own, ...(Array.isArray(ext) ? ext : [])];
   const byKind = {};
   for (const d of all) {
