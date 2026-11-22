@@ -20,8 +20,9 @@
 //   monitor.history({ from, step, n, app })  → { res, oldest, now, rx: [n], tx: [n], top: [[app, rx, tx]] } | null
 //   monitor.clearHistory()                   → true when it is gone
 //
-// Device users: active microphone recording streams are taken from PipeWire's source-output list.
-// Camera and screen-capture process tracking still need a native PipeWire/portal event source.
+// Device users: the native PipeWire graph reports verified apps on ACTIVE microphone/camera links;
+// PulseAudio compatibility adds source labels for the same microphone streams. Screen sharing remains
+// attributed by the ScreenCast portal and is not inferred from generic video nodes.
 // The firewall's per-app and per-domain rules rely on connection records (the verdict field,
 // always 'allow' today).
 import { useEffect, useRef, useState } from 'react';
