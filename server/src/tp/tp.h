@@ -91,6 +91,9 @@ TpDevice *tp_new(const TpCaps *caps);
 void tp_free(TpDevice *d);
 int  tp_kind(const TpDevice *d);
 const TpCaps *tp_caps(const TpDevice *d);
+/* Per-device clickpad classification: 0 auto, 1 force clickpad, 2 separate buttons.
+ * Overrides require a stable EVIOCGPHYS/EVIOCGUNIQ identity. */
+int tp_set_device_mode(const char *id, int mode);
 
 void tp_event(TpDevice *d, const struct input_event *ev);
 void tp_event_at(TpDevice *d, const struct input_event *ev, double now_ms);   /* tests */
