@@ -247,6 +247,70 @@ static void test_registry_global_trailing_bytes_reset_connection(void) {
     rmdir(dir);
 }
 
+static int test_pwguard_socket(char *dir, size_t dir_size, char *path, size_t path_size,
+                               int *server, int *peer) {
+    snprintf(dir, dir_size, "/tmp/lordos-pwguard-life-XXXXXX");
+    if (!mkdtemp(dir)) return -1;
+    snprintf(path, path_size, "%s/pipewire-0-manager", dir);
+    *server = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (*server < 0) return -1;
+    struct sockaddr_un sa = { .sun_family = AF_UNIX };
+    snprintf(sa.sun_path, sizeof sa.sun_path, "%s", path);
+    if (bind(*server, (struct sockaddr *)&sa, sizeof sa) ||
+        listen(*server, 1) || setenv("XDG_RUNTIME_DIR", dir, 1) ||
+        pwguard_start() != 0) return -1;
+    *peer = accept(*server, NULL, NULL);
+    return *peer < 0 ? -1 : 0;
+}
+
+static void test_unknown_info_proxy_resets_connection(void) {
+    char dir[64], path[sizeof(((struct sockaddr_un *)0)->sun_path)];
+    int server = -1, peer = -1;
+    if (test_pwguard_socket(dir, sizeof dir, path, sizeof path, &server, &peer)) {
+        CHECK(0);
+        if (peer >= 0) close(peer);
+        if (server >= 0) close(server);
+        if (path[0]) unlink(path);
+        if (dir[0]) rmdir(dir);
+        return;
+    }
+    uint32_t header[4] = { 99, 0, 71, 0 }; /* Info event on a proxy never bound by us */
+    CHECK(send(peer, header, sizeof header, 0) == (ssize_t)sizeof header);
+    pwguard_dispatch();
+    CHECK(pwguard_fd() == -1);
+    close(peer); close(server); unlink(path); rmdir(dir);
+}
+
+static void test_duplicate_tracked_global_resets_connection(void) {
+    char dir[64], path[sizeof(((struct sockaddr_un *)0)->sun_path)];
+    int server = -1, peer = -1;
+    if (test_pwguard_socket(dir, sizeof dir, path, sizeof path, &server, &peer)) {
+        CHECK(0);
+        if (peer >= 0) close(peer);
+        if (server >= 0) close(server);
+        if (path[0]) unlink(path);
+        if (dir[0]) rmdir(dir);
+        return;
+    }
+    uint8_t packet[160] = { 0 }, body[128] = { 0 };
+    size_t n = 8;
+    n = put_pod_int(body, n, 7);
+    n = put_pod_int(body, n, 0);
+    n = put_pod_string(body, n, "PipeWire:Interface:Client");
+    n = put_pod_int(body, n, 3);
+    put(body, 0, (uint32_t)(n - 8)); put(body, 4, 14);
+    uint32_t header[4] = { 2, (uint32_t)n, 72, 0 };
+    memcpy(packet, header, sizeof header);
+    memcpy(packet + sizeof header, body, n);
+    CHECK(send(peer, packet, 16 + n, 0) == (ssize_t)(16 + n));
+    pwguard_dispatch();
+    CHECK(pwguard_fd() >= 0); /* first announcement allocates exactly one client */
+    CHECK(send(peer, packet, 16 + n, 0) == (ssize_t)(16 + n));
+    pwguard_dispatch();
+    CHECK(pwguard_fd() == -1); /* duplicate global ID invalidates this registry snapshot */
+    close(peer); close(server); unlink(path); rmdir(dir);
+}
+
 int main(void) {
     /* Struct { Int 7, String "Audio/Source", Int -1 } */
     uint8_t b[128] = { 0 };
@@ -400,6 +464,8 @@ int main(void) {
     test_malformed_event_resets_connection(2, 1); /* Registry::GlobalRemove */
     test_malformed_event_resets_connection(0, 4); /* Core::RemoveId */
     test_registry_global_trailing_bytes_reset_connection();
+    test_unknown_info_proxy_resets_connection();
+    test_duplicate_tracked_global_resets_connection();
     printf("pwguard-test: %d/%d passed\n", total - fails, total);
     return fails ? 1 : 0;
 }
