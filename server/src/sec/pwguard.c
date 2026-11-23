@@ -694,8 +694,8 @@ static int unix_peers(uint32_t *ino, uint32_t *peer, int max) {
                     if (dump_error) { failed = 1; break; }
                 }
                 done = 1;
-                /* No messages may follow the terminal marker in this datagram. */
-                if (rem != 0) failed = 1;
+                /* The current message must be the final aligned message in this datagram. */
+                if (rem != (int)NLMSG_ALIGN(h->nlmsg_len)) failed = 1;
                 break;
             }
             if (h->nlmsg_type == NLMSG_ERROR) {
