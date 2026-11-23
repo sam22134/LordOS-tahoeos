@@ -1309,16 +1309,33 @@ static void on_global_remove(uint32_t id) {
     }
 }
 
+/* A malformed Client::Info must never leave a previously trusted identity active.
+ * Re-resolve only after a later complete properties update; until then this client is
+ * treated as unverified whenever the privacy guard is armed. */
+static void client_info_unverified(PgClient *c) {
+    if (!c) return;
+    c->pid_sec = c->pid_app = c->pulse = c->daemon = 0;
+    c->fpid[0] = c->app[0] = 0;
+    c->unverified = c->resolved = 1;
+    arm();
+    evaluate(c);
+    kill_streams();
+}
+
 /* client.info(id, change_mask, props): who it is */
 static void on_client_info(uint32_t proxy, PwPod body) {
     PgClient *c = NULL;
     for (int i = 0; i < MAX_CLIENTS && !c; i++) if (P.cl[i].live && P.cl[i].proxy == proxy) c = &P.cl[i];
+    if (!c) return;
     PwPod f, props;
     int32_t id;
     int64_t change_mask;
-    if (!c || pwpod_struct_field(body, 0, &f) || pwpod_int(f, &id) ||
+    if (pwpod_struct_field(body, 0, &f) || pwpod_int(f, &id) ||
         (uint32_t)id != c->id || pwpod_struct_field(body, 1, &f) ||
-        pwpod_long(f, &change_mask)) return;
+        pwpod_long(f, &change_mask)) {
+        client_info_unverified(c);
+        return;
+    }
     /* Client::Info only carries properties when CHANGE_MASK_PROPS (bit 0) is set.
      * PipeWire sends the complete current property dictionary for that bit, not a patch;
      * keep the last identity untouched for other/future info fields. */
@@ -1330,12 +1347,7 @@ static void on_client_info(uint32_t proxy, PwPod body) {
         pwguard_dict_lookup(props, "pipewire.access.portal.app_id", &fp) < 0 ||
         pwguard_dict_lookup(props, "pulse.server.type", &pulse_type) < 0) {
         /* Never retain or fall back from an ambiguous property set: it could relabel a live client. */
-        c->pid_sec = c->pid_app = c->pulse = c->daemon = 0;
-        c->fpid[0] = c->app[0] = 0;
-        c->unverified = c->resolved = 1;
-        arm();
-        evaluate(c);
-        kill_streams();
+        client_info_unverified(c);
         return;
     }
     c->pid_sec = pwguard_parse_pid(sp);
