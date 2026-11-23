@@ -902,7 +902,7 @@ static int in_user_manager(int pid) {
     char p[64], line[1024], prefix[128];
     snprintf(p, sizeof p, "/proc/%d/cgroup", pid);
     FILE *f = fopen(p, "re");
-    if (!f) return 0;
+    if (!f) return 1; /* Cannot prove the process is outside the user manager. */
     unsigned u = (unsigned)getuid();
     snprintf(prefix, sizeof prefix, "0::/user.slice/user-%u.slice/user@%u.service/", u, u);
     int found = 0, match = 0, invalid = 0;
@@ -916,7 +916,8 @@ static int in_user_manager(int pid) {
     }
     if (ferror(f)) invalid = 1;
     fclose(f);
-    if (invalid || found != 1 || !match) return 0;
+    if (invalid || found != 1) return 1; /* Incomplete cgroup evidence is untrusted. */
+    if (!match) return 0;
     /* the sound services: their exact unit AND their root-owned executable */
     if (runs_exe(pid, "/usr/bin/pipewire") && (in_user_unit(pid, "pipewire.service") || in_user_unit(pid, "pipewire-pulse.service"))) return 0;
     if (runs_exe(pid, "/usr/bin/wireplumber") && in_user_unit(pid, "wireplumber.service")) return 0;
