@@ -206,9 +206,9 @@ int pwpod_struct_field(PwPod s, int index, PwPod *out) {
     for (int i = 0; off < end; i++) {
         PwPod f;
         if (pod_at(s.p + off, end - off, &f, NULL)) return -1;
-        if (i == index) { *out = f; return 0; }
         size_t adv = (f.n + 7) & ~(size_t)7;
         if (adv > end - off) return -1;
+        if (i == index) { *out = f; return 0; }
         off += adv;
     }
     return -1;
