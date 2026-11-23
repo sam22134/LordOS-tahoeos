@@ -1521,14 +1521,14 @@ static void on_message(uint32_t id, uint32_t opcode, PwPod body) {
         }
     } else if (id == 2 && opcode == 0) {
         if (!registry_global_valid(body)) {
-            fprintf(stderr, "pwguard: malformed PipeWire Registry::Global; resetting connection\\n");
+            fprintf(stderr, "pwguard: malformed PipeWire Registry::Global; resetting connection\n");
             drop();
             return;
         }
         on_global(body);
     } else if (id == 2 && opcode == 1) {
         if (!registry_global_remove_valid(body)) {
-            fprintf(stderr, "pwguard: malformed PipeWire Registry::GlobalRemove; resetting connection\\n");
+            fprintf(stderr, "pwguard: malformed PipeWire Registry::GlobalRemove; resetting connection\n");
             drop();
             return;
         }
