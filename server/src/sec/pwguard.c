@@ -664,6 +664,7 @@ static int is_pulse_daemon(int pid) {
 /* The unix sockets of the system and their peers (sock_diag), to see who is really connected to
  * pipewire-pulse. Returns the number of pairs written into ino/peer. */
 static int unix_peers(uint32_t *ino, uint32_t *peer, int max) {
+    if (!ino || !peer || max <= 0) return -1;
     int fd = socket(AF_NETLINK, SOCK_DGRAM | SOCK_CLOEXEC, NETLINK_SOCK_DIAG);
     if (fd < 0) return -1;
     struct sockaddr_nl local = { .nl_family = AF_NETLINK };
@@ -731,9 +732,21 @@ static int unix_peers(uint32_t *ino, uint32_t *peer, int max) {
             int peer_seen = 0;
             for (struct rtattr *a = (struct rtattr *)(m + 1); RTA_OK(a, len); a = RTA_NEXT(a, len)) {
                 if (a->rta_type != UNIX_DIAG_PEER) continue;
-                if (peer_seen++ || RTA_PAYLOAD(a) != sizeof(uint32_t) || n >= max) { failed = 1; break; }
+                if (peer_seen++ || RTA_PAYLOAD(a) != sizeof(uint32_t)) { failed = 1; break; }
+                uint32_t peer_ino;
+                memcpy(&peer_ino, RTA_DATA(a), sizeof peer_ino);
+                /* A socket inode must have one unambiguous peer in this snapshot. */
+                int duplicate = 0;
+                for (int i = 0; i < n; i++) {
+                    if (ino[i] != m->udiag_ino) continue;
+                    if (peer[i] != peer_ino) { failed = 1; break; }
+                    duplicate = 1;
+                }
+                if (failed) break;
+                if (duplicate) continue;
+                if (n >= max) { failed = 1; break; }
                 ino[n] = m->udiag_ino;
-                memcpy(&peer[n], RTA_DATA(a), sizeof peer[n]);
+                peer[n] = peer_ino;
                 n++;
             }
             if (failed || len != 0) { failed = 1; break; }
