@@ -1408,6 +1408,53 @@ int pwguard_error_matches(uint32_t proxy, uint32_t sync_header,
     return 0;
 }
 
+/* Count a complete Struct without accepting truncated children or trailing bytes. */
+static int pod_struct_count(PwPod body) {
+    PwPod whole, field;
+    uint32_t type;
+    if (!body.p || pod_at(body.p, body.n, &whole, &type) || type != SPA_STRUCT) return -1;
+    size_t off = 8;
+    int count = 0;
+    while (off < whole.n) {
+        if (pod_at(body.p + off, whole.n - off, &field, NULL)) return -1;
+        size_t adv = (field.n + 7) & ~(size_t)7;
+        if (adv > whole.n - off) return -1;
+        off += adv;
+        if (++count > 16) return -1;
+    }
+    return off == whole.n ? count : -1;
+}
+
+/* Registry::Global has four mandatory fields and an optional properties Struct.
+ * A malformed event invalidates the registry snapshot: reconnect and enumerate again. */
+static int registry_global_valid(PwPod body) {
+    PwPod f, props;
+    int32_t id, permissions, version;
+    const char *type, *unused = NULL;
+    int count = pod_struct_count(body);
+    if ((count != 4 && count != 5) ||
+        pwpod_struct_field(body, 0, &f) || pwpod_int(f, &id) || id < 0 ||
+        pwpod_struct_field(body, 1, &f) || pwpod_int(f, &permissions) ||
+        pwpod_struct_field(body, 2, &f) || pwpod_string(f, &type) ||
+        pwpod_struct_field(body, 3, &f) || pwpod_int(f, &version) || version < 0)
+        return 0;
+    (void)permissions;
+    (void)type;
+    if (count == 5) {
+        if (pwpod_struct_field(body, 4, &props) ||
+            pwguard_dict_lookup(props, "__lordos_validation_only__", &unused) < 0)
+            return 0;
+    }
+    return 1;
+}
+
+static int registry_global_remove_valid(PwPod body) {
+    PwPod f;
+    int32_t id;
+    return pod_struct_count(body) == 1 &&
+           !pwpod_struct_field(body, 0, &f) && !pwpod_int(f, &id) && id >= 0;
+}
+
 static void on_message(uint32_t id, uint32_t opcode, PwPod body) {
     PwPod f;
     int32_t a, b;
@@ -1472,8 +1519,19 @@ static void on_message(uint32_t id, uint32_t opcode, PwPod body) {
             P.proxy_used[a] = 0;
             for (int i = 0; i < MAX_LINKS; i++) if (P.link[i].live && P.link[i].proxy == (uint32_t)a) P.link[i].live = 0;
         }
-    } else if (id == 2 && opcode == 0) on_global(body);
-    else if (id == 2 && opcode == 1) {
+    } else if (id == 2 && opcode == 0) {
+        if (!registry_global_valid(body)) {
+            fprintf(stderr, "pwguard: malformed PipeWire Registry::Global; resetting connection\\n");
+            drop();
+            return;
+        }
+        on_global(body);
+    } else if (id == 2 && opcode == 1) {
+        if (!registry_global_remove_valid(body)) {
+            fprintf(stderr, "pwguard: malformed PipeWire Registry::GlobalRemove; resetting connection\\n");
+            drop();
+            return;
+        }
         if (!pwpod_struct_field(body, 0, &f) && !pwpod_int(f, &a)) on_global_remove((uint32_t)a);
     } else if (id > 2 && opcode == 0) {
         int client = 0;
