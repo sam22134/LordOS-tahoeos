@@ -1379,7 +1379,7 @@ static void on_link_info(uint32_t proxy, PwPod body) {
     int32_t id, out_node, out_port, in_node, in_port, state = ln->state;
     int64_t mask;
     int count = pod_struct_count(body);
-    if ((count != 6 && count != 7) ||
+    if (count < 6 ||
         pwpod_struct_field(body, 0, &f) || pwpod_int(f, &id) ||
         id < 0 || (uint32_t)id != ln->id ||
         pwpod_struct_field(body, 1, &f) || pwpod_int(f, &out_node) || out_node < 0 ||
@@ -1387,7 +1387,7 @@ static void on_link_info(uint32_t proxy, PwPod body) {
         pwpod_struct_field(body, 3, &f) || pwpod_int(f, &in_node) || in_node < 0 ||
         pwpod_struct_field(body, 4, &f) || pwpod_int(f, &in_port) || in_port < 0 ||
         pwpod_struct_field(body, 5, &f) || pwpod_long(f, &mask) ||
-        (!!(mask & 1) != (count == 7))) {
+        ((mask & 1) && count < 7)) {
         fprintf(stderr, "pwguard: malformed PipeWire Link::Info; resetting connection\n");
         drop();
         return;
