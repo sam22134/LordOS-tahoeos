@@ -683,18 +683,23 @@ static int unix_peers(uint32_t *ino, uint32_t *peer, int max) {
         if (r <= 0 || (size_t)r > sizeof buf) { failed = 1; break; }
         int rem = (int)r;
         for (struct nlmsghdr *h = (struct nlmsghdr *)buf; NLMSG_OK(h, rem); h = NLMSG_NEXT(h, rem)) {
+            /* An interrupted kernel dump is not a complete snapshot, even if it ends in DONE. */
+            if (h->nlmsg_flags & NLM_F_DUMP_INTR) { failed = 1; break; }
             if (h->nlmsg_type == NLMSG_DONE) {
-                if (h->nlmsg_len >= NLMSG_LENGTH(sizeof(int))) {
+                size_t payload = NLMSG_PAYLOAD(h, 0);
+                if (payload != 0 && payload != sizeof(int)) { failed = 1; break; }
+                if (payload == sizeof(int)) {
                     int dump_error;
                     memcpy(&dump_error, NLMSG_DATA(h), sizeof dump_error);
-                    if (dump_error) failed = 1;
+                    if (dump_error) { failed = 1; break; }
                 }
-                if (rem != (int)NLMSG_ALIGN(h->nlmsg_len)) failed = 1;
                 done = 1;
+                /* No messages may follow the terminal marker in this datagram. */
+                if (rem != 0) failed = 1;
                 break;
             }
             if (h->nlmsg_type == NLMSG_ERROR) {
-                if (h->nlmsg_len < NLMSG_LENGTH(sizeof(struct nlmsgerr))) { failed = 1; break; }
+                if (h->nlmsg_len != NLMSG_LENGTH(sizeof(struct nlmsgerr))) { failed = 1; break; }
                 const struct nlmsgerr *e = NLMSG_DATA(h);
                 if (e->error) { failed = 1; break; }
                 continue; /* a successful ACK is not the end of a multipart dump */
@@ -702,10 +707,12 @@ static int unix_peers(uint32_t *ino, uint32_t *peer, int max) {
             if (h->nlmsg_type != SOCK_DIAG_BY_FAMILY ||
                 h->nlmsg_len < NLMSG_LENGTH(sizeof(struct unix_diag_msg))) { failed = 1; break; }
             struct unix_diag_msg *m = NLMSG_DATA(h);
+            if (m->udiag_family != AF_UNIX) { failed = 1; break; }
             int len = (int)h->nlmsg_len - (int)NLMSG_LENGTH(sizeof *m);
+            int peer_seen = 0;
             for (struct rtattr *a = (struct rtattr *)(m + 1); RTA_OK(a, len); a = RTA_NEXT(a, len)) {
                 if (a->rta_type != UNIX_DIAG_PEER) continue;
-                if (RTA_PAYLOAD(a) < sizeof(uint32_t) || n >= max) { failed = 1; break; }
+                if (peer_seen++ || RTA_PAYLOAD(a) != sizeof(uint32_t) || n >= max) { failed = 1; break; }
                 ino[n] = m->udiag_ino;
                 memcpy(&peer[n], RTA_DATA(a), sizeof peer[n]);
                 n++;
