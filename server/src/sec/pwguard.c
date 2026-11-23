@@ -1474,6 +1474,19 @@ static int registry_global_remove_valid(PwPod body) {
            !pwpod_struct_field(body, 0, &f) && !pwpod_int(f, &id) && id >= 0;
 }
 
+/* Registry global IDs are unique for the lifetime of one registry snapshot. */
+static int tracked_global_id(uint32_t id) {
+    for (int i = 0; i < MAX_CLIENTS; i++)
+        if (P.cl[i].live && P.cl[i].id == id) return 1;
+    for (int i = 0; i < MAX_NODES; i++)
+        if (P.node[i].live && P.node[i].id == id) return 1;
+    for (int i = 0; i < MAX_PORTS; i++)
+        if (P.port[i].live && P.port[i].id == id) return 1;
+    for (int i = 0; i < MAX_LINKS; i++)
+        if (P.link[i].live && P.link[i].id == id) return 1;
+    return 0;
+}
+
 static void on_message(uint32_t id, uint32_t opcode, PwPod body) {
     PwPod f;
     int32_t a, b;
@@ -1549,6 +1562,12 @@ static void on_message(uint32_t id, uint32_t opcode, PwPod body) {
     } else if (id == 2 && opcode == 0) {
         if (!registry_global_valid(body)) {
             fprintf(stderr, "pwguard: malformed PipeWire Registry::Global; resetting connection\n");
+            drop();
+            return;
+        }
+        if (pwpod_struct_field(body, 0, &f) || pwpod_int(f, &a) || a < 0 ||
+            tracked_global_id((uint32_t)a)) {
+            fprintf(stderr, "pwguard: duplicate or invalid tracked PipeWire global; resetting connection\\n");
             drop();
             return;
         }
