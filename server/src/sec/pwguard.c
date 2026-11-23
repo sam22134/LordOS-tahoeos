@@ -1561,10 +1561,19 @@ static void on_message(uint32_t id, uint32_t opcode, PwPod body) {
         }
         if (!pwpod_struct_field(body, 0, &f) && !pwpod_int(f, &a)) on_global_remove((uint32_t)a);
     } else if (id > 2 && opcode == 0) {
-        int client = 0;
-        for (int i = 0; i < MAX_CLIENTS; i++) if (P.cl[i].live && P.cl[i].proxy == id) { client = 1; break; }
+        int client = 0, link = 0;
+        for (int i = 0; i < MAX_CLIENTS; i++)
+            if (P.cl[i].live && P.cl[i].proxy == id) { client = 1; break; }
+        for (int i = 0; i < MAX_LINKS && !link; i++)
+            if (P.link[i].live && P.link[i].proxy == id) link = 1;
+        if (client == link) {
+            /* Exactly one tracked interface must own every bound proxy ID. */
+            fprintf(stderr, "pwguard: PipeWire Info arrived for an unknown or ambiguous proxy %u; resetting connection\\n", id);
+            drop();
+            return;
+        }
         if (client) on_client_info(id, body);
-        else on_link_info(id, body);             /* bound Link proxies have their own Info layout */
+        else on_link_info(id, body);
     }
 }
 
