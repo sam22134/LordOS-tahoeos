@@ -207,6 +207,46 @@ static void test_malformed_event_resets_connection(uint32_t object_id, uint32_t 
     rmdir(dir);
 }
 
+static void test_registry_global_trailing_bytes_reset_connection(void) {
+    char dir[] = "/tmp/lordos-pwguard-trailing-XXXXXX";
+    if (!mkdtemp(dir)) { CHECK(0); return; }
+    char path[sizeof(((struct sockaddr_un *)0)->sun_path)];
+    snprintf(path, sizeof path, "%s/pipewire-0-manager", dir);
+    int server = socket(AF_UNIX, SOCK_STREAM, 0);
+    CHECK(server >= 0);
+    if (server < 0) { rmdir(dir); return; }
+    struct sockaddr_un sa = { .sun_family = AF_UNIX };
+    snprintf(sa.sun_path, sizeof sa.sun_path, "%s", path);
+    if (bind(server, (struct sockaddr *)&sa, sizeof sa) != 0 ||
+        listen(server, 1) != 0 || setenv("XDG_RUNTIME_DIR", dir, 1) != 0 ||
+        pwguard_start() != 0) {
+        CHECK(0); close(server); unlink(path); rmdir(dir); return;
+    }
+    int peer = accept(server, NULL, NULL);
+    CHECK(peer >= 0);
+    if (peer >= 0) {
+        uint8_t packet[160] = { 0 }, body[128] = { 0 };
+        size_t n = 8;
+        n = put_pod_int(body, n, 7);          /* global id */
+        n = put_pod_int(body, n, 0);          /* permissions */
+        n = put_pod_string(body, n, "PipeWire:Interface:Client");
+        n = put_pod_int(body, n, 3);          /* interface version */
+        put(body, 0, (uint32_t)(n - 8)); put(body, 4, 14);
+        body[n++] = 0xaa;                     /* bytes outside the declared Struct */
+        uint32_t header[4] = { 2, (uint32_t)n, 51, 0 };
+        header[1] |= 0u << 24;
+        memcpy(packet, header, sizeof header);
+        memcpy(packet + sizeof header, body, n);
+        CHECK(send(peer, packet, 16 + n, 0) == (ssize_t)(16 + n));
+        pwguard_dispatch();
+        CHECK(pwguard_fd() == -1);            /* trailing bytes invalidate the event */
+        close(peer);
+    }
+    close(server);
+    unlink(path);
+    rmdir(dir);
+}
+
 int main(void) {
     /* Struct { Int 7, String "Audio/Source", Int -1 } */
     uint8_t b[128] = { 0 };
@@ -359,6 +399,7 @@ int main(void) {
     test_malformed_event_resets_connection(2, 0); /* Registry::Global */
     test_malformed_event_resets_connection(2, 1); /* Registry::GlobalRemove */
     test_malformed_event_resets_connection(0, 4); /* Core::RemoveId */
+    test_registry_global_trailing_bytes_reset_connection();
     printf("pwguard-test: %d/%d passed\n", total - fails, total);
     return fails ? 1 : 0;
 }
