@@ -1491,13 +1491,20 @@ static void on_message(uint32_t id, uint32_t opcode, PwPod body) {
     PwPod f;
     int32_t a, b;
     if (id == 0 && opcode == 2) {                               /* core.ping(id, seq) → pong */
-        if (pwpod_struct_field(body, 0, &f) || pwpod_int(f, &a) || pwpod_struct_field(body, 1, &f) || pwpod_int(f, &b)) return;
+        if (pod_struct_count(body) != 2 ||
+            pwpod_struct_field(body, 0, &f) || pwpod_int(f, &a) ||
+            pwpod_struct_field(body, 1, &f) || pwpod_int(f, &b)) {
+            fprintf(stderr, "pwguard: malformed PipeWire Core::Ping; resetting connection\\n");
+            drop();
+            return;
+        }
         Pb p = { .n = 0 };
         size_t s = pb_begin(&p); pb_int(&p, a); pb_int(&p, b); pb_end(&p, s);
         send_msg(0, 3, &p);
     } else if (id == 0 && opcode == 1) {                        /* core.done(id, seq) */
         int32_t done_id, done_seq;
-        if (pwpod_struct_field(body, 0, &f) || pwpod_int(f, &done_id) ||
+        if (pod_struct_count(body) != 2 ||
+            pwpod_struct_field(body, 0, &f) || pwpod_int(f, &done_id) ||
             pwpod_struct_field(body, 1, &f) || pwpod_int(f, &done_seq)) {
             fprintf(stderr, "pwguard: malformed PipeWire Core::Done; resetting connection\n");
             drop();
@@ -1526,7 +1533,8 @@ static void on_message(uint32_t id, uint32_t opcode, PwPod body) {
         int32_t resource_id = -1, request_seq = 0, result = 0;
         int have_request_seq = 0;
         const char *msg = "";
-        if (pwpod_struct_field(body, 0, &f) || pwpod_int(f, &resource_id) ||
+        if (pod_struct_count(body) != 4 ||
+            pwpod_struct_field(body, 0, &f) || pwpod_int(f, &resource_id) ||
             pwpod_struct_field(body, 1, &f) || pwpod_int(f, &request_seq) ||
             pwpod_struct_field(body, 2, &f) || pwpod_int(f, &result) ||
             pwpod_struct_field(body, 3, &f) || pwpod_string(f, &msg)) {
