@@ -608,27 +608,44 @@ static int runs_exe(int pid, const char *path) {
     return !stat(p, &st) && st.st_uid == getuid();
 }
 
+/* Read a cgroup.procs file only when it contains exactly one complete valid PID. */
+static int cgroup_single_pid(const char *path) {
+    FILE *f = fopen(path, "re");
+    if (!f) return 0;
+    char line[64];
+    int pid = 0, lines = 0, invalid = 0;
+    while (fgets(line, sizeof line, f)) {
+        size_t n = strlen(line);
+        if (n == sizeof line - 1 && line[n - 1] != '\n') { invalid = 1; break; }
+        line[strcspn(line, "\r\n")] = 0;
+        int value = pwguard_parse_pid(line);
+        if (!value || ++lines != 1) { invalid = 1; break; }
+        pid = value;
+    }
+    if (ferror(f)) invalid = 1;
+    fclose(f);
+    return !invalid && lines == 1 ? pid : 0;
+}
+
 /* Is pid exactly in the user manager's session.slice/<unit>, alone? The whole path is compared:
  * the user owns the user@ subtree and can make a nested cgroup that merely ends in the same names. */
 static int in_user_unit(int pid, const char *unit) {
-    char p[64], line[1024], want[256];
+    char p[64], line[1024], want[512];
     unsigned u = (unsigned)getuid();
     snprintf(want, sizeof want, "0::/user.slice/user-%u.slice/user@%u.service/session.slice/%s\n", u, u, unit);
     snprintf(p, sizeof p, "/proc/%d/cgroup", pid);
     FILE *f = fopen(p, "re");
     int ok = 0;
-    while (f && fgets(line, sizeof line, f))
+    while (f && fgets(line, sizeof line, f)) {
+        size_t n = strlen(line);
+        if (n == sizeof line - 1 && line[n - 1] != '\n') break;
         if (!strncmp(line, "0::", 3)) { ok = !strcmp(line, want); break; }
-    if (f) fclose(f);
+    }
+    if (f) { if (ferror(f)) ok = 0; fclose(f); }
     if (!ok) return 0;
-    /* and the only process there: the user can also write that unit's own cgroup.procs (the
-     * subtree is theirs), so a second process moved in makes neither count (fail closed) */
+    /* A second process moved into the unit makes neither process a trusted daemon. */
     snprintf(want, sizeof want, "/sys/fs/cgroup/user.slice/user-%u.slice/user@%u.service/session.slice/%s/cgroup.procs", u, u, unit);
-    f = fopen(want, "re");
-    int n = 0, first = -1;
-    while (f && fgets(line, sizeof line, f)) { if (!n) { line[strcspn(line, "\r\n")] = 0; first = pwguard_parse_pid(line); } n++; }
-    if (f) fclose(f);
-    return n == 1 && first == pid;
+    return cgroup_single_pid(want) == pid;
 }
 
 /* Is pid the session's real pipewire-pulse? Never from a property: the executable is the root-owned
