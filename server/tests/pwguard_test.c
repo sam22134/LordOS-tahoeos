@@ -311,6 +311,39 @@ static void test_duplicate_tracked_global_resets_connection(void) {
     close(peer); close(server); unlink(path); rmdir(dir);
 }
 
+static void test_core_event_extra_fields_reset_connection(uint32_t opcode) {
+    char dir[64] = { 0 }, path[sizeof(((struct sockaddr_un *)0)->sun_path)] = { 0 };
+    int server = -1, peer = -1;
+    if (test_pwguard_socket(dir, sizeof dir, path, sizeof path, &server, &peer)) {
+        CHECK(0);
+        if (peer >= 0) close(peer);
+        if (server >= 0) close(server);
+        if (path[0]) unlink(path);
+        if (dir[0]) rmdir(dir);
+        return;
+    }
+    uint8_t packet[192] = { 0 }, body[160] = { 0 };
+    size_t n = 8;
+    if (opcode == 3) { /* Core::Error: four fields, followed by an illegal fifth */
+        n = put_pod_int(body, n, 0);
+        n = put_pod_int(body, n, 9);
+        n = put_pod_int(body, n, -1);
+        n = put_pod_string(body, n, "mock error");
+    } else {
+        n = put_pod_int(body, n, 0);
+        n = put_pod_int(body, n, 9);
+    }
+    n = put_pod_int(body, n, 123); /* extra field must not be silently accepted */
+    put(body, 0, (uint32_t)(n - 8)); put(body, 4, 14);
+    uint32_t header[4] = { 0, (opcode << 24) | (uint32_t)n, 81, 0 };
+    memcpy(packet, header, sizeof header);
+    memcpy(packet + sizeof header, body, n);
+    CHECK(send(peer, packet, 16 + n, 0) == (ssize_t)(16 + n));
+    pwguard_dispatch();
+    CHECK(pwguard_fd() == -1);
+    close(peer); close(server); unlink(path); rmdir(dir);
+}
+
 int main(void) {
     /* Struct { Int 7, String "Audio/Source", Int -1 } */
     uint8_t b[128] = { 0 };
@@ -466,6 +499,9 @@ int main(void) {
     test_registry_global_trailing_bytes_reset_connection();
     test_unknown_info_proxy_resets_connection();
     test_duplicate_tracked_global_resets_connection();
+    test_core_event_extra_fields_reset_connection(1); /* Core::Done */
+    test_core_event_extra_fields_reset_connection(2); /* Core::Ping */
+    test_core_event_extra_fields_reset_connection(3); /* Core::Error */
     printf("pwguard-test: %d/%d passed\n", total - fails, total);
     return fails ? 1 : 0;
 }
