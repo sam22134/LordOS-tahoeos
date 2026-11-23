@@ -784,9 +784,13 @@ static int inner_pid(int pid) {
     char p[64], line[256];
     snprintf(p, sizeof p, "/proc/%d/status", pid);
     FILE *f = fopen(p, "re");
-    int in = -1;
-    while (f && fgets(line, sizeof line, f)) {
+    if (!f) return -1;
+    int in = -1, found = 0, invalid = 0;
+    while (fgets(line, sizeof line, f)) {
+        size_t n = strlen(line);
+        if (n == sizeof line - 1 && line[n - 1] != '\n') { invalid = 1; break; }
         if (strncmp(line, "NSpid:", 6)) continue;
+        if (found++) { invalid = 1; break; }
         char *s = line + 6;
         int last = -1, count = 0;
         while (*s) {
@@ -807,10 +811,11 @@ static int inner_pid(int pid) {
             s = end;
         }
         in = count ? last : -1;
-        break;
+        if (in <= 0) invalid = 1;
     }
-    if (f) fclose(f);
-    return in;
+    if (ferror(f)) invalid = 1;
+    fclose(f);
+    return !invalid && found == 1 ? in : -1;
 }
 
 /* Re-read the authoritative scope membership after process/socket inspection. */
@@ -877,14 +882,18 @@ static int same_pidns(int pid) {
     char p[64], line[256];
     snprintf(p, sizeof p, "/proc/%d/status", pid);
     FILE *f = fopen(p, "re");
-    int ok = 0;
-    while (f && fgets(line, sizeof line, f)) {
+    if (!f) return 0;
+    int ok = 0, found = 0, invalid = 0;
+    while (fgets(line, sizeof line, f)) {
+        size_t n = strlen(line);
+        if (n == sizeof line - 1 && line[n - 1] != '\n') { invalid = 1; break; }
         if (strncmp(line, "NSpid:", 6)) continue;
+        if (found++) { invalid = 1; break; }
         ok = pwguard_parse_nspid(line) == pid;
-        break;
     }
-    if (f) fclose(f);
-    return ok;
+    if (ferror(f)) invalid = 1;
+    fclose(f);
+    return !invalid && found == 1 && ok;
 }
 
 /* A process the user's service manager runs (systemd-run --user, D-Bus activation): outside every
