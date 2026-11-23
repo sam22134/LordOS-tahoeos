@@ -39,7 +39,7 @@ static size_t put_pod_string(uint8_t *b, size_t o, const char *v) {
 
 static size_t put_dict(uint8_t *b, size_t o, int count, const char **keys, const char **values) {
     size_t start = o;
-    o = put(o ? b : b, o, 0); o = put(b, o, 14);
+    o = put(b, o, 0); o = put(b, o, 14);
     o = put_pod_int(b, o, count);
     for (int i = 0; i < count; i++) {
         o = put_pod_string(b, o, keys[i]);
