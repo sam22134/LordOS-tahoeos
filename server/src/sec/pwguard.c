@@ -782,8 +782,15 @@ static int pulse_connections(int pp, int pid) {
         if (!dir) return -1;
         struct dirent *e;
         int count = 0, nseen = 0, failed = 0;
-        errno = 0;
-        while ((e = readdir(dir))) {
+        for (;;) {
+            /* Other syscalls in the loop may leave errno set; isolate readdir's EOF
+             * from an actual directory-read error instead of inspecting stale errno. */
+            errno = 0;
+            e = readdir(dir);
+            if (!e) {
+                if (errno) failed = 1;
+                break;
+            }
             if (e->d_name[0] == '.') continue;
             int ln = snprintf(l, sizeof l, "%s/%s", d, e->d_name);
             if (ln < 0 || (size_t)ln >= sizeof l) { failed = 1; break; }
@@ -819,7 +826,6 @@ static int pulse_connections(int pp, int pid) {
                 break;
             }
         }
-        if (!e && errno) failed = 1;
         if (closedir(dir)) failed = 1;
         if (failed) return -1;
         if (process_start_time(owner) != (pass ? pid_start : pp_start)) return -1;
