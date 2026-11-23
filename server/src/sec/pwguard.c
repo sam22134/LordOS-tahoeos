@@ -1494,7 +1494,7 @@ static void on_message(uint32_t id, uint32_t opcode, PwPod body) {
         if (pod_struct_count(body) != 2 ||
             pwpod_struct_field(body, 0, &f) || pwpod_int(f, &a) ||
             pwpod_struct_field(body, 1, &f) || pwpod_int(f, &b)) {
-            fprintf(stderr, "pwguard: malformed PipeWire Core::Ping; resetting connection\\n");
+            fprintf(stderr, "pwguard: malformed PipeWire Core::Ping; resetting connection\n");
             drop();
             return;
         }
