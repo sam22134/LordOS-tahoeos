@@ -1515,10 +1515,18 @@ static void on_message(uint32_t id, uint32_t opcode, PwPod body) {
                 c->pending_failed = 1;
         }
     } else if (id == 0 && opcode == 4) {                        /* core.remove_id */
-        if (!pwpod_struct_field(body, 0, &f) && !pwpod_int(f, &a) && a > 2 && a < MAX_PROXY) {
-            P.proxy_used[a] = 0;
-            for (int i = 0; i < MAX_LINKS; i++) if (P.link[i].live && P.link[i].proxy == (uint32_t)a) P.link[i].live = 0;
+        if (pod_struct_count(body) != 1 ||
+            pwpod_struct_field(body, 0, &f) || pwpod_int(f, &a) ||
+            a <= 2 || a >= MAX_PROXY || !P.proxy_used[a]) {
+            fprintf(stderr, "pwguard: malformed or unknown PipeWire Core::RemoveId; resetting connection\n");
+            drop();
+            return;
         }
+        P.proxy_used[a] = 0;
+        for (int i = 0; i < MAX_CLIENTS; i++)
+            if (P.cl[i].live && P.cl[i].proxy == (uint32_t)a) P.cl[i].live = 0;
+        for (int i = 0; i < MAX_LINKS; i++)
+            if (P.link[i].live && P.link[i].proxy == (uint32_t)a) P.link[i].live = 0;
     } else if (id == 2 && opcode == 0) {
         if (!registry_global_valid(body)) {
             fprintf(stderr, "pwguard: malformed PipeWire Registry::Global; resetting connection\n");
