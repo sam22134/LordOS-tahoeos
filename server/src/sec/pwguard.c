@@ -266,11 +266,6 @@ int pwguard_dict_lookup(PwPod d, const char *key, const char **value) {
     return matches;
 }
 
-static const char *dict_get(PwPod d, const char *key) {
-    const char *value = NULL;
-    return pwguard_dict_lookup(d, key, &value) == 1 ? value : NULL;
-}
-
 /* ---- SPA POD: writing ---------------------------------------------------------------------- */
 
 typedef struct { uint8_t b[16384]; size_t n; int err; } Pb;
@@ -1179,9 +1174,21 @@ static void on_global(PwPod body) {
         /* the others already restricted must not see this one either */
         for (int i = 0; i < MAX_CLIENTS; i++)
             if (P.cl[i].live && &P.cl[i] != c && P.cl[i].want) apply_permissions(&P.cl[i], P.cl[i].want);
-    } else if (!strcmp(type, "PipeWire:Interface:Node") && has_props) {
-        const char *mc = dict_get(props, "media.class"), *cid = dict_get(props, "client.id");
-        uint32_t flag = pwguard_node_flag(mc, dict_get(props, "media.role"), dict_get(props, "node.name")), stream = pwguard_stream_flag(mc);
+    } else if (!strcmp(type, "PipeWire:Interface:Node")) {
+        const char *mc = NULL, *cid = NULL, *role = NULL, *name = NULL;
+        if (!has_props ||
+            pwguard_dict_lookup(props, "media.class", &mc) < 0 ||
+            pwguard_dict_lookup(props, "client.id", &cid) < 0 ||
+            pwguard_dict_lookup(props, "media.role", &role) < 0 ||
+            pwguard_dict_lookup(props, "node.name", &name) < 0) {
+            /* An ambiguous class/owner could conceal a capture node. */
+            if (guard_armed) {
+                fprintf(stderr, "pwguard: node %d has invalid or ambiguous properties; destroying it\n", (int)id);
+                destroy_global((uint32_t)id);
+            }
+            return;
+        }
+        uint32_t flag = pwguard_node_flag(mc, role, name), stream = pwguard_stream_flag(mc);
         if (!flag && !stream) return;
         PgNode *nd = NULL;
         for (int i = 0; i < MAX_NODES && !nd; i++) if (!P.node[i].live) nd = &P.node[i];
@@ -1239,11 +1246,21 @@ static void on_global(PwPod body) {
         pb_int(&b, id); pb_str(&b, "PipeWire:Interface:Link"); pb_int(&b, version); pb_int(&b, (int32_t)px);
         pb_end(&b, z);
         send_msg(2, 1, &b);                                 /* registry.bind → Link::Info */
-    } else if (!strcmp(type, "PipeWire:Interface:Port") && has_props) {
-        const char *nid = dict_get(props, "node.id");
-        if (!nid) return;
+    } else if (!strcmp(type, "PipeWire:Interface:Port")) {
+        const char *nid = NULL;
+        if (!has_props || pwguard_dict_lookup(props, "node.id", &nid) < 0 || !nid) {
+            /* Without an unambiguous parent, this port might belong to a restricted capture node. */
+            if (guard_armed) {
+                fprintf(stderr, "pwguard: port %d has invalid or ambiguous parent; destroying it\n", (int)id);
+                destroy_global((uint32_t)id);
+            }
+            return;
+        }
         uint32_t node;
-        if (pwguard_parse_u32(nid, &node)) return;
+        if (pwguard_parse_u32(nid, &node)) {
+            if (guard_armed) destroy_global((uint32_t)id);
+            return;
+        }
         PgNode *nd = node_by_id(node);
         if (!nd || !nd->flag) return;
         PgPort *pt = NULL;
