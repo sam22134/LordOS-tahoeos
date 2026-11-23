@@ -796,6 +796,26 @@ static int inner_pid(int pid) {
     return in;
 }
 
+/* Re-read the authoritative scope membership after process/socket inspection. */
+static int cgroup_has_pid(const char *path, int pid) {
+    FILE *f = fopen(path, "re");
+    if (!f) return 0;
+    char line[64];
+    int found = 0;
+    while (fgets(line, sizeof line, f)) {
+        size_t n = strlen(line);
+        if (n == sizeof line - 1 && line[n - 1] != '\n') {
+            found = 0;
+            break;
+        }
+        line[strcspn(line, "\r\n")] = 0;
+        if (pwguard_parse_pid(line) == pid) { found = 1; break; }
+    }
+    if (ferror(f)) found = 0;
+    fclose(f);
+    return found;
+}
+
 /* A Flatpak app's pulse client reports its pid inside the app's sandbox, and pipewire-pulse says which app
  * it is (pipewire.access.portal.app_id, from the connecting process's .flatpak-info). Neither is taken
  * on its word: the pid outside is a process of that app's own root-owned scope whose innermost pid is
@@ -825,7 +845,8 @@ static int flatpak_host_pid(const PgClient *c, int claims) {
         uint64_t start = process_start_time(pid);
         if (!start || inner_pid(pid) != c->pid_app) continue;
         int connections = pulse_connections(c->pid_sec, pid);
-        if (connections < claims || process_start_time(pid) != start) continue;
+        if (connections < claims || process_start_time(pid) != start ||
+            !cgroup_has_pid(path, pid)) continue;
         found = pid;
     }
     fclose(f);
