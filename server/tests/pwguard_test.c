@@ -358,6 +358,7 @@ int main(void) {
     test_malformed_event_resets_connection(0, 3); /* Core::Error */
     test_malformed_event_resets_connection(2, 0); /* Registry::Global */
     test_malformed_event_resets_connection(2, 1); /* Registry::GlobalRemove */
+    test_malformed_event_resets_connection(0, 4); /* Core::RemoveId */
     printf("pwguard-test: %d/%d passed\n", total - fails, total);
     return fails ? 1 : 0;
 }
