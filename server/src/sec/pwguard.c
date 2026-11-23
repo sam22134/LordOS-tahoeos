@@ -666,11 +666,14 @@ static int is_pulse_daemon(int pid) {
 static int unix_peers(uint32_t *ino, uint32_t *peer, int max) {
     int fd = socket(AF_NETLINK, SOCK_DGRAM | SOCK_CLOEXEC, NETLINK_SOCK_DIAG);
     if (fd < 0) return -1;
+    struct sockaddr_nl local = { .nl_family = AF_NETLINK };
+    if (bind(fd, (struct sockaddr *)&local, sizeof local) != 0) { close(fd); return -1; }
     struct { struct nlmsghdr nh; struct unix_diag_req r; } req;
     memset(&req, 0, sizeof req);
     req.nh.nlmsg_len = sizeof req;
     req.nh.nlmsg_type = SOCK_DIAG_BY_FAMILY;
     req.nh.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
+    req.nh.nlmsg_seq = 1;
     req.r.sdiag_family = AF_UNIX;
     req.r.udiag_states = ~0u;
     req.r.udiag_show = UDIAG_SHOW_PEER;
@@ -678,11 +681,27 @@ static int unix_peers(uint32_t *ino, uint32_t *peer, int max) {
     static uint8_t buf[32768];
     int n = 0, done = 0, failed = 0;
     while (!done && !failed) {
+        struct sockaddr_nl source;
+        struct iovec iov = { .iov_base = buf, .iov_len = sizeof buf };
+        struct msghdr msg;
+        memset(&source, 0, sizeof source);
+        memset(&msg, 0, sizeof msg);
+        msg.msg_name = &source;
+        msg.msg_namelen = sizeof source;
+        msg.msg_iov = &iov;
+        msg.msg_iovlen = 1;
         ssize_t r;
-        do { r = recv(fd, buf, sizeof buf, MSG_TRUNC); } while (r < 0 && errno == EINTR);
-        if (r <= 0 || (size_t)r > sizeof buf) { failed = 1; break; }
+        do { r = recvmsg(fd, &msg, MSG_TRUNC); } while (r < 0 && errno == EINTR);
+        if (r <= 0 || (size_t)r > sizeof buf ||
+            (msg.msg_flags & MSG_TRUNC) || msg.msg_namelen < sizeof source ||
+            source.nl_family != AF_NETLINK || source.nl_pid != 0 || source.nl_groups != 0) {
+            failed = 1;
+            break;
+        }
         int rem = (int)r;
         for (struct nlmsghdr *h = (struct nlmsghdr *)buf; NLMSG_OK(h, rem); h = NLMSG_NEXT(h, rem)) {
+            /* Accept only replies to this request from the kernel's Netlink endpoint. */
+            if (h->nlmsg_seq != req.nh.nlmsg_seq || h->nlmsg_pid != 0) { failed = 1; break; }
             /* An interrupted kernel dump is not a complete snapshot, even if it ends in DONE. */
             if (h->nlmsg_flags & NLM_F_DUMP_INTR) { failed = 1; break; }
             if (h->nlmsg_type == NLMSG_DONE) {
