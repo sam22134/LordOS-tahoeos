@@ -167,7 +167,7 @@ static void test_permission_error_sequence_matching(void) {
     CHECK(!pwguard_error_matches(23, 91, seqs, 0, 23, 7));
 }
 
-static void test_malformed_event_resets_connection(uint32_t opcode) {
+static void test_malformed_event_resets_connection(uint32_t object_id, uint32_t opcode) {
     char dir[] = "/tmp/lordos-pwguard-XXXXXX";
     if (!mkdtemp(dir)) { CHECK(0); return; }
     char path[sizeof(((struct sockaddr_un *)0)->sun_path)];
@@ -193,7 +193,7 @@ static void test_malformed_event_resets_connection(uint32_t opcode) {
     CHECK(peer >= 0);
     if (peer >= 0) {
         /* An empty Core::Done/Core::Error body is malformed: drop the socket. */
-        uint32_t header[4] = { 0, opcode << 24, 0, 0 };
+        uint32_t header[4] = { object_id, opcode << 24, 0, 0 };
         CHECK(send(peer, header, sizeof header, 0) == (ssize_t)sizeof header);
         pwguard_dispatch();
         CHECK(pwguard_fd() == -1);
@@ -354,8 +354,10 @@ int main(void) {
     test_permission_sync_completion();
     test_permission_error_sequence_matching();
     test_well_formed_events_keep_connection();
-    test_malformed_event_resets_connection(1); /* Core::Done */
-    test_malformed_event_resets_connection(3); /* Core::Error */
+    test_malformed_event_resets_connection(0, 1); /* Core::Done */
+    test_malformed_event_resets_connection(0, 3); /* Core::Error */
+    test_malformed_event_resets_connection(2, 0); /* Registry::Global */
+    test_malformed_event_resets_connection(2, 1); /* Registry::GlobalRemove */
     printf("pwguard-test: %d/%d passed\n", total - fails, total);
     return fails ? 1 : 0;
 }
