@@ -235,7 +235,7 @@ int pwguard_dict_lookup(PwPod d, const char *key, const char **value) {
     PwPod whole, field;
     uint32_t type;
     int32_t count;
-    if (!key || !value || pod_at(d.p, d.n, &whole, &type) || type != SPA_STRUCT) return -1;
+    if (!d.p || !key || !value || pod_at(d.p, d.n, &whole, &type) || type != SPA_STRUCT) return -1;
     size_t off = 8, end = whole.n;
     if (pod_at(d.p + off, end - off, &field, NULL) || pwpod_int(field, &count) ||
         count < 0 || count > 4096) return -1;
