@@ -189,6 +189,11 @@ int main(void) {
     CHECK(!pwpod_struct_field(s, 1, &f) && pwpod_int(f, &v) != 0);     /* a string is not an int */
     PwPod cut = { b, o - 10 };
     CHECK(pwpod_struct_field(cut, 0, &f) != 0);                        /* the struct says more than there is */
+    uint8_t unpadded[20] = { 0 };
+    put(unpadded, 0, 12); put(unpadded, 4, 14);
+    put(unpadded, 8, 4); put(unpadded, 12, 4); put(unpadded, 16, 7);
+    PwPod up = { unpadded, sizeof unpadded };
+    CHECK(pwpod_struct_field(up, 0, &f) != 0);                         /* a child missing its 8-byte padding */
     uint8_t lie[64];
     memcpy(lie, b, sizeof lie);
     put(lie, 8, 400);                                                  /* a field longer than the struct */
