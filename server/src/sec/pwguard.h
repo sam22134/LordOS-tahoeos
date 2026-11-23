@@ -40,6 +40,8 @@ typedef struct { const uint8_t *p; size_t n; } PwPod;
 int  pwpod_struct_field(PwPod s, int index, PwPod *out);     /* 0 ok */
 int  pwpod_int(PwPod p, int32_t *v);
 int  pwpod_string(PwPod p, const char **s);
+/* Dict lookup: 1 found, 0 absent, -1 malformed or duplicate key. */
+int  pwguard_dict_lookup(PwPod d, const char *key, const char **value);
 /* Complete a correlated permission batch; -1 means disconnect, 0 applied, 1 reapply. */
 int  pwguard_sync_complete(uint32_t pending_flags, uint32_t want,
                            int pending_failed, int pending_dirty,
