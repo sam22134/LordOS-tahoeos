@@ -899,15 +899,24 @@ static int same_pidns(int pid) {
 /* A process the user's service manager runs (systemd-run --user, D-Bus activation): outside every
  * app scope, so an app could escape its restriction there. The sound services themselves don't count. */
 static int in_user_manager(int pid) {
-    char p[64], line[1024], unit[64];
+    char p[64], line[1024], prefix[128];
     snprintf(p, sizeof p, "/proc/%d/cgroup", pid);
     FILE *f = fopen(p, "re");
-    int r = 0;
-    snprintf(unit, sizeof unit, "/user@%u.service/", (unsigned)getuid());
-    while (f && fgets(line, sizeof line, f))
-        if (!strncmp(line, "0::", 3)) { r = strstr(line, unit) != NULL; break; }
-    if (f) fclose(f);
-    if (!r) return 0;
+    if (!f) return 0;
+    unsigned u = (unsigned)getuid();
+    snprintf(prefix, sizeof prefix, "0::/user.slice/user-%u.slice/user@%u.service/", u, u);
+    int found = 0, match = 0, invalid = 0;
+    while (fgets(line, sizeof line, f)) {
+        size_t n = strlen(line);
+        if (n == sizeof line - 1 && line[n - 1] != '\n') { invalid = 1; break; }
+        if (strncmp(line, "0::", 3)) continue;
+        if (found++) { invalid = 1; break; }
+        /* Require the canonical user-manager subtree, not a substring in an unrelated path. */
+        match = !strncmp(line, prefix, strlen(prefix)) && n > strlen(prefix) + 1 && line[n - 1] == '\n';
+    }
+    if (ferror(f)) invalid = 1;
+    fclose(f);
+    if (invalid || found != 1 || !match) return 0;
     /* the sound services: their exact unit AND their root-owned executable */
     if (runs_exe(pid, "/usr/bin/pipewire") && (in_user_unit(pid, "pipewire.service") || in_user_unit(pid, "pipewire-pulse.service"))) return 0;
     if (runs_exe(pid, "/usr/bin/wireplumber") && in_user_unit(pid, "wireplumber.service")) return 0;
