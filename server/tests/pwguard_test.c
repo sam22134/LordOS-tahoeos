@@ -264,7 +264,7 @@ static int test_pwguard_socket(char *dir, size_t dir_size, char *path, size_t pa
 }
 
 static void test_unknown_info_proxy_resets_connection(void) {
-    char dir[64], path[sizeof(((struct sockaddr_un *)0)->sun_path)];
+    char dir[64] = { 0 }, path[sizeof(((struct sockaddr_un *)0)->sun_path)] = { 0 };
     int server = -1, peer = -1;
     if (test_pwguard_socket(dir, sizeof dir, path, sizeof path, &server, &peer)) {
         CHECK(0);
