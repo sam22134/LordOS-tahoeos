@@ -228,20 +228,47 @@ int pwpod_string(PwPod p, const char **s) {
     return 0;
 }
 
-/* A dict (Struct: Int n, then String key, String value...) → the value of key, or NULL. */
-static const char *dict_get(PwPod d, const char *key) {
-    PwPod f;
-    int32_t n;
-    if (pwpod_struct_field(d, 0, &f) || pwpod_int(f, &n) || n < 0 || n > 4096) return NULL;
-    for (int i = 0; i < n; i++) {
+/* A dict is a Struct containing Int n followed by exactly n String key/value pairs.
+ * Return 1 when found, 0 when absent, and -1 for malformed or duplicate requested keys.
+ * Walk the encoded fields once: repeated pwpod_struct_field() calls would make this O(n²). */
+int pwguard_dict_lookup(PwPod d, const char *key, const char **value) {
+    PwPod whole, field;
+    uint32_t type;
+    int32_t count;
+    if (!key || !value || pod_at(d.p, d.n, &whole, &type) || type != SPA_STRUCT) return -1;
+    size_t off = 8, end = whole.n;
+    if (pod_at(d.p + off, end - off, &field, NULL) || pwpod_int(field, &count) ||
+        count < 0 || count > 4096) return -1;
+    size_t adv = (field.n + 7) & ~(size_t)7;
+    if (adv > end - off) return -1;
+    off += adv;
+
+    const char *found = NULL;
+    int matches = 0;
+    for (int i = 0; i < count; i++) {
         PwPod k, v;
         const char *ks, *vs;
-        if (pwpod_struct_field(d, 1 + 2 * i, &k) || pwpod_string(k, &ks)) return NULL;
-        if (strcmp(ks, key)) continue;
-        if (pwpod_struct_field(d, 2 + 2 * i, &v) || pwpod_string(v, &vs)) return NULL;
-        return vs;
+        if (off > end || pod_at(d.p + off, end - off, &k, NULL) || pwpod_string(k, &ks)) return -1;
+        adv = (k.n + 7) & ~(size_t)7;
+        if (adv > end - off) return -1;
+        off += adv;
+        if (off > end || pod_at(d.p + off, end - off, &v, NULL) || pwpod_string(v, &vs)) return -1;
+        adv = (v.n + 7) & ~(size_t)7;
+        if (adv > end - off) return -1;
+        off += adv;
+        if (!strcmp(ks, key)) {
+            found = vs;
+            if (++matches > 1) return -1;
+        }
     }
-    return NULL;
+    if (off != end) return -1;
+    *value = found;
+    return matches;
+}
+
+static const char *dict_get(PwPod d, const char *key) {
+    const char *value = NULL;
+    return pwguard_dict_lookup(d, key, &value) == 1 ? value : NULL;
 }
 
 /* ---- SPA POD: writing ---------------------------------------------------------------------- */
@@ -1279,16 +1306,28 @@ static void on_client_info(uint32_t proxy, PwPod body) {
      * PipeWire sends the complete current property dictionary for that bit, not a patch;
      * keep the last identity untouched for other/future info fields. */
     if (!(change_mask & 1)) return;
-    if (pwpod_struct_field(body, 2, &props)) return;
-    const char *sp = dict_get(props, "pipewire.sec.pid"), *ap = dict_get(props, "application.process.id");
+    const char *sp = NULL, *ap = NULL, *fp = NULL, *pulse_type = NULL;
+    if (pwpod_struct_field(body, 2, &props) ||
+        pwguard_dict_lookup(props, "pipewire.sec.pid", &sp) < 0 ||
+        pwguard_dict_lookup(props, "application.process.id", &ap) < 0 ||
+        pwguard_dict_lookup(props, "pipewire.access.portal.app_id", &fp) < 0 ||
+        pwguard_dict_lookup(props, "pulse.server.type", &pulse_type) < 0) {
+        /* Never retain or fall back from an ambiguous property set: it could relabel a live client. */
+        c->pid_sec = c->pid_app = c->pulse = c->daemon = 0;
+        c->fpid[0] = c->app[0] = 0;
+        c->unverified = c->resolved = 1;
+        arm();
+        evaluate(c);
+        kill_streams();
+        return;
+    }
     c->pid_sec = pwguard_parse_pid(sp);
     c->pid_app = pwguard_parse_pid(ap);
-    const char *fp = dict_get(props, "pipewire.access.portal.app_id");
     snprintf(c->fpid, sizeof c->fpid, "%s", fp && strlen(fp) < sizeof c->fpid ? fp : "");
     /* a pulse client only if the connection really comes from the session's pipewire-pulse; the
      * pulse.server.type property alone is the client's word */
     int pulse_conn = c->pid_sec > 0 && is_pulse_daemon(c->pid_sec);
-    c->pulse = dict_get(props, "pulse.server.type") != NULL && pulse_conn;
+    c->pulse = pulse_type != NULL && pulse_conn;
     c->daemon = pulse_conn && !c->pulse;
     arm();
     resolve(c);
