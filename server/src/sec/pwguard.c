@@ -1322,6 +1322,9 @@ static void client_info_unverified(PgClient *c) {
     kill_streams();
 }
 
+/* Used by the Info handlers to validate the complete incoming Struct. */
+static int pod_struct_count(PwPod body);
+
 /* client.info(id, change_mask, props): who it is */
 static void on_client_info(uint32_t proxy, PwPod body) {
     PgClient *c = NULL;
