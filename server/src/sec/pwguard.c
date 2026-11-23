@@ -1431,7 +1431,7 @@ int pwguard_error_matches(uint32_t proxy, uint32_t sync_header,
 static int pod_struct_count(PwPod body) {
     PwPod whole, field;
     uint32_t type;
-    if (!body.p || pod_at(body.p, body.n, &whole, &type) || type != SPA_STRUCT) return -1;
+    if (!body.p || pod_at(body.p, body.n, &whole, &type) || whole.n != body.n || type != SPA_STRUCT) return -1;
     size_t off = 8;
     int count = 0;
     while (off < whole.n) {
