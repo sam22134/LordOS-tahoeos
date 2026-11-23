@@ -995,6 +995,12 @@ static void resolve(PgClient *c) {
          * (like lord-netperm's per-user union) */
         if (guard_armed && in_user_manager(pid)) c->unverified = 1;
     }
+    /* appid_of_pid() and the manager/cgroup checks above perform additional /proc reads.
+     * Do not publish their result if the PID stopped referring to the pinned process meanwhile. */
+    if (process_start_time(pid) != start) {
+        c->app[0] = 0;
+        c->unverified = 1;
+    }
 }
 
 static int guarded(const char *app, void *u) {
