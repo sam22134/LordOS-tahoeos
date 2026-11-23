@@ -598,6 +598,8 @@ static void evaluate(PgClient *c) {
 /* ---- who a client really is ---------------------------------------------------------------- */
 
 /* Is pid running the root-owned executable at path (same inode, not a copy)? */
+static uint64_t process_start_time(int pid);
+
 static int runs_exe(int pid, const char *path) {
     char p[64];
     struct stat st, want;
