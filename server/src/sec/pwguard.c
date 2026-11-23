@@ -1491,21 +1491,24 @@ void pwguard_dispatch(void) {
         if (n < 0 && errno == EINTR) continue;
         if (n < 0 && errno == EAGAIN) break;
         if (n <= 0) { drop(); return; }
-        for (struct cmsghdr *cm = CMSG_FIRSTHDR(&mh); cm; cm = CMSG_NXTHDR(&mh, cm))   /* we never use fds: close them */
+        int received_fds = 0;
+        for (struct cmsghdr *cm = CMSG_FIRSTHDR(&mh); cm; cm = CMSG_NXTHDR(&mh, cm))
             if (cm->cmsg_level == SOL_SOCKET && cm->cmsg_type == SCM_RIGHTS && cm->cmsg_len >= CMSG_LEN(0)) {
                 int *fds = (int *)CMSG_DATA(cm);
                 size_t k = (cm->cmsg_len - CMSG_LEN(0)) / sizeof(int);
+                received_fds |= k != 0;
                 for (size_t i = 0; i < k; i++) close(fds[i]);
             }
-        /* This protocol carries no FDs for us. A truncated ancillary buffer means that the
-         * kernel may have discarded some received descriptors; reject the packet and reset. */
-        if (mh.msg_flags & MSG_CTRUNC) { drop(); return; }
+        /* This client never consumes FDs. Reject both unexpected descriptors and a
+         * truncated ancillary buffer instead of silently desynchronizing protocol state. */
+        if ((mh.msg_flags & MSG_CTRUNC) || received_fds) { drop(); return; }
         P.inlen += (size_t)n;
         size_t off = 0;
         while (P.inlen - off >= 16) {
             uint32_t id = rd32(P.in + off), op = rd32(P.in + off + 4);
             uint32_t size = op & 0xffffff, opcode = op >> 24;
-            if (size > IN_MAX - 16) { drop(); return; }
+            uint32_t n_fds = rd32(P.in + off + 12);
+            if (size > IN_MAX - 16 || n_fds != 0) { drop(); return; }
             if (P.inlen - off < 16 + (size_t)size) break;
             PwPod body = { P.in + off + 16, size };
             on_message(id, opcode, body);
