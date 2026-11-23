@@ -1330,15 +1330,17 @@ static void on_client_info(uint32_t proxy, PwPod body) {
     PwPod f, props;
     int32_t id;
     int64_t change_mask;
-    if (pwpod_struct_field(body, 0, &f) || pwpod_int(f, &id) ||
+    int count = pod_struct_count(body);
+    if ((count != 2 && count != 3) ||
+        pwpod_struct_field(body, 0, &f) || pwpod_int(f, &id) ||
         (uint32_t)id != c->id || pwpod_struct_field(body, 1, &f) ||
-        pwpod_long(f, &change_mask)) {
+        pwpod_long(f, &change_mask) ||
+        (!!(change_mask & 1) != (count == 3))) {
         client_info_unverified(c);
         return;
     }
-    /* Client::Info only carries properties when CHANGE_MASK_PROPS (bit 0) is set.
-     * PipeWire sends the complete current property dictionary for that bit, not a patch;
-     * keep the last identity untouched for other/future info fields. */
+    /* Client::Info carries the complete property dictionary only when bit 0 is set.
+     * Validate the whole Struct before retaining the previous identity or reading props. */
     if (!(change_mask & 1)) return;
     const char *sp = NULL, *ap = NULL, *fp = NULL, *pulse_type = NULL;
     if (pwpod_struct_field(body, 2, &props) ||
@@ -1368,23 +1370,37 @@ static void on_link_info(uint32_t proxy, PwPod body) {
     PgLink *ln = NULL;
     for (int i = 0; i < MAX_LINKS && !ln; i++) if (P.link[i].live && P.link[i].proxy == proxy) ln = &P.link[i];
     if (!ln) return;
+
+    /* Parse into temporaries: never publish a partly updated graph edge. */
     PwPod f;
-    int32_t v;
+    int32_t id, out_node, out_port, in_node, in_port, state = ln->state;
     int64_t mask;
-    if (pwpod_struct_field(body, 0, &f) || pwpod_int(f, &v) || (uint32_t)v != ln->id) return;
-    if (pwpod_struct_field(body, 1, &f) || pwpod_int(f, &v)) return;
-    ln->out_node = (uint32_t)v;
-    if (pwpod_struct_field(body, 2, &f) || pwpod_int(f, &v)) return;
-    ln->out_port = (uint32_t)v;
-    if (pwpod_struct_field(body, 3, &f) || pwpod_int(f, &v)) return;
-    ln->in_node = (uint32_t)v;
-    if (pwpod_struct_field(body, 4, &f) || pwpod_int(f, &v)) return;
-    ln->in_port = (uint32_t)v;
-    if (pwpod_struct_field(body, 5, &f) || pwpod_long(f, &mask)) return;
-    if (mask & 1) {
-        if (pwpod_struct_field(body, 6, &f) || pwpod_int(f, &v)) return;
-        ln->state = v;
+    int count = pod_struct_count(body);
+    if ((count != 6 && count != 7) ||
+        pwpod_struct_field(body, 0, &f) || pwpod_int(f, &id) ||
+        id < 0 || (uint32_t)id != ln->id ||
+        pwpod_struct_field(body, 1, &f) || pwpod_int(f, &out_node) || out_node < 0 ||
+        pwpod_struct_field(body, 2, &f) || pwpod_int(f, &out_port) || out_port < 0 ||
+        pwpod_struct_field(body, 3, &f) || pwpod_int(f, &in_node) || in_node < 0 ||
+        pwpod_struct_field(body, 4, &f) || pwpod_int(f, &in_port) || in_port < 0 ||
+        pwpod_struct_field(body, 5, &f) || pwpod_long(f, &mask) ||
+        (!!(mask & 1) != (count == 7))) {
+        fprintf(stderr, "pwguard: malformed PipeWire Link::Info; resetting connection\n");
+        drop();
+        return;
     }
+    if (mask & 1) {
+        if (pwpod_struct_field(body, 6, &f) || pwpod_int(f, &state)) {
+            fprintf(stderr, "pwguard: malformed PipeWire Link::Info state; resetting connection\n");
+            drop();
+            return;
+        }
+    }
+    ln->out_node = (uint32_t)out_node;
+    ln->out_port = (uint32_t)out_port;
+    ln->in_node = (uint32_t)in_node;
+    ln->in_port = (uint32_t)in_port;
+    if (mask & 1) ln->state = state;
     ln->info = 1;
 }
 
