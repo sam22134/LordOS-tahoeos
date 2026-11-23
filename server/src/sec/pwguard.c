@@ -736,17 +736,21 @@ static int pulse_connections(int pp, int pid) {
     static uint32_t clients[4096], seen[4096];
     int nc = 0;
     for (int pass = 0; pass < 2; pass++) {
-        snprintf(d, sizeof d, "/proc/%d/fd", pass ? pid : pp);
+        int owner = pass ? pid : pp;
+        int pn = snprintf(d, sizeof d, "/proc/%d/fd", owner);
+        if (pn < 0 || (size_t)pn >= sizeof d) return -1;
         DIR *dir = opendir(d);
         if (!dir) return -1;
         struct dirent *e;
-        int count = 0, nseen = 0;
+        int count = 0, nseen = 0, failed = 0;
+        errno = 0;
         while ((e = readdir(dir))) {
             if (e->d_name[0] == '.') continue;
-            snprintf(l, sizeof l, "%s/%s", d, e->d_name);
+            int ln = snprintf(l, sizeof l, "%s/%s", d, e->d_name);
+            if (ln < 0 || (size_t)ln >= sizeof l) { failed = 1; break; }
             ssize_t k = readlink(l, t, sizeof t - 1);
+            if (k < 0 || (size_t)k >= sizeof t - 1) { failed = 1; break; }
             uint32_t v;
-            if (k <= 0) continue;
             t[k] = 0;
             if (pwguard_parse_socket_inode(t, &v)) continue;
             if (!pass) {
@@ -776,7 +780,10 @@ static int pulse_connections(int pp, int pid) {
                 break;
             }
         }
-        closedir(dir);
+        if (!e && errno) failed = 1;
+        if (closedir(dir)) failed = 1;
+        if (failed) return -1;
+        if (process_start_time(owner) != (pass ? pid_start : pp_start)) return -1;
         if (pass) {
             if (process_start_time(pp) != pp_start || process_start_time(pid) != pid_start) return -1;
             return count;
