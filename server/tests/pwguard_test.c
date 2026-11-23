@@ -103,6 +103,42 @@ static void test_well_formed_events_keep_connection(void) {
     rmdir(dir);
 }
 
+static void test_unexpected_fd_count_resets_connection(void) {
+    char dir[] = "/tmp/lordos-pwguard-fdcount-XXXXXX";
+    if (!mkdtemp(dir)) { CHECK(0); return; }
+    char path[sizeof(((struct sockaddr_un *)0)->sun_path)];
+    snprintf(path, sizeof path, "%s/pipewire-0-manager", dir);
+    int server = socket(AF_UNIX, SOCK_STREAM, 0);
+    CHECK(server >= 0);
+    if (server < 0) { rmdir(dir); return; }
+    struct sockaddr_un sa = { .sun_family = AF_UNIX };
+    snprintf(sa.sun_path, sizeof sa.sun_path, "%s", path);
+    if (bind(server, (struct sockaddr *)&sa, sizeof sa) != 0 ||
+        listen(server, 1) != 0 || setenv("XDG_RUNTIME_DIR", dir, 1) != 0 ||
+        pwguard_start() != 0) {
+        CHECK(0); close(server); unlink(path); rmdir(dir); return;
+    }
+    int peer = accept(server, NULL, NULL);
+    CHECK(peer >= 0);
+    if (peer >= 0) {
+        uint8_t packet[64] = { 0 }, body[48] = { 0 };
+        size_t n = 8;
+        n = put_pod_int(body, n, 0);
+        n = put_pod_int(body, n, 41);
+        put(body, 0, (uint32_t)(n - 8)); put(body, 4, 14);
+        uint32_t header[4] = { 0, (1u << 24) | (uint32_t)n, 41, 1 };
+        memcpy(packet, header, sizeof header);
+        memcpy(packet + sizeof header, body, n);
+        CHECK(send(peer, packet, 16 + n, 0) == (ssize_t)(16 + n));
+        pwguard_dispatch();
+        CHECK(pwguard_fd() == -1); /* valid payload, but header claims an unsupported FD */
+        close(peer);
+    }
+    close(server);
+    unlink(path);
+    rmdir(dir);
+}
+
 static void test_permission_sync_completion(void) {
     uint32_t applied = 0xdeadbeefu;
     CHECK(pwguard_sync_complete(1, 1, 0, 0, &applied) == 0);
@@ -314,6 +350,7 @@ int main(void) {
     CHECK(pwguard_node_flag("Video/Source", NULL, NULL) == FW_R_NO_CAMERA);
     CHECK(pwguard_node_flag("Audio/Source", "Screen", "lordos-screencast-0") == FW_R_NO_MIC);   /* only a video source is a screen */
     CHECK(pwguard_node_flag("Audio/Sink", NULL, NULL) == 0);
+    test_unexpected_fd_count_resets_connection();
     test_permission_sync_completion();
     test_permission_error_sequence_matching();
     test_well_formed_events_keep_connection();
