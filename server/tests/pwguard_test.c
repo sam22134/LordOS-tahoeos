@@ -37,6 +37,18 @@ static size_t put_pod_string(uint8_t *b, size_t o, const char *v) {
     return o + ((8 - (n & 7)) & 7);
 }
 
+static size_t put_dict(uint8_t *b, size_t o, int count, const char **keys, const char **values) {
+    size_t start = o;
+    o = put(o ? b : b, o, 0); o = put(b, o, 14);
+    o = put_pod_int(b, o, count);
+    for (int i = 0; i < count; i++) {
+        o = put_pod_string(b, o, keys[i]);
+        o = put_pod_string(b, o, values[i]);
+    }
+    put(b, start, (uint32_t)(o - start - 8));
+    return o;
+}
+
 static void test_well_formed_events_keep_connection(void) {
     char dir[] = "/tmp/lordos-pwguard-valid-XXXXXX";
     if (!mkdtemp(dir)) { CHECK(0); return; }
@@ -194,6 +206,26 @@ int main(void) {
     put(embedded, 0, 4); put(embedded, 4, 8); memcpy(embedded + 8, "a\0b", 4);
     PwPod es = { embedded, sizeof embedded };
     CHECK(pwpod_string(es, &str) != 0); /* embedded NUL makes the value ambiguous */
+
+    /* Dictionary lookup validates the complete pair sequence and rejects duplicate identity keys. */
+    uint8_t dbuf[512] = { 0 };
+    const char *dkeys[] = { "application.process.id", "media.class" };
+    const char *dvals[] = { "123", "Audio/Source" };
+    size_t dn = put_dict(dbuf, 0, 2, dkeys, dvals);
+    PwPod dict = { dbuf, dn };
+    CHECK(pwguard_dict_lookup(dict, "application.process.id", &str) == 1 && !strcmp(str, "123"));
+    CHECK(pwguard_dict_lookup(dict, "missing", &str) == 0 && str == NULL);
+    const char *dupkeys[] = { "application.process.id", "application.process.id" };
+    const char *samevals[] = { "123", "123" };
+    dn = put_dict(dbuf, 0, 2, dupkeys, samevals);
+    dict = (PwPod){ dbuf, dn };
+    CHECK(pwguard_dict_lookup(dict, "application.process.id", &str) == -1);
+    const char *diffvals[] = { "123", "456" };
+    dn = put_dict(dbuf, 0, 2, dupkeys, diffvals);
+    dict = (PwPod){ dbuf, dn };
+    CHECK(pwguard_dict_lookup(dict, "application.process.id", &str) == -1);
+    dict.n--;
+    CHECK(pwguard_dict_lookup(dict, "application.process.id", &str) == -1);
 
     CHECK(pwguard_next_sync_token(0, NULL, 0) == 1);
     CHECK(pwguard_next_sync_token(1, NULL, 0) == 2);
