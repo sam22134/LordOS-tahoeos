@@ -601,11 +601,15 @@ static void evaluate(PgClient *c) {
 static int runs_exe(int pid, const char *path) {
     char p[64];
     struct stat st, want;
+    uint64_t start = process_start_time(pid);
+    if (!start) return 0;
     snprintf(p, sizeof p, "/proc/%d/exe", pid);
     if (stat(p, &st) || stat(path, &want) || want.st_uid != 0 || (want.st_mode & 022)) return 0;
     if (st.st_dev != want.st_dev || st.st_ino != want.st_ino) return 0;
     snprintf(p, sizeof p, "/proc/%d", pid);
-    return !stat(p, &st) && st.st_uid == getuid();
+    if (stat(p, &st) || st.st_uid != getuid()) return 0;
+    /* Do not let a PID reused during the executable/owner checks inherit this identity. */
+    return process_start_time(pid) == start;
 }
 
 /* Read a cgroup.procs file only when it contains exactly one complete valid PID. */
@@ -933,6 +937,8 @@ static uint64_t process_start_time(int pid) {
     FILE *f = fopen(path, "re");
     if (!f) return 0;
     int ok = fgets(line, sizeof line, f) != NULL;
+    size_t n = ok ? strlen(line) : 0;
+    if (!ok || ferror(f) || (n == sizeof line - 1 && line[n - 1] != '\n')) ok = 0;
     fclose(f);
     if (!ok) return 0;
     char *p = strrchr(line, ')');
