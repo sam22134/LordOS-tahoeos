@@ -695,11 +695,17 @@ static int unix_peers(uint32_t *ino, uint32_t *peer, int max) {
     return done && !failed ? n : -1;
 }
 
+static uint64_t process_start_time(int pid);
+
 /* How many distinct connections to pipewire-pulse (process pp) process pid holds; -1 if unknown.
  * The server ends are pipewire-pulse's (always in our network namespace); their peers are the client
  * ends, which pid holds even when it lives in a network namespace of its own (a Flatpak app with no
  * network), where sock_diag doesn't list them. */
 static int pulse_connections(int pp, int pid) {
+    /* Pin both processes across the /proc and netlink snapshot: PID reuse or exit during
+     * inspection must not turn a partial snapshot into evidence of identity. */
+    uint64_t pp_start = process_start_time(pp), pid_start = process_start_time(pid);
+    if (!pp_start || !pid_start) return -1;
     static uint32_t ino[65536], peer[65536];
     int np = unix_peers(ino, peer, 65536);
     if (np < 0) return -1;
@@ -748,7 +754,10 @@ static int pulse_connections(int pp, int pid) {
             }
         }
         closedir(dir);
-        if (pass) return count;
+        if (pass) {
+            if (process_start_time(pp) != pp_start || process_start_time(pid) != pid_start) return -1;
+            return count;
+        }
     }
     return -1;
 }
