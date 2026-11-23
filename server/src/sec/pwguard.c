@@ -819,8 +819,14 @@ static int flatpak_host_pid(const PgClient *c, int claims) {
     while (!found && fgets(line, sizeof line, f)) {
         line[strcspn(line, "\r\n")] = 0;
         int pid = pwguard_parse_pid(line);
-        if (pid > 0 && inner_pid(pid) == c->pid_app &&
-            pulse_connections(c->pid_sec, pid) >= claims) found = pid;
+        if (pid <= 0) continue;
+        /* Keep the candidate's identity stable while namespace and socket evidence
+         * are gathered: a cgroup PID may disappear and be reused mid-validation. */
+        uint64_t start = process_start_time(pid);
+        if (!start || inner_pid(pid) != c->pid_app) continue;
+        int connections = pulse_connections(c->pid_sec, pid);
+        if (connections < claims || process_start_time(pid) != start) continue;
+        found = pid;
     }
     fclose(f);
     return found;
