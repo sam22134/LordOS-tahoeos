@@ -366,8 +366,8 @@ SEC("cgroup/dev") int np_dev(struct bpf_cgroup_dev_ctx *ctx) {
     np_u32 zero = 0;
     NpCfg *cfg = bpf_map_lookup_elem(&np_cfg, &zero);
     if (!cfg || !cfg->on) return 1;
-    np_u32 need = np_dev_restriction(ctx->access_type & 0xffff, ctx->major, cfg->hidraw_major);
-    int snd = !need && (ctx->access_type & 0xffff) == NP_DEV_CHAR && ctx->major == NP_MAJOR_SND;
+    np_u32 need = np_dev_restriction(np_dev_type(ctx->access_type), ctx->major, cfg->hidraw_major);
+    int snd = !need && np_dev_type(ctx->access_type) == NP_DEV_CHAR && ctx->major == NP_MAJOR_SND;
     if (!need && !snd) return 1;
     np_u64 cgid = 0;
     NpApp *app = find_app(cfg, &cgid);
