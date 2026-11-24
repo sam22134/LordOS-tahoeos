@@ -31,10 +31,29 @@ int http_split_url(const char *url, int *tls, char *host, size_t hcap, int *port
         host[i] = (char)tolower(c);
     }
     host[hl] = 0;
-    if (colon) { *port = atoi(colon + 1); if (*port <= 0 || *port > 65535) return -1; }
+    if (colon) {
+        const char *q = colon + 1;
+        if (q == e) return -1;
+        unsigned value = 0;
+        for (; q < e; q++) {
+            if (!isdigit((unsigned char)*q)) return -1;
+            unsigned d = (unsigned)(*q - '0');
+            if (value > (65535u - d) / 10u) return -1;
+            value = value * 10u + d;
+        }
+        if (!value) return -1;
+        *port = (int)value;
+    }
     const char *path0 = *e == '/' ? e : "/";
     size_t pl = strcspn(path0, "#");
-    if (*e == '?') { snprintf(path, pcap, "/%.*s", (int)strcspn(e, "#"), e); return 0; }
+    if (*e == '?') {
+        size_t ql = strcspn(e, "#");
+        if (ql + 1 >= pcap) return -1;
+        path[0] = '/';
+        memcpy(path + 1, e, ql);
+        path[ql + 1] = 0;
+        return 0;
+    }
     if (pl >= pcap) return -1;
     memcpy(path, path0, pl);
     path[pl] = 0;
@@ -124,6 +143,10 @@ int http_request(Conn *c, const char *method, const char *host, const char *path
         hdr_total += ll;
         if (hdr_total > 64 * 1024) { free(line); return -1; }          /* headers: 64 KB at most */
         if (!strcmp(line, "\r\n") || !strcmp(line, "\n")) { free(line); done = 1; break; }
+        if (line[0] == ' ' || line[0] == '\t' || !strchr(line, ':') || strchr(line, ':') == line) {
+            free(line);
+            return -1;
+        }
         char v[64] = "";
         int hv = hdr_get(line, "Content-Length", v, sizeof v);
         if (hv < 0) { free(line); return -1; }
