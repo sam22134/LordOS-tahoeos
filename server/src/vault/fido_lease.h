@@ -38,10 +38,10 @@ static inline int fido_lease_revoked(const FidoLease *l) {
 
 /* Atomically reserve the next CTAP command against a concurrent revoke. A successful CAS means
  * the command began before revocation; after the revoke store, no later command can start. */
-static inline int fido_lease_command_begin(const FidoLease *l) {
+static inline int fido_lease_command_begin(FidoLease *l) {
     if (!l) return 0;
     int active = 0;
-    return atomic_compare_exchange_strong_explicit((atomic_int *)&l->revoked, &active, 0,
+    return atomic_compare_exchange_strong_explicit(&l->revoked, &active, 0,
                                                     memory_order_acq_rel, memory_order_acquire);
 }
 
