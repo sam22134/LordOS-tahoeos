@@ -247,6 +247,20 @@ int main(void) {
     symlink(outside, linkpath);
     check(call(BOP_FS_LIST, "escape", 6) && got_status != BST_OK,
           "files: FS_LIST refuses a final symlink outside app data");
+    char jump[512], outside_child[512], outside_file[512];
+    snprintf(jump, sizeof jump, "%s/jump", appdata);
+    snprintf(outside_child, sizeof outside_child, "%s/child", outside);
+    snprintf(outside_file, sizeof outside_file, "%s/secret", outside_child);
+    mkdir(outside_child, 0700);
+    int secretfd = open(outside_file, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
+    if (secretfd >= 0) close(secretfd);
+    symlink(outside, jump);
+    check(call(BOP_FS_LIST, "jump/child", 10) && got_status != BST_OK,
+          "files: FS_LIST refuses an intermediate symlink outside app data");
+    check(call(BOP_FS_READ, "jump/secret", 11) && got_status != BST_OK,
+          "files: FS_READ refuses an intermediate symlink outside app data");
+    check(call(BOP_FS_LIST, "../outside", 10) && got_status != BST_OK,
+          "files: FS_LIST refuses parent-directory traversal");
     char emptyfile[512];
     snprintf(emptyfile, sizeof emptyfile, "%s/empty", appdata);
     int emptyfd = open(emptyfile, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
