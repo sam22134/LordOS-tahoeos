@@ -140,6 +140,7 @@ static struct {
     uint32_t snd[NP_MAX_SND];           /* the ALSA minors in np_snd */
     int nsnd;
     int dev_ok, bt_ok;                  /* the device / Bluetooth programs loaded */
+    uint32_t hidraw_major;               /* refreshed: the hidraw module may load after startup */
     int links[16], nlinks;
     int progs[16], nprogs;
     uint32_t attach[16];
@@ -663,6 +664,24 @@ static void scan_snd(void) {
     }
     memcpy(G.snd, now, sizeof(uint32_t) * (size_t)n);
     G.nsnd = n;
+}
+
+/* hidraw's major is registered dynamically: a module loaded after lord-netperm starts
+ * must enter the device policy too. Re-read /proc/devices on the one-second timer. */
+static void sync_hidraw_major(void) {
+#ifdef NP_HAVE_BPF
+    if (!G.bpf_ok) return;
+    uint32_t major = hidraw_major();
+    if (major == G.hidraw_major) return;
+    NpCfg cfg = { SCOPE_LEVEL, 1, USER_LEVEL, major };
+    uint32_t zero = 0;
+    if (bpfs_map_update(G.m_np_cfg, &zero, &cfg, BPF_ANY)) {
+        logf_("could not refresh hidraw device major: %s", strerror(errno));
+        return;
+    }
+    G.hidraw_major = major;
+    logf_("hidraw device major updated: %u", major);
+#endif
 }
 
 static void scan_all(void) {
@@ -1499,7 +1518,8 @@ static int bpf_setup(void) {
         G.progs[np++] = fd;
     }
     G.nprogs = np;
-    NpCfg cfg = { SCOPE_LEVEL, 1, USER_LEVEL, hidraw_major() };
+    G.hidraw_major = hidraw_major();
+    NpCfg cfg = { SCOPE_LEVEL, 1, USER_LEVEL, G.hidraw_major };
     uint32_t zero = 0;
     if (bpfs_map_update(G.m_np_cfg, &zero, &cfg, BPF_ANY)) { lerr_set(G.bpf_err, sizeof G.bpf_err, "fw.bpfConfig", "errno", lerr_errno(errno), NULL); return -1; }
     logf_("%d BPF programs loaded (devices: %s, Bluetooth sockets: %s, traffic accounting: %s, hidraw major %u)", np, G.dev_ok ? "yes" : "no",
@@ -1646,6 +1666,7 @@ int main(int argc, char **argv) {
                 if (read(G.tfd, &x, sizeof x) < 0) {}
                 G.tick++;
                 attach_service();
+                sync_hidraw_major();
                 sync_system();
                 if (G.dns) { npdns_tick(G.dns); watch_dns(); }
                 if (G.tick % 5 == 0) scan_all();    /* in case an inotify notice was lost */
