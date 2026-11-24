@@ -42,6 +42,21 @@ restrict $APP no-mic
 sleep 1.5                               # the guard rereads the rules every second
 for t in $TOOLS; do n=$(rec $t 3); [ "$n" -lt 4096 ] && ok "$t got $n bytes" || bad "$t still recorded $n bytes"; done
 grep -q "fwmic is restricted (no-mic)" "$GLOG" && ok "the guard closed the capture stream(s)" || bad "no closing in the guard's log"
+echo "2b. guard disconnected while no-mic remains active"
+kill "$GPID" 2>/dev/null; wait "$GPID" 2>/dev/null
+GPID=
+for t in $TOOLS; do
+    n=$(rec "$t" 2)
+    [ "$n" -lt 4096 ] && ok "$t stayed blocked while the guard was disconnected ($n bytes)" || bad "$t recorded while the guard was disconnected ($n bytes)"
+done
+"$CLI" 120 >> "$GLOG" 2>&1 &
+GPID=$!
+sleep 2.5
+for t in $TOOLS; do
+    n=$(rec "$t" 3)
+    [ "$n" -lt 4096 ] && ok "$t stayed blocked after the guard reconnected ($n bytes)" || bad "$t recorded after guard reconnection ($n bytes)"
+done
+
 seen=$(in_scope "$SC" pw-dump 2>/dev/null | grep -c '"media.class": "Audio/Source"')
 all=$(pw-dump 2>/dev/null | grep -c '"media.class": "Audio/Source"')
 [ "$seen" = 0 ] && [ "$all" -gt 0 ] && ok "the app sees no microphone node ($all exist)" || bad "the app sees $seen of $all microphone nodes"
