@@ -434,6 +434,7 @@ static void device_cases(void) {
     CHECK(np_dev_type((NP_DEV_CHAR << 16) | 2u) == NP_DEV_CHAR); /* READ */
     CHECK(np_dev_type((NP_DEV_CHAR << 16) | 4u) == NP_DEV_CHAR); /* WRITE */
     CHECK(np_dev_type((NP_DEV_CHAR << 16) | 6u) == NP_DEV_CHAR); /* READ | WRITE */
+    CHECK(np_dev_type((NP_DEV_BLOCK << 16) | 6u) == NP_DEV_BLOCK); /* block READ | WRITE */
     CHECK(np_dev_restriction(np_dev_type((NP_DEV_CHAR << 16) | 4u), 189, HID) == NP_R_NO_USB);
     CHECK(np_dev_restriction(np_dev_type((NP_DEV_CHAR << 16) | 6u), 81, HID) == NP_R_NO_CAMERA);
     CHECK(np_dev_restriction(NP_DEV_CHAR, 81, HID) == NP_R_NO_CAMERA);          /* /dev/video* */
