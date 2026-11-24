@@ -11,6 +11,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <time.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 
@@ -344,6 +345,49 @@ static void test_core_event_extra_fields_reset_connection(uint32_t opcode) {
     close(peer); close(server); unlink(path); rmdir(dir);
 }
 
+static void test_disconnect_reconnects_and_restarts_protocol(void) {
+    char dir[] = "/tmp/lordos-pwguard-reconnect-XXXXXX";
+    if (!mkdtemp(dir)) { CHECK(0); return; }
+    char path[sizeof(((struct sockaddr_un *)0)->sun_path)];
+    snprintf(path, sizeof path, "%s/pipewire-0-manager", dir);
+    int server = socket(AF_UNIX, SOCK_STREAM, 0);
+    CHECK(server >= 0);
+    if (server < 0) { rmdir(dir); return; }
+    struct sockaddr_un sa = { .sun_family = AF_UNIX };
+    snprintf(sa.sun_path, sizeof sa.sun_path, "%s", path);
+    if (bind(server, (struct sockaddr *)&sa, sizeof sa) ||
+        listen(server, 2) || setenv("XDG_RUNTIME_DIR", dir, 1) ||
+        pwguard_start() != 0) {
+        CHECK(0); close(server); unlink(path); rmdir(dir); return;
+    }
+
+    int first = accept(server, NULL, NULL);
+    CHECK(first >= 0);
+    if (first < 0) { close(server); unlink(path); rmdir(dir); return; }
+    close(first);
+    pwguard_dispatch();
+    CHECK(pwguard_fd() == -1); /* EOF drops the old registry snapshot */
+
+    /* Reconnect is intentionally rate-limited to two seconds after a transport failure. */
+    struct timespec pause = { .tv_sec = 2, .tv_nsec = 200000000 };
+    while (nanosleep(&pause, &pause) && errno == EINTR) {}
+    pwguard_tick();
+    CHECK(pwguard_fd() >= 0);
+
+    int second = accept(server, NULL, NULL);
+    CHECK(second >= 0);
+    if (second >= 0) {
+        uint8_t hello[64];
+        ssize_t n = recv(second, hello, sizeof hello, 0);
+        CHECK(n >= 16); /* a fresh core.hello/client.update_properties/get_registry sequence */
+        close(second);
+        pwguard_dispatch();
+    }
+    close(server);
+    unlink(path);
+    rmdir(dir);
+}
+
 int main(void) {
     /* Struct { Int 7, String "Audio/Source", Int -1 } */
     uint8_t b[128] = { 0 };
@@ -502,6 +546,7 @@ int main(void) {
     test_core_event_extra_fields_reset_connection(1); /* Core::Done */
     test_core_event_extra_fields_reset_connection(2); /* Core::Ping */
     test_core_event_extra_fields_reset_connection(3); /* Core::Error */
+    test_disconnect_reconnects_and_restarts_protocol();
     printf("pwguard-test: %d/%d passed\n", total - fails, total);
     return fails ? 1 : 0;
 }
