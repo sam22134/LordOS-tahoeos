@@ -119,8 +119,9 @@ export function FirewallPrivacy() {
   const statusText = !status.daemon ? tr('firewall.status.noDaemon') : !status.bpf ? tr('firewall.status.noBpf', { error: errorText(status.error || '') }) : status.attached === false ? tr('firewall.status.noAttach') :
     tr('firewall.status.on', { dns: tr(`firewall.dns.${status.dns || 'none'}`) });
   const statusWarnings = [];
+  const needsRawDiskGuard = Object.entries(restricted).some(([id, flags]) => isLinux(id) && flags.includes('no-files'));
   if (status.daemon && status.bpf && status.attached === true && status.devices === false) statusWarnings.push(tr('firewall.status.noDevices'));
-  if (status.devices === false) statusWarnings.push(tr('firewall.status.noBlockDevices'));
+  if (needsRawDiskGuard && status.devices === false) statusWarnings.push(tr('firewall.status.noBlockDevices'));
   if (status.daemon && status.bpf && status.attached === true && status.bluetooth === false) statusWarnings.push(tr('firewall.status.noBluetooth'));
   const setFlag = (id, flag, on) => {
     // Keep valid restrictions saved while their enforcement is unavailable; changing another
