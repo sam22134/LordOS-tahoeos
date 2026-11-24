@@ -76,15 +76,18 @@ static void text_part(JBuf *b, const char *type, const char *text, const char *e
 static char *read_fd(int fd, size_t *n, size_t max) {
     struct stat st;
     *n = 0;
-    if (fstat(fd, &st) || !S_ISREG(st.st_mode) || (size_t)st.st_size > max) return NULL;
-    char *buf = malloc((size_t)st.st_size + 1);
+    if (fstat(fd, &st) || !S_ISREG(st.st_mode) || st.st_size < 0 || (uintmax_t)st.st_size > max) return NULL;
+    size_t size = (size_t)st.st_size;
+    char *buf = malloc(size + 1);
     if (!buf) return NULL;
     size_t got = 0;
-    while (got < (size_t)st.st_size) {
-        ssize_t r = pread(fd, buf + got, (size_t)st.st_size - got, (off_t)got);
-        if (r <= 0) { if (r < 0 && errno == EINTR) continue; break; }
+    while (got < size) {
+        ssize_t r = pread(fd, buf + got, size - got, (off_t)got);
+        if (r < 0 && errno == EINTR) continue;
+        if (r <= 0) { free(buf); return NULL; }
         got += (size_t)r;
     }
+    buf[got] = 0;
     *n = got;
     return buf;
 }
