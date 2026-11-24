@@ -87,7 +87,7 @@ int dav_req(Dav *d, const char *method, const char *target, int depth, const cha
             const char *auth = dav_same_origin_url(d->a->url, cur) ? d->auth : "";
             snprintf(hdrs, sizeof hdrs, "%s%s%s%s%s%s", auth, depth >= 0 ? (depth == 0 ? "Depth: 0\r\n" : depth == 1 ? "Depth: 1\r\n" : "Depth: infinity\r\n") : "",
                      ctype ? "Content-Type: " : "", ctype ? ctype : "", ctype ? "\r\n" : "", extra ? extra : "");
-            int r = http_request(d->c, method, host, path, hdrs, body, body ? strlen(body) : 0, DAV_MAX_BODY, 60000, out);
+            int r = http_request(d->c, method, host, port, path, hdrs, body, body ? strlen(body) : 0, DAV_MAX_BODY, 60000, out);
             if (r == -1 && attempt == 0) { conn_close(d->c); d->c = NULL; continue; }      /* the server closed a kept-alive connection */
             if (r) { snprintf(d->err, sizeof d->err, r == -2 ? "response too big" : "connection"); return -1; }
             if (!out->keep_alive) { conn_close(d->c); d->c = NULL; }
