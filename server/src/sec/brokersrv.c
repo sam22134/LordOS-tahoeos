@@ -563,9 +563,11 @@ static void handle(AppConn *a, BrokerHdr *h, char *payload, int *fds, int nfds) 
         break;
     }
     case BOP_FS_READ: {
-        int f = data_open(a->id, payload, O_RDONLY, 0);
+        /* Nonblocking open is essential: an app can create a FIFO in its own
+         * data directory. Reject it before any read so it cannot stall the broker loop. */
+        int f = data_open(a->id, payload, O_RDONLY | O_NONBLOCK, 0);
         struct stat st;
-        if (f < 0 || fstat(f, &st) || !S_ISREG(st.st_mode) || st.st_size > BROKER_MAX_MSG) { if (f >= 0) close(f); send_reply(fd, h->reqid, BST_ERROR, NULL, 0); break; }
+        if (f < 0 || fstat(f, &st) || !S_ISREG(st.st_mode) || st.st_size < 0 || st.st_size > BROKER_MAX_MSG) { if (f >= 0) close(f); send_reply(fd, h->reqid, BST_ERROR, NULL, 0); break; }
         size_t size = (size_t)st.st_size, off = 0;
         char *buf = malloc(size ? size : 1);
         int ok = buf != NULL;
@@ -585,9 +587,12 @@ static void handle(AppConn *a, BrokerHdr *h, char *payload, int *fds, int nfds) 
         if (!nul) { send_reply(fd, h->reqid, BST_ERROR, NULL, 0); break; }
         const char *data = nul + 1;
         size_t dlen = h->len - (size_t)(nul + 1 - payload);
-        int f = data_open(a->id, payload, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        /* Do not block opening a FIFO, and do not truncate until fstat confirms
+         * that the opened object is a regular file. */
+        int f = data_open(a->id, payload, O_WRONLY | O_CREAT | O_NONBLOCK, 0644);
+        struct stat st;
+        int ok = f >= 0 && !fstat(f, &st) && S_ISREG(st.st_mode) && !ftruncate(f, 0);
         size_t off = 0;
-        int ok = f >= 0;
         while (ok && off < dlen) {
             ssize_t put = write(f, data + off, dlen - off);
             if (put > 0) off += (size_t)put;
