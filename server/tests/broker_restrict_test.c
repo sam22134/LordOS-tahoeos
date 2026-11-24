@@ -20,6 +20,7 @@
 #include "errcode.h"
 
 #include <fcntl.h>
+#include <errno.h>
 #include <poll.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -230,7 +231,25 @@ int main(void) {
     if (socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, sv)) { perror("socketpair"); return 1; }
     app_end = sv[0]; srv_end = sv[1];
     brokersrv_add(srv_end, "game", 4242);
-    brokersrv_set_vault(srv_end);                    /* lets the test reach the FIDO op too */
+    brokersrv_set_vault(srv_end);
+
+    /* FS_LIST must not follow the final symlink outside app data. */
+    char appdata[512], outside[512], linkpath[512];
+    snprintf(appdata, sizeof appdata, "%s/.local/share/lordos/appdata/game", home);
+    snprintf(outside, sizeof outside, "%s/outside", home);
+    snprintf(linkpath, sizeof linkpath, "%s/escape", appdata);
+    char parent[512];
+    snprintf(parent, sizeof parent, "%s/.local/share/lordos/appdata", home);
+    if (mkdir(home, 0700) && errno != EEXIST) {}
+    char p1[512], p2[512];
+    snprintf(p1, sizeof p1, "%s/.local", home); mkdir(p1,0700);
+    snprintf(p1, sizeof p1, "%s/.local/share", home); mkdir(p1,0700);
+    snprintf(p1, sizeof p1, "%s/.local/share/lordos", home); mkdir(p1,0700);
+    snprintf(p1, sizeof p1, "%s/.local/share/lordos/appdata", home); mkdir(p1,0700);
+    mkdir(appdata,0700); mkdir(outside,0700);
+    symlink(outside, linkpath);
+    check(call(BOP_FS_LIST, "escape", 6) && got_status != BST_OK,
+          "files: FS_LIST refuses a final symlink outside app data");                    /* lets the test reach the FIDO op too */
     const char *perms_on[] = { "camera", "microphone", "clipboard", "usb", "files", "screen", "bluetooth", "notifications" };
     for (size_t i = 0; i < sizeof perms_on / sizeof *perms_on; i++) perm_set("game", (Perm)perm_from_name(perms_on[i]), PERM_ALLOW);
 
