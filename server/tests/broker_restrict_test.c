@@ -270,6 +270,14 @@ int main(void) {
     if (emptyfd >= 0) close(emptyfd);
     check(call(BOP_FS_READ, "empty", 6) && got_status == BST_OK && got_len == 0,
           "files: FS_READ returns success for an empty regular file");
+    char fifo_path[512];
+    snprintf(fifo_path, sizeof fifo_path, "%s/pipe", appdata);
+    check(mkfifo(fifo_path, 0600) == 0, "files: create FIFO fixture");
+    check(call(BOP_FS_READ, "pipe", 4) && got_status != BST_OK,
+          "files: FS_READ rejects FIFO without blocking");
+    char fifo_write[] = "pipe\\0x";
+    check(call(BOP_FS_WRITE, fifo_write, sizeof fifo_write - 1) && got_status != BST_OK,
+          "files: FS_WRITE rejects FIFO without blocking");
     const char *perms_on[] = { "camera", "microphone", "clipboard", "usb", "files", "screen", "bluetooth", "notifications" };
     for (size_t i = 0; i < sizeof perms_on / sizeof *perms_on; i++) perm_set("game", (Perm)perm_from_name(perms_on[i]), PERM_ALLOW);
 
