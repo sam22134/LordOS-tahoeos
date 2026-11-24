@@ -25,16 +25,26 @@ int main(int argc, char **argv) {
     const char *home = getenv("HOME");
     char path[4096];
     snprintf(path, sizeof path, "%s/.config/lordos/firewall.json", home ? home : "/nonexistent");
-    FwStore *cur = NULL;
-    if (pwguard_start()) { fprintf(stderr, "pwguard-cli: no PipeWire manager socket\n"); return 1; }
+    FwStore *cur = fw_store_new();
+    char err[200];
+    if (cur && fw_load(cur, path, err, sizeof err) >= 0) restrict_set_store(cur);
+    else {
+        fw_store_free(cur);
+        cur = NULL;
+        fprintf(stderr, "pwguard-cli: could not load %s at startup (%s)\n", path, err);
+    }
+    if (pwguard_start()) {
+        fw_store_free(cur);
+        fprintf(stderr, "pwguard-cli: no PipeWire manager socket\n");
+        return 1;
+    }
     printf("ready\n");
     fflush(stdout);
-    time_t end = time(NULL) + secs, last = 0;
+    time_t end = time(NULL) + secs, last = time(NULL);
     while (time(NULL) < end) {
         if (time(NULL) != last) {
             last = time(NULL);
             FwStore *s = fw_store_new();
-            char err[200];
             if (s && fw_load(s, path, err, sizeof err) >= 0) { restrict_set_store(s); fw_store_free(cur); cur = s; }
             else fw_store_free(s);
         }
