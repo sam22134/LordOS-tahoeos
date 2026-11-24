@@ -64,7 +64,6 @@ int main(void) {
     errno = 0;
     check(!open_fd(old) && errno == EBADF && open_fd(next), "finish closes only old worker descriptor");
     fido_lease_attach(&l, -1);
-    close(next);
 
     printf("FIDO lease: %d checks, %d failures\n", total, fails);
     return fails ? 1 : 0;
