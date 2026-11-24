@@ -35,8 +35,8 @@ const offered = (id, status) => {
     : isLinux(id) ? firewall.RESTRICTIONS.filter((f) => !LINUX_NOT_YET.includes(f)) : firewall.RESTRICTIONS;
   // Keep settings editable while the daemon/BPF is wholly unavailable, but never offer an
   // individual kernel restriction that the running daemon explicitly reports as unavailable.
-  return flags.filter((f) => !(status?.daemon && status?.bpf && status.devices === false && DEVICE_RESTRICTIONS.includes(f))
-    && !(status?.daemon && status?.bpf && status.bluetooth === false && f === 'no-bluetooth'));
+  return flags.filter((f) => !(status?.daemon && status?.bpf && status?.attached === true && status.devices === false && DEVICE_RESTRICTIONS.includes(f))
+    && !(status?.daemon && status?.bpf && status?.attached === true && status.bluetooth === false && f === 'no-bluetooth'));
 };
 
 function useAppIndex() {
@@ -115,11 +115,11 @@ export function FirewallPrivacy() {
   const trusted = st.trusted || [];
   const restricted = st.restricted || {};
   const inLists = new Set([...trusted, ...Object.keys(restricted)]);
-  const statusText = !status.daemon ? tr('firewall.status.noDaemon') : !status.bpf ? tr('firewall.status.noBpf', { error: errorText(status.error || '') }) :
+  const statusText = !status.daemon ? tr('firewall.status.noDaemon') : !status.bpf ? tr('firewall.status.noBpf', { error: errorText(status.error || '') }) : status.attached === false ? tr('firewall.status.noAttach') :
     tr('firewall.status.on', { dns: tr(`firewall.dns.${status.dns || 'none'}`) });
   const statusWarnings = [];
-  if (status.daemon && status.bpf && status.devices === false) statusWarnings.push(tr('firewall.status.noDevices'));
-  if (status.daemon && status.bpf && status.bluetooth === false) statusWarnings.push(tr('firewall.status.noBluetooth'));
+  if (status.daemon && status.bpf && status.attached === true && status.devices === false) statusWarnings.push(tr('firewall.status.noDevices'));
+  if (status.daemon && status.bpf && status.attached === true && status.bluetooth === false) statusWarnings.push(tr('firewall.status.noBluetooth'));
   const setFlag = (id, flag, on) => {
     const cur = (restricted[id] || []).filter((f) => offered(id, status).includes(f));
     const next = on ? [...cur, flag] : cur.filter((f) => f !== flag);
@@ -142,7 +142,7 @@ export function FirewallPrivacy() {
               options={[['silent', tr('firewall.mode.silent')], ['deny', tr('firewall.mode.deny')], ['off', tr('firewall.mode.off')]]} />
           </View>
         </GroupBox>
-        {foot(statusText, status.daemon && status.bpf ? null : '#ff9f0a')}
+        {foot(statusText, status.daemon && status.bpf && status.attached !== false ? null : '#ff9f0a')}
         {statusWarnings.map((warning) => foot(warning, '#ff9f0a'))}
       </View>
 
