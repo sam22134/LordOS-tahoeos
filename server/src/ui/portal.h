@@ -46,6 +46,8 @@ void portal_cast_shown(int id);
 void portal_cast_stop(int id);
 /* Firewall: revoke every active or pending ScreenCast session belonging to this verified app id. */
 void portal_cast_revoke(const char *fwid);
+/* Firewall: cancel Screenshot/PickColor requests or discard an in-flight PNG for this app. */
+void portal_shot_revoke(const char *fwid);
 int  portal_cast_thumb(int id, const CastSource *src);
 /* From cast.c: the streams are there, they couldn't be made, a running session ended (the source went, the helper
  * failed, a lock), and the app's restricted connection (fd, or -1; the portal closes it). */
