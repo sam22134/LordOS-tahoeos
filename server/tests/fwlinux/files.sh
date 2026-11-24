@@ -32,7 +32,7 @@ st = os.stat(sys.argv[1])
 os.mknod(sys.argv[2], stat.S_IFBLK | 0o666, st.st_rdev)
 os.chmod(sys.argv[2], 0o666)
 PY
-    BLOCK_ARG="--block-device=$BLOCK_NODE"
+    [ -b "$BLOCK_NODE" ] && BLOCK_ARG="--block-device=$BLOCK_NODE"
 fi
 echo shm > /dev/shm/fwlinux-shm-$U                  # the session's shared memory: not visible to the app
 PROBE=~/.config/fwprobe/probe.py           # its own config dir: visible to the restricted app
