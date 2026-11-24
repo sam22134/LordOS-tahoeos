@@ -261,7 +261,7 @@ int smtp_send(Account *a, const char *from, const char **rcpt, int nrcpt, const 
     snprintf(pin, sizeof pin, "%s", a->pin_smtp);
     pthread_mutex_unlock(&G);
     if (!pw) { snprintf(err, ecap, "no-password"); return -2; }
-    if (s.sec == SEC_NONE || !s.host[0]) { free(pw); snprintf(err, ecap, s.host[0] ? "insecure" : "no SMTP server"); return -1; }
+    if (s.sec == SEC_NONE || !s.host[0]) { explicit_bzero(pw, strlen(pw)); free(pw); snprintf(err, ecap, s.host[0] ? "insecure" : "no SMTP server"); return -1; }
     TlsInfo ti;
     char why[64], text[512], caps[4096];
     Conn *c = open_conn(a->id, 1, s.host, s.port, s.sec == SEC_SSL, pin, &ti, why, sizeof why);
