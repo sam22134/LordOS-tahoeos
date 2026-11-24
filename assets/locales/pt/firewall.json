@@ -3,6 +3,7 @@
   "status.on": "Ativo: o lord-netperm aplica as regras no kernel. Nomes de domínio: {dns}.",
   "status.noDaemon": "O serviço lord-netperm não está rodando: as regras são salvas, mas não são aplicadas.",
   "status.noBpf": "O lord-netperm não conseguiu usar BPF neste computador ({error}): as regras são salvas, mas não são aplicadas.",
+  "status.noAttach": "O BPF foi carregado, mas seus programas não foram conectados ao cgroup do serviço LordOS: as regras do firewall não estão sendo aplicadas.",
   "status.noDevices": "As restrições de câmera, microfone, captura de tela e USB não estão disponíveis: o kernel não conseguiu carregar o controle de dispositivos.",
   "status.noBluetooth": "A restrição de Bluetooth não está disponível: o kernel não oferece o gancho BPF necessário.",
   "dns.resolved": "do systemd-resolved",
