@@ -77,6 +77,18 @@ int http_content_length(const char *v, unsigned long long *out) {
     return 0;
 }
 
+static int hdr_get(const char *line, const char *name, char *out, size_t cap) {
+    size_t n = strlen(name);
+    if (strncasecmp(line, name, n) || line[n] != ':') return 0;
+    const char *v = line + n + 1;
+    while (*v == ' ' || *v == '\t') v++;
+    size_t l = strcspn(v, "\r\n");
+    if (l >= cap) return -1;
+    memcpy(out, v, l);
+    out[l] = 0;
+    return 1;
+}
+
 static void hdr_copy(const char *line, const char *name, char *out, size_t cap) {
     size_t n = strlen(name);
     if (strncasecmp(line, name, n) || line[n] != ':') return;
@@ -102,6 +114,7 @@ int http_request(Conn *c, const char *method, const char *host, const char *path
     if (sscanf(line, "HTTP/%d.%d %d", &maj, &mn, &out->status) != 3) { free(line); return -1; }
     free(line);
     long long clen = -1;
+    int cl_seen = 0, te_seen = 0;
     int chunked = 0, close_after = maj == 1 && mn == 0, done = 0;
     size_t hdr_total = 0;
     for (int n = 0; n < 200; n++) {
@@ -112,15 +125,24 @@ int http_request(Conn *c, const char *method, const char *host, const char *path
         if (hdr_total > 64 * 1024) { free(line); return -1; }          /* headers: 64 KB at most */
         if (!strcmp(line, "\r\n") || !strcmp(line, "\n")) { free(line); done = 1; break; }
         char v[64] = "";
-        hdr_copy(line, "Content-Length", v, sizeof v);
-        if (v[0]) {
+        int hv = hdr_get(line, "Content-Length", v, sizeof v);
+        if (hv < 0) { free(line); return -1; }
+        if (hv) {
             unsigned long long cl;
-            if (http_content_length(v, &cl) || cl > (unsigned long long)LLONG_MAX) { free(line); return -1; }
+            if (http_content_length(v, &cl) || cl > (unsigned long long)LLONG_MAX ||
+                (cl_seen && clen != (long long)cl)) { free(line); return -1; }
             clen = (long long)cl;
+            cl_seen = 1;
         }
         v[0] = 0;
-        hdr_copy(line, "Transfer-Encoding", v, sizeof v);
-        if (strcasestr(v, "chunked")) chunked = 1;
+        hv = hdr_get(line, "Transfer-Encoding", v, sizeof v);
+        if (hv < 0 || (hv && te_seen)) { free(line); return -1; }
+        if (hv) {
+            if (strcasecmp(v, "chunked")) { free(line); return -1; }
+            chunked = 1;
+            te_seen = 1;
+        }
+        if (chunked && cl_seen) { free(line); return -1; }
         v[0] = 0;
         hdr_copy(line, "Connection", v, sizeof v);
         if (strcasestr(v, "close")) close_after = 1;
