@@ -391,6 +391,14 @@ static void test_disconnect_reconnects_and_restarts_protocol(void) {
         int incoming_n = poll(&incoming, 1, 1000);
         ssize_t n = incoming_n == 1 && (incoming.revents & POLLIN) ? recv(second, hello, sizeof hello, 0) : -1;
         CHECK(n >= 16); /* a fresh core.hello/client.update_properties/get_registry sequence */
+        int tick_ms = pwguard_timeout_ms();
+        CHECK(tick_ms > 0 && tick_ms <= 1000); /* connected guard schedules its next policy pass */
+        struct timespec tick_pause = { .tv_sec = 1, .tv_nsec = 100000000 };
+        while (nanosleep(&tick_pause, &tick_pause) && errno == EINTR) {}
+        CHECK(pwguard_timeout_ms() == 0); /* idle-loop wake is due even without PipeWire traffic */
+        pwguard_tick();
+        tick_ms = pwguard_timeout_ms();
+        CHECK(tick_ms > 0 && tick_ms <= 1000); /* next one-second pass is scheduled */
         close(second);
         pwguard_dispatch();
     }
