@@ -29,8 +29,15 @@ const isLinux = (id) => id.startsWith('desktop:') || id.startsWith('flatpak:');
 const { COMPONENTS } = netModel;
 const COMPONENT_IDS = Object.keys(COMPONENTS).filter((id) => id.startsWith('lordos:') && !COMPONENTS[id].system);
 const NET_ONLY = ['no-internet', 'no-lan', 'no-network', 'no-incoming'];
-const offered = (id) => (COMPONENTS[id] ? NET_ONLY : id === 'lordos' ? firewall.RESTRICTIONS.filter((f) => !DESKTOP_ALWAYS.includes(f))
-  : isLinux(id) ? firewall.RESTRICTIONS.filter((f) => !LINUX_NOT_YET.includes(f)) : firewall.RESTRICTIONS);
+const DEVICE_RESTRICTIONS = ['no-camera', 'no-mic', 'no-screen', 'no-usb'];
+const offered = (id, status) => {
+  const flags = COMPONENTS[id] ? NET_ONLY : id === 'lordos' ? firewall.RESTRICTIONS.filter((f) => !DESKTOP_ALWAYS.includes(f))
+    : isLinux(id) ? firewall.RESTRICTIONS.filter((f) => !LINUX_NOT_YET.includes(f)) : firewall.RESTRICTIONS;
+  // Keep settings editable while the daemon/BPF is wholly unavailable, but never offer an
+  // individual kernel restriction that the running daemon explicitly reports as unavailable.
+  return flags.filter((f) => !(status?.daemon && status?.bpf && status.devices === false && DEVICE_RESTRICTIONS.includes(f))
+    && !(status?.daemon && status?.bpf && status.bluetooth === false && f === 'no-bluetooth'));
+};
 
 function useAppIndex() {
   const list = useLauncherApps();
@@ -110,8 +117,11 @@ export function FirewallPrivacy() {
   const inLists = new Set([...trusted, ...Object.keys(restricted)]);
   const statusText = !status.daemon ? tr('firewall.status.noDaemon') : !status.bpf ? tr('firewall.status.noBpf', { error: errorText(status.error || '') }) :
     tr('firewall.status.on', { dns: tr(`firewall.dns.${status.dns || 'none'}`) });
+  const statusWarnings = [];
+  if (status.daemon && status.bpf && status.devices === false) statusWarnings.push(tr('firewall.status.noDevices'));
+  if (status.daemon && status.bpf && status.bluetooth === false) statusWarnings.push(tr('firewall.status.noBluetooth'));
   const setFlag = (id, flag, on) => {
-    const cur = (restricted[id] || []).filter((f) => offered(id).includes(f));
+    const cur = (restricted[id] || []).filter((f) => offered(id, status).includes(f));
     const next = on ? [...cur, flag] : cur.filter((f) => f !== flag);
     firewall.setRestricted(id, next.length ? next : []);
   };
@@ -133,6 +143,7 @@ export function FirewallPrivacy() {
           </View>
         </GroupBox>
         {foot(statusText, status.daemon && status.bpf ? null : '#ff9f0a')}
+        {statusWarnings.map((warning) => foot(warning, '#ff9f0a'))}
       </View>
 
       <View style={{ gap: 6 }}>
@@ -160,7 +171,7 @@ export function FirewallPrivacy() {
                 <Button small label={tr('firewall.remove')} onClick={() => firewall.setRestricted(id, [])} />
               </View>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 32 }}>
-                {offered(id).map((f) => (
+                {offered(id, status).map((f) => (
                   <Check key={f} on={restricted[id].includes(f)} onChange={(on) => setFlag(id, f, on)}
                     label={isLinux(id) && NEXT_LAUNCH.includes(f) ? tr('firewall.whenNextLaunch', { name: tr(`firewall.r.${f}`) }) : tr(`firewall.r.${f}`)} />
                 ))}
@@ -175,7 +186,7 @@ export function FirewallPrivacy() {
         {foot(tr('firewall.restrictedHint'))}
         {Object.keys(restricted).length > 0 && (
           <View style={{ gap: 3, marginHorizontal: spacing.xs }}>
-            {firewall.RESTRICTIONS.map((f) => (
+            {offered(id, status).map((f) => (
               <Text key={f} style={{ fontSize: typeScale.caption, color: t.textDim, lineHeight: 1.4, textAlign: 'start' }}>
                 {tr('firewall.helpLine', { name: tr(`firewall.r.${f}`), help: tr(`firewall.help.${f}`) })}
               </Text>
