@@ -9,7 +9,7 @@
  *   cgroup/sendmsg4, sendmsg6   unconnected UDP (sendto with an address)
  *   cgroup/bind4, bind6         "no incoming connections" and inbound rules (local port != 0)
  *   cgroup/sock_create          "no network": not even creating an AF_INET/AF_INET6 socket
- *   cgroup/dev                  "no camera", "no USB", "no screen capture" and "no microphone":
+ *   cgroup/dev                  "no files" (block devices), "no camera", "no USB", "no screen capture" and "no microphone":
  *                               opening video devices, raw USB devices (/dev/bus/usb), hidraw,
  *                               ttyACM, ttyUSB, the framebuffer (by major) and ALSA capture
  *                               nodes (np_snd: for an app's own scope every ALSA node not known
@@ -353,7 +353,7 @@ NP_INLINE void report_dev(np_u64 cgid, int dir, np_u32 major, np_u32 minor, np_u
     bpf_ringbuf_output(&np_events, &ev, sizeof ev, 0);
 }
 
-/* "no camera" / "no USB": the device controller of cgroup v2 is this kind of program. It runs on
+/* "no files" (block devices), "no camera" and "no USB": the device controller of cgroup v2 is this kind of program. It runs on
  * open() and mknod() of a device node; 1 = allow, 0 = EPERM. Programs attached higher up (systemd's
  * DeviceAllow) still apply: the kernel allows only what all of them allow. Only the devices of
  * np_dev_restriction are ever denied, and only to a restricted app. */
