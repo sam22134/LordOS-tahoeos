@@ -423,9 +423,9 @@ static void bench(void) {
     fw_store_free(s);
 }
 
-/* The device and Bluetooth restrictions (cgroup/dev, cgroup/lsm_socket_create): which majors each
- * one covers, that they reach the compiled policy of Linux apps but never lord-server's own
- * ("lordos"), and that they don't change any network decision. */
+/* The device and Bluetooth restrictions (cgroup/dev, cgroup/lsm_socket_create): which device
+ * types and majors each one covers, that they reach Linux-app policies but never lord-server's
+ * own ("lordos"), and that they don't change any network decision. */
 static void device_cases(void) {
     const uint32_t HID = 242;
     /* access_type is (device type << 16) | operation flags; READ/WRITE/MKNOD must not
