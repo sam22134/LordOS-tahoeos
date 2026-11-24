@@ -35,6 +35,14 @@ def conn(p):
     s = socket.socket(socket.AF_UNIX); s.settimeout(2); s.connect(p); s.close()
 args = [a for a in sys.argv[1:] if not a.startswith("--")]
 outside = [a.split("=", 1)[1] for a in sys.argv[1:] if a.startswith("--outside-pid=")]
+block_device = next((a.split("=", 1)[1] for a in sys.argv[1:] if a.startswith("--block-device=")), None)
+if block_device:
+    def open_block_device():
+        fd = os.open(block_device, os.O_RDONLY | os.O_NONBLOCK)
+        os.close(fd)
+    t("open_block_device", open_block_device)
+else:
+    res["open_block_device"] = "no-device"
 # the session's sockets: none reachable except the display and the sound server's
 t("connect_session_bus", lambda: conn(rt + "/bus"))
 t("connect_systemd_private", lambda: conn(rt + "/systemd/private"))
