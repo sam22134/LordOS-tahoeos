@@ -249,7 +249,13 @@ int main(void) {
     mkdir(appdata,0700); mkdir(outside,0700);
     symlink(outside, linkpath);
     check(call(BOP_FS_LIST, "escape", 6) && got_status != BST_OK,
-          "files: FS_LIST refuses a final symlink outside app data");                    /* lets the test reach the FIDO op too */
+          "files: FS_LIST refuses a final symlink outside app data");
+    char emptyfile[512];
+    snprintf(emptyfile, sizeof emptyfile, "%s/empty", appdata);
+    int emptyfd = open(emptyfile, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
+    if (emptyfd >= 0) close(emptyfd);
+    check(call(BOP_FS_READ, "empty", 6) && got_status == BST_OK && got_len == 0,
+          "files: FS_READ returns success for an empty regular file");                    /* lets the test reach the FIDO op too */
     const char *perms_on[] = { "camera", "microphone", "clipboard", "usb", "files", "screen", "bluetooth", "notifications" };
     for (size_t i = 0; i < sizeof perms_on / sizeof *perms_on; i++) perm_set("game", (Perm)perm_from_name(perms_on[i]), PERM_ALLOW);
 
