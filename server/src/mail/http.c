@@ -143,13 +143,28 @@ int http_request(Conn *c, const char *method, const char *host, const char *path
             free(line);
             if (bad) { http_resp_free(out); return -1; }
             if (sz == 0) {
-                /* trailers until the empty line */
-                while ((line = conn_line(c, &ll, 8192))) { int done = !strcmp(line, "\r\n") || !strcmp(line, "\n"); free(line); if (done) break; }
+                /* Bound trailers just like the initial response headers. */
+                size_t trailer_total = 0;
+                int trailer_done = 0;
+                for (int i = 0; i < 200; i++) {
+                    line = conn_line(c, &ll, 8192);
+                    if (!line) break;
+                    trailer_total += ll;
+                    trailer_done = !strcmp(line, "\r\n") || !strcmp(line, "\n");
+                    free(line);
+                    if (trailer_done || trailer_total > 64 * 1024) break;
+                }
+                if (!trailer_done) { http_resp_free(out); return -1; }
                 break;
             }
             if (sz > max_body || out->blen > max_body - sz) { http_resp_free(out); return -2; }
             if (conn_read_n(c, (size_t)sz, &out->body, &out->blen, &cap)) { http_resp_free(out); return -1; }
             line = conn_line(c, &ll, 16);
+            if (!line || (strcmp(line, "\r\n") && strcmp(line, "\n"))) {
+                free(line);
+                http_resp_free(out);
+                return -1;
+            }
             free(line);
         }
     } else if (clen >= 0) {
