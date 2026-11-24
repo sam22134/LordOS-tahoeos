@@ -1261,6 +1261,7 @@ enum { SH_FREE, SH_ASKING, SH_CHOOSING, SH_SAVING };
 static struct { int id, color, st, revoked; uint32_t serial; unsigned pid; char who[128], sender[256], handle[400]; } shot;
 static int shot_seq;
 static int shot_busy(void);             /* a Screenshot request is being answered */
+static void shot_gone(int tell);
 
 static int sc_has_path(const char *path) {
     for (int i = 0; path && i < CSM_MAX; i++) if (csm.s[i].st != CS_FREE && !strcmp(csm.s[i].path, path)) return 1;
