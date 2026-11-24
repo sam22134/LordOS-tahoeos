@@ -75,6 +75,24 @@ for t in $TOOLS; do
     [ "$n" -lt 4096 ] && ok "$t stayed blocked after the guard reconnected ($n bytes)" || bad "$t recorded after guard reconnection ($n bytes)"
 done
 
+echo "2c. a restriction added while the guard is down is applied after reconnection"
+restrict $APP ""
+sleep 1.5
+kill "$GPID" 2>/dev/null; wait "$GPID" 2>/dev/null
+GPID=
+restrict $APP no-mic
+for t in $TOOLS; do
+    n=$(rec "$t" 2)
+    [ "$n" -gt 20000 ] && ok "$t remains available before the guard restarts ($n bytes)" || bad "$t was unexpectedly blocked while the guard was down ($n bytes)"
+done
+"$CLI" 120 >> "$GLOG" 2>&1 &
+GPID=$!
+sleep 2.5
+for t in $TOOLS; do
+    n=$(rec "$t" 3)
+    [ "$n" -lt 4096 ] && ok "$t blocked by the rule added during downtime ($n bytes)" || bad "$t ignored the rule added during downtime ($n bytes)"
+done
+
 seen=$(in_scope "$SC" pw-dump 2>/dev/null | grep -c '"media.class": "Audio/Source"')
 all=$(pw-dump 2>/dev/null | grep -c '"media.class": "Audio/Source"')
 [ "$seen" = 0 ] && [ "$all" -gt 0 ] && ok "the app sees no microphone node ($all exist)" || bad "the app sees $seen of $all microphone nodes"
@@ -95,6 +113,7 @@ mid=$(stat -c %s "$f" 2>/dev/null || echo 0)
 sleep 2
 after=$(stat -c %s "$f" 2>/dev/null || echo 0)
 wait $RP 2>/dev/null
+RP=
 [ "$before" -gt 20000 ] && ok "it was recording ($before bytes)" || bad "it wasn't recording ($before)"
 [ "$after" = "$mid" ] && ok "it stopped growing once restricted ($mid → $after)" || bad "it kept recording ($mid → $after)"
 
@@ -155,7 +174,8 @@ n=$(spoof fake-pulse PIPEWIRE_PROPS="{ \"pulse.server.type\": \"unix\", \"applic
 [ "$n" -lt 4096 ] && ok "native client posing as a pulse client: $n bytes" || bad "fake pulse.server.type recorded $n bytes"
 n=$(spoof bad-pid PULSE_PROP="application.process.id=999999" timeout 3 parecord --raw)
 [ "$n" -lt 4096 ] && ok "pulse client claiming a pid that doesn't exist: $n bytes" || bad "unresolvable pid recorded $n bytes"
-kill $DECOY 2>/dev/null; wait $DECOY 2>/dev/null
+kill "$DECOY" 2>/dev/null; wait "$DECOY" 2>/dev/null
+DECOY=
 # a recorder in another PID namespace reports its inner pid, so its outer pid has a connection no
 # client claims: claiming that pid must not pass
 if unshare --user --pid --fork --map-current-user true 2>/dev/null; then
@@ -164,7 +184,9 @@ if unshare --user --pid --fork --map-current-user true 2>/dev/null; then
     NSDECOY=$(pgrep -u "$U" -n -x parecord)
     n=$(spoof claim-nspid PULSE_PROP="application.process.id=$NSDECOY" timeout 3 parecord --raw)
     [ "$n" -lt 4096 ] && ok "claiming the outer pid of a process in another PID namespace: $n bytes" || bad "claimed outer pid recorded $n bytes"
-    pkill -u "$U" -x parecord 2>/dev/null; sleep 0.5
+    [ -n "$NSDECOY" ] && { kill "$NSDECOY" 2>/dev/null || :; wait "$NSDECOY" 2>/dev/null || :; }
+    NSDECOY=
+    sleep 0.5
 fi
 
 echo "8. loading a module through pipewire-pulse (a loopback from the microphone): its stream is closed"
