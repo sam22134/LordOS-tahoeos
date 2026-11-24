@@ -10,7 +10,7 @@
  * hook (firewall id "lordos", used by js_media.c).
  *
  * Only the edges are stand-ins: the terminal's clipboard, PipeWire (maudio_*), lord-vault's FIDO
- * attach, the keyring, the keyboard and lord-media's spawn. open() is wrapped so /dev/video9 is
+ * attach/revoke, the keyring, the keyboard and lord-media's spawn. open() is wrapped so /dev/video9 is
  * /dev/null. Temporary HOME. `make build/broker-restrict-test && build/broker-restrict-test`. */
 #include "sec/broker_int.h"
 #include "sec/perms.h"
@@ -353,6 +353,13 @@ int main(void) {
     restrict_app("lpk:other", FW_R_ALL);
     check(call(BOP_CLIP_GET, NULL, 0) && got_status == BST_OK, "another app's restriction does not touch this one");
     restrict_app("lpk:other", 0);
+    fido_revokes_before = fido_revokes;
+    close(app_end); app_end = -1;
+    struct pollfd gone[8];
+    int ngone = brokersrv_pollfds(gone, 8);
+    check(ngone > 0 && poll(gone, (nfds_t)ngone, 1000) > 0, "vault-enabled broker observes Passwords app exit");
+    if (ngone > 0) brokersrv_dispatch(gone, ngone);
+    check(fido_revokes == fido_revokes_before + 1, "Passwords app exit withdraws its attached FIDO descriptor");
     check(restrict_perm_pkg("game", PERM_CAMERA) == PERM_ALLOW, "restrict_perm_pkg: the permission when not restricted");
     restrict_app("lpk:game", FW_R_NO_CAMERA);
     check(restrict_perm_pkg("game", PERM_CAMERA) == PERM_DENY, "restrict_perm_pkg: DENY when restricted, over an allow");
