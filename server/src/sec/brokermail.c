@@ -89,7 +89,7 @@ static int file_ok(int fd) {
     struct stat st;
     int fl = fcntl(fd, F_GETFL);
     if (fl < 0 || (fl & O_ACCMODE) == O_WRONLY || fstat(fd, &st) || !S_ISREG(st.st_mode) || st.st_size > FILE_MAX) return 0;
-    lseek(fd, 0, SEEK_SET);
+    if (lseek(fd, 0, SEEK_SET) < 0) return 0;
     return 1;
 }
 
