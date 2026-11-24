@@ -9,6 +9,7 @@
 
 #include <stdio.h>
 #include <errno.h>
+#include <poll.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -375,11 +376,16 @@ static void test_disconnect_reconnects_and_restarts_protocol(void) {
     pwguard_tick();
     CHECK(pwguard_fd() >= 0);
 
-    int second = accept(server, NULL, NULL);
+    struct pollfd ready = { .fd = server, .events = POLLIN };
+    int ready_n = poll(&ready, 1, 3000);
+    CHECK(ready_n == 1 && (ready.revents & POLLIN));
+    int second = ready_n == 1 && (ready.revents & POLLIN) ? accept(server, NULL, NULL) : -1;
     CHECK(second >= 0);
     if (second >= 0) {
+        struct pollfd incoming = { .fd = second, .events = POLLIN };
         uint8_t hello[64];
-        ssize_t n = recv(second, hello, sizeof hello, 0);
+        int incoming_n = poll(&incoming, 1, 1000);
+        ssize_t n = incoming_n == 1 && (incoming.revents & POLLIN) ? recv(second, hello, sizeof hello, 0) : -1;
         CHECK(n >= 16); /* a fresh core.hello/client.update_properties/get_registry sequence */
         close(second);
         pwguard_dispatch();
