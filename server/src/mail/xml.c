@@ -23,6 +23,12 @@ typedef struct {
 } P;
 
 static int is_ws(char c) { return c == ' ' || c == '\t' || c == '\r' || c == '\n'; }
+static int xml_char(uint32_t cp) {
+    return cp == 0x09 || cp == 0x0a || cp == 0x0d ||
+           (cp >= 0x20 && cp <= 0xd7ff) ||
+           (cp >= 0xe000 && cp <= 0xfffd) ||
+           (cp >= 0x10000 && cp <= 0x10ffff);
+}
 static int is_name(unsigned char c) { return c > 0x7f || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.' || c == ':'; }
 
 static int starts(const P *p, const char *lit) {
@@ -51,7 +57,12 @@ static int put_utf8(char *o, uint32_t cp) {
 static long decode(const char *s, size_t a, size_t b, char *out) {
     size_t o = 0;
     for (size_t k = a; k < b;) {
-        if (s[k] != '&') { out[o++] = s[k++]; continue; }
+        if (s[k] != '&') {
+            unsigned char ch = (unsigned char)s[k];
+            if (ch < 0x20 && ch != '\t' && ch != '\r' && ch != '\n') return -1;
+            out[o++] = s[k++];
+            continue;
+        }
         size_t e = k + 1;
         while (e < b && e - k < 12 && s[e] != ';') e++;
         if (e >= b || s[e] != ';') return -1;
@@ -74,10 +85,11 @@ static long decode(const char *s, size_t a, size_t b, char *out) {
                 else if (hex && c >= 'a' && c <= 'f') v = (uint32_t)(c - 'a' + 10);
                 else if (hex && c >= 'A' && c <= 'F') v = (uint32_t)(c - 'A' + 10);
                 else return -1;
-                cp = cp * (hex ? 16u : 10u) + v;
-                if (cp > 0x10ffff) return -1;
+                uint32_t base = hex ? 16u : 10u;
+                if (cp > (0x10ffffu - v) / base) return -1;
+                cp = cp * base + v;
             }
-            if (!cp || (cp >= 0xd800 && cp <= 0xdfff)) return -1;
+            if (!xml_char(cp)) return -1;
             /* "&#N;" is ≥ 4 bytes and the UTF-8 of N takes ≤ 4: it always fits */
             o += (size_t)put_utf8(out + o, cp);
         } else return -1;
