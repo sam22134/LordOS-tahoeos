@@ -1,6 +1,7 @@
 /* net.c — see net.h. */
 #include "net.h"
 
+#include <arpa/inet.h>
 #include <errno.h>
 #include <poll.h>
 #include <stdarg.h>
@@ -107,9 +108,12 @@ int conn_tls(Conn *c, const char *pin, TlsInfo *info) {
     if (!ctx) { snprintf(c->err, sizeof c->err, "tls-init"); return -1; }
     c->ssl = SSL_new(ctx);
     if (!c->ssl) { snprintf(c->err, sizeof c->err, "tls-memory"); return -1; }
+    unsigned char ip[16];
+    int is_ip = inet_pton(AF_INET, c->host, ip) == 1 || inet_pton(AF_INET6, c->host, ip) == 1;
     if (SSL_set_fd(c->ssl, c->fd) != 1 ||
-        SSL_set_tlsext_host_name(c->ssl, c->host) != 1 ||
-        SSL_set1_host(c->ssl, c->host) != 1) {
+        (!is_ip && SSL_set_tlsext_host_name(c->ssl, c->host) != 1) ||
+        (is_ip ? X509_VERIFY_PARAM_set1_ip_asc(SSL_get0_param(c->ssl), c->host) != 1
+               : SSL_set1_host(c->ssl, c->host) != 1)) {
         snprintf(c->err, sizeof c->err, "tls-config");
         snprintf(info->reason, sizeof info->reason, "%s", c->err);
         return -1;
