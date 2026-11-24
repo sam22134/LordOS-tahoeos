@@ -103,7 +103,7 @@ A valid id:
   | no camera | `no-camera` | broker (`brokercam.c`) | `js_media.c` | `lord-netperm` (`cgroup/dev`) and the PipeWire guard |
   | no microphone | `no-mic` | broker (`BOP_MIC`, camera videos) | `js_media.c` | the PipeWire guard and `lord-netperm` (ALSA capture nodes) |
   | no screen capture | `no-screen` | broker (the `screen` permission; isolated apps have no capture API) | `js_media.c` | by design (no capture protocol), the ScreenCast portal (`ui/portal.c` refuses the app before any question; the PipeWire guard hides every shared screen from it), and `lord-netperm` (`/dev/fb*`) |
-  | no USB | `no-usb` | broker (`BOP_VAULT_FIDO`, the `usb` permission) | not offered (the desktop itself) | `lord-netperm` (`cgroup/dev`) |
+  | no USB | `no-usb` | broker (`BOP_VAULT_FIDO`, the `usb` permission; an attached FIDO descriptor in `lord-vault` is not revoked) | not offered (the desktop itself) | `lord-netperm` (`cgroup/dev`) |
   | no Bluetooth | `no-bluetooth` | broker (the `bluetooth` permission; no Bluetooth API in app mode) | not offered (the desktop itself) | `lord-netperm` (`socket(AF_BLUETOOTH)`); BlueZ over D-Bus is not covered |
   | no access to your files | `no-files` | broker (file picker, camera saves, the `files` permission) | not offered (the desktop itself) | the launcher (own namespaces + Landlock), at the next launch |
   | no reading the clipboard | `no-clipboard` | broker (`BOP_CLIP_GET`, the `clipboard` permission) | not offered (the desktop itself) | not offered yet |
@@ -134,7 +134,8 @@ reloading anything. What each kind of app goes through:
   - `BOP_CAMERA`: `list` returns no cameras, `open` is refused, and photo or video saves (they are
     user files) are refused under `no-files`;
   - `BOP_MIC`, `BOP_PICK` (the file picker), `BOP_CLIP_GET` (reading the clipboard) and
-    `BOP_VAULT_FIDO` (the USB security key of Passwords) are refused;
+    new `BOP_VAULT_FIDO` attachments (the USB security key of Passwords) are refused; a FIDO
+    descriptor already handed to `lord-vault` remains open until that helper replaces it or exits;
   - `BOP_DEVICE` does not light the indicator for a restricted device;
   - a prompt the user allows, or a file the user picks, after the app was restricted is refused too.
 - **Built-in apps inside `lord-server` (firewall id `lordos`).** They share one JS context with
@@ -153,12 +154,15 @@ reloading anything. What each kind of app goes through:
   the launcher, is in no app scope and gets no per-app restriction.
 
 **Live revocation.** Adding a restriction to a running app (`restrict_changed()`, called by
-`setRestricted`) takes the device away at once, the same way revoking the permission does: for an
-isolated app `brokersrv_revoke()` sends `revoke`, kills the camera's `lord-media`, closes the
-microphone stream and stops a camera video that records sound; for the built-in apps a hook in
-`js_media.c` kills the camera helper (the window gets `closed` with `revoked`) and finishes
-microphone and screen recordings properly. New notifications and file picks are refused from that
-moment.
+`setRestricted`) revokes resources that have an explicit teardown path: for an isolated app
+`brokersrv_revoke()` sends `revoke`, kills the camera's `lord-media`, closes the microphone stream
+and stops a camera video that records sound; for the built-in apps a hook in `js_media.c` kills
+the camera helper (the window gets `closed` with `revoked`) and finishes microphone and screen
+recordings properly. New notifications and file picks are refused from that moment. There is not
+yet an equivalent teardown for a FIDO descriptor already passed to `lord-vault`: `no-usb` blocks
+subsequent broker attachments, but an operation using the previously attached descriptor may
+continue. Linux-app device descriptors already open before `no-usb` or `no-camera` likewise remain
+usable, as described below.
 
 Tested by `server/tests/broker_restrict_test.c` (`make -C server test`): the real broker code
 against a fake app, every restriction with and without it, no prompt, the error codes, live
