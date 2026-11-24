@@ -71,6 +71,7 @@ typedef uint64_t np_u64;
 #define NP_R_NO_SCREEN    (1u << 6)
 #define NP_R_NO_USB       (1u << 7)
 #define NP_R_NO_BLUETOOTH (1u << 8)
+#define NP_R_NO_FILES      (1u << 9)
 #define NP_R_NET_MASK     (NP_R_NO_INTERNET | NP_R_NO_LAN | NP_R_NO_NETWORK | NP_R_NO_INCOMING)
 #define NP_R_DEV_MASK     (NP_R_NO_CAMERA | NP_R_NO_MIC | NP_R_NO_SCREEN | NP_R_NO_USB | NP_R_NO_BLUETOOTH | NP_R_NO_FILES)
 
