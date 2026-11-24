@@ -388,25 +388,59 @@ static int send_reply(int fd, uint32_t reqid, int status, const void *data, uint
     return send_reply_fd(fd, reqid, status, data, len, -1);
 }
 
-/* Ruta segura dentro de la carpeta de datos de la app. */
-static int data_path(const char *id, const char *rel, char *out, size_t n) {
-    const char *home = getenv("HOME");
-    if (!home || !rel || rel[0] == '/' || strstr(rel, "..")) return -1;
-    char base[PATH_MAX], real[PATH_MAX];
-    if ((size_t)snprintf(base, sizeof base, "%s/.local/share/lordos/appdata/%s", home, id) >= sizeof base) return -1;
-    if ((size_t)snprintf(out, n, "%s/%s", base, rel) >= n) return -1;
-    /* el padre tiene que caer dentro de base (sin symlinks que escapen) */
-    char tmp[PATH_MAX];
-    snprintf(tmp, sizeof tmp, "%s", out);
-    char *slash = strrchr(tmp, '/');
-    if (slash) {
-        *slash = 0;
-        if (realpath(tmp, real)) {
-            size_t bl = strlen(base);
-            if (strncmp(real, base, bl) || (real[bl] && real[bl] != '/')) return -1;
-        }
+/* Open an absolute directory one component at a time. O_NOFOLLOW on every
+ * component prevents a symlink in HOME or the app-data ancestry from redirecting us. */
+static int open_dir_nofollow(const char *path) {
+    if (!path || path[0] != '/') return -1;
+    int fd = open("/", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    if (fd < 0) return -1;
+    char copy[PATH_MAX];
+    if (snprintf(copy, sizeof copy, "%s", path) >= (int)sizeof copy) { close(fd); return -1; }
+    char *save = NULL;
+    for (char *part = strtok_r(copy, "/", &save); part; part = strtok_r(NULL, "/", &save)) {
+        if (!strcmp(part, ".") || !strcmp(part, "..")) { close(fd); return -1; }
+        int next = openat(fd, part, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+        close(fd);
+        if (next < 0) return -1;
+        fd = next;
     }
-    return 0;
+    return fd;
+}
+
+/* Resolve app data relative to an already-open directory, never by re-walking
+ * a validated pathname. Each parent is opened with O_NOFOLLOW and retained by
+ * fd, closing the validation/use race for symlink replacement. */
+static int data_open(const char *id, const char *rel, int flags, mode_t mode) {
+    const char *home = getenv("HOME");
+    if (!home || home[0] != '/' || !id || !id[0] || strchr(id, '/') ||
+        !strcmp(id, ".") || !strcmp(id, "..") || !rel || rel[0] == '/') return -1;
+    char base[PATH_MAX];
+    if (snprintf(base, sizeof base, "%s/.local/share/lordos/appdata/%s", home, id) >= (int)sizeof base) return -1;
+    int dir = open_dir_nofollow(base);
+    if (dir < 0) return -1;
+
+    char copy[PATH_MAX];
+    if (snprintf(copy, sizeof copy, "%s", rel) >= (int)sizeof copy) { close(dir); return -1; }
+    char *save = NULL, *part = strtok_r(copy, "/", &save);
+    if (!part) {
+        int out = openat(dir, ".", flags | O_CLOEXEC | O_NOFOLLOW, mode);
+        close(dir);
+        return out;
+    }
+    for (;;) {
+        if (!strcmp(part, ".") || !strcmp(part, "..")) { close(dir); return -1; }
+        char *next_part = strtok_r(NULL, "/", &save);
+        if (!next_part) {
+            int out = openat(dir, part, flags | O_CLOEXEC | O_NOFOLLOW, mode);
+            close(dir);
+            return out;
+        }
+        int next = openat(dir, part, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+        close(dir);
+        if (next < 0) return -1;
+        dir = next;
+        part = next_part;
+    }
 }
 
 /* A firewall restriction (Settings → Privacy → "Apps' network") covers this request: it is
@@ -529,9 +563,7 @@ static void handle(AppConn *a, BrokerHdr *h, char *payload, int *fds, int nfds) 
         break;
     }
     case BOP_FS_READ: {
-        char path[PATH_MAX];
-        if (data_path(a->id, payload, path, sizeof path)) { send_reply(fd, h->reqid, BST_DENIED, NULL, 0); break; }
-        int f = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+        int f = data_open(a->id, payload, O_RDONLY, 0);
         struct stat st;
         if (f < 0 || fstat(f, &st) || !S_ISREG(st.st_mode) || st.st_size > BROKER_MAX_MSG) { if (f >= 0) close(f); send_reply(fd, h->reqid, BST_ERROR, NULL, 0); break; }
         size_t size = (size_t)st.st_size, off = 0;
@@ -551,11 +583,9 @@ static void handle(AppConn *a, BrokerHdr *h, char *payload, int *fds, int nfds) 
     case BOP_FS_WRITE: {
         char *nul = memchr(payload, 0, h->len);
         if (!nul) { send_reply(fd, h->reqid, BST_ERROR, NULL, 0); break; }
-        char path[PATH_MAX];
-        if (data_path(a->id, payload, path, sizeof path)) { send_reply(fd, h->reqid, BST_DENIED, NULL, 0); break; }
         const char *data = nul + 1;
         size_t dlen = h->len - (size_t)(nul + 1 - payload);
-        int f = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW, 0644);
+        int f = data_open(a->id, payload, O_WRONLY | O_CREAT | O_TRUNC, 0644);
         size_t off = 0;
         int ok = f >= 0;
         while (ok && off < dlen) {
@@ -570,10 +600,8 @@ static void handle(AppConn *a, BrokerHdr *h, char *payload, int *fds, int nfds) 
     }
     case BOP_FS_LIST: {
         /* [{ "name", "dir" }] de una carpeta dentro de la carpeta de datos de la app */
-        char path[PATH_MAX];
         const char *rel = payload[0] && strcmp(payload, ".") ? payload : "";
-        if (rel[0] ? data_path(a->id, rel, path, sizeof path) : data_path(a->id, ".", path, sizeof path)) { send_reply(fd, h->reqid, BST_DENIED, NULL, 0); break; }
-        int dirfd = open(path, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+        int dirfd = data_open(a->id, rel, O_RDONLY | O_DIRECTORY, 0);
         DIR *d = dirfd >= 0 ? fdopendir(dirfd) : NULL;
         if (!d) { if (dirfd >= 0) close(dirfd); send_reply(fd, h->reqid, BST_ERROR, NULL, 0); break; }
         size_t cap = 64 * 1024, len = 0;
