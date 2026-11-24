@@ -93,6 +93,34 @@ for t in $TOOLS; do
     [ "$n" -lt 4096 ] && ok "$t blocked by the rule added during downtime ($n bytes)" || bad "$t ignored the rule added during downtime ($n bytes)"
 done
 
+echo "2d. an already-open capture stream is stopped when the guard reconnects"
+restrict $APP ""
+sleep 1.5
+f=$OUTD/reconnect-live.raw
+in_scope "$SC" timeout 15 pw-record --rate 48000 --channels 1 --format s16 "$f" >/dev/null 2>&1 &
+RP=$!
+sleep 2
+before=$(stat -c %s "$f" 2>/dev/null || echo 0)
+kill "$GPID" 2>/dev/null; wait "$GPID" 2>/dev/null
+GPID=
+restrict $APP no-mic
+sleep 2
+during=$(stat -c %s "$f" 2>/dev/null || echo 0)
+"$CLI" 120 >> "$GLOG" 2>&1 &
+GPID=$!
+sleep 2.5
+settled=$(stat -c %s "$f" 2>/dev/null || echo 0)
+sleep 2
+after=$(stat -c %s "$f" 2>/dev/null || echo 0)
+kill "$RP" 2>/dev/null; wait "$RP" 2>/dev/null
+RP=
+[ "$before" -gt 20000 ] && ok "the pre-existing stream was recording before disconnect ($before bytes)" || bad "the pre-existing stream never recorded ($before bytes)"
+if [ "$during" -gt "$before" ]; then
+    [ "$after" = "$settled" ] && ok "the pre-existing stream stopped after the guard reconnected ($settled → $after)" || bad "the pre-existing stream kept recording after reconnection ($settled → $after)"
+else
+    ok "PipeWire had already stopped the pre-existing stream during guard downtime ($before → $during)"
+fi
+
 seen=$(in_scope "$SC" pw-dump 2>/dev/null | grep -c '"media.class": "Audio/Source"')
 all=$(pw-dump 2>/dev/null | grep -c '"media.class": "Audio/Source"')
 [ "$seen" = 0 ] && [ "$all" -gt 0 ] && ok "the app sees no microphone node ($all exist)" || bad "the app sees $seen of $all microphone nodes"
