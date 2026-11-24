@@ -1,6 +1,7 @@
 /* dav.c — WebDAV transport and the per-account CalDAV/CardDAV worker (see dav.h, pim.c). */
 #include "dav.h"
 #include "mime.h"
+#include "davutil.h"
 
 #include <poll.h>
 #include <stdio.h>
@@ -94,8 +95,12 @@ int dav_req(Dav *d, const char *method, const char *target, int depth, const cha
             char loc[1100];
             snprintf(loc, sizeof loc, "%s", out->location);
             http_resp_free(out);
-            if (loc[0] == '/') { char base[1200]; Dav tmp = *d; snprintf(tmp.host, sizeof tmp.host, "%s", host); tmp.port = port; dav_abs(&tmp, loc, base, sizeof base); snprintf(cur, sizeof cur, "%s", base); }
-            else snprintf(cur, sizeof cur, "%s", loc);
+            char resolved[2048];
+            if (dav_href_resolve(cur, loc, resolved, sizeof resolved)) {
+                snprintf(d->err, sizeof d->err, "bad redirect URL");
+                return -1;
+            }
+            snprintf(cur, sizeof cur, "%s", resolved);
             continue;
         }
         snprintf(d->url, sizeof d->url, "%s", cur);
