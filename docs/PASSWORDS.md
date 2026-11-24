@@ -184,7 +184,11 @@ Several methods can coexist; at least one besides the recovery key must remain.
 **Device access.** `lord.vault.fidoAttach(app)` only works when the app holds the `usb` permission
 (system prompt, stored in `permisos.json`, checked in C). `lord-server` finds FIDO devices by the
 HID report descriptor (usage page 0xF1D0, `src/vault/fidodev.c`), opens `/dev/hidrawN` and passes
-the fd to `lord-vault`. Neither the app nor its JavaScript ever sees the device.
+the fd to `lord-vault`. Neither the app nor its JavaScript ever sees the device. The attached descriptor is withdrawn
+when the Passwords app exits, its USB permission is revoked, or its firewall rule gains `no-usb`.
+A CTAP2 command already in progress is allowed to return rather than closing a descriptor under the
+worker thread; its result is discarded, no follow-up command is started, and the descriptor is
+closed immediately after the in-flight command completes.
 FIDO hidraw nodes need a udev rule because LordOS sessions are not logind seat sessions
 (`TAG+="uaccess"` does not apply):
 
