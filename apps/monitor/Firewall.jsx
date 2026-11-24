@@ -121,7 +121,10 @@ export function FirewallPrivacy() {
   if (status.daemon && status.bpf && status.attached === true && status.devices === false) statusWarnings.push(tr('firewall.status.noDevices'));
   if (status.daemon && status.bpf && status.attached === true && status.bluetooth === false) statusWarnings.push(tr('firewall.status.noBluetooth'));
   const setFlag = (id, flag, on) => {
-    const cur = (restricted[id] || []).filter((f) => offered(id, status).includes(f));
+    // Keep valid restrictions saved while their enforcement is unavailable; changing another
+    // checkbox must not silently erase those settings.
+    const validForApp = offered(id, { ...status, devices: true, bluetooth: true });
+    const cur = (restricted[id] || []).filter((f) => validForApp.includes(f));
     const next = on ? [...cur, flag] : cur.filter((f) => f !== flag);
     firewall.setRestricted(id, next.length ? next : []);
   };
