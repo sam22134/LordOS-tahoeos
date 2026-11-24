@@ -443,18 +443,20 @@ static void device_cases(void) {
     CHECK(np_dev_restriction(NP_DEV_CHAR, 188, HID) == NP_R_NO_USB);            /* ttyUSB */
     CHECK(np_dev_restriction(NP_DEV_CHAR, HID, HID) == NP_R_NO_USB);            /* hidraw */
     CHECK(np_dev_restriction(NP_DEV_CHAR, HID, 0) == 0);                        /* no hidraw in the kernel */
-    CHECK(np_dev_restriction(1, 81, HID) == 0);                                 /* a block device 81: not a camera */
+    CHECK(np_dev_restriction(NP_DEV_BLOCK, 8, HID) == NP_R_NO_FILES);            /* /dev/sda */
+    CHECK(np_dev_restriction(NP_DEV_BLOCK, 259, HID) == NP_R_NO_FILES);          /* /dev/nvme0n1 */
+    CHECK(np_dev_restriction(0, 8, HID) == 0);                                   /* unknown device type */
     static const uint32_t free_majors[] = { 1, 4, 5, 10, 13, 116, 226, 180, 246, 0 };   /* mem, tty, misc, input, sound, dri... */
     for (int i = 0; free_majors[i]; i++) CHECK(np_dev_restriction(NP_DEV_CHAR, free_majors[i], HID) == 0);
     /* the FW_R_* bits are the same */
-    CHECK(NP_R_NO_CAMERA == FW_R_NO_CAMERA && NP_R_NO_MIC == FW_R_NO_MIC && NP_R_NO_SCREEN == FW_R_NO_SCREEN && NP_R_NO_USB == FW_R_NO_USB && NP_R_NO_BLUETOOTH == FW_R_NO_BLUETOOTH);
+    CHECK(NP_R_NO_CAMERA == FW_R_NO_CAMERA && NP_R_NO_MIC == FW_R_NO_MIC && NP_R_NO_SCREEN == FW_R_NO_SCREEN && NP_R_NO_USB == FW_R_NO_USB && NP_R_NO_BLUETOOTH == FW_R_NO_BLUETOOTH && NP_R_NO_FILES == FW_R_NO_FILES);
 
     FwStore *s = fw_store_new();
     DnsMap *names = dnsmap_new(0);
     fw_set_restricted(s, "desktop:cam", FW_R_NO_CAMERA | FW_R_NO_USB | FW_R_NO_BLUETOOTH | FW_R_NO_FILES | FW_R_NO_MIC);
     fw_set_restricted(s, "lordos", FW_R_NO_CAMERA | FW_R_NO_USB | FW_R_NO_BLUETOOTH | FW_R_NO_INTERNET);
     NpCompiled c = compile(s, "desktop:cam", names, 1000);
-    CHECK(c.app.flags == (NP_R_NO_CAMERA | NP_R_NO_USB | NP_R_NO_BLUETOOTH | NP_R_NO_MIC));  /* files aren't the kernel's */
+    CHECK(c.app.flags == (NP_R_NO_CAMERA | NP_R_NO_USB | NP_R_NO_BLUETOOTH | NP_R_NO_MIC | NP_R_NO_FILES));
     uint8_t a[16];
     FwDecision ref;
     NpRes got;
