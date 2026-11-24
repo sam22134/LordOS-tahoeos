@@ -3071,7 +3071,11 @@ int main(int argc, char **argv) {
         if (bwd >= 0 && (delay < 0 || bwd < delay)) delay = bwd;
         /* Settings → Displays or a hotplug: displays, modes, scales, arrangement (between frames) */
         if (!s.headless && !any_flip_pending(&s) && display_take_resync()) outputs_apply(&s);
-        if (!s.greeter) pwguard_tick();     /* Linux-app camera/microphone restrictions (sec/pwguard.c) */
+        if (!s.greeter) {
+            pwguard_tick();                  /* Linux-app camera/microphone restrictions (sec/pwguard.c) */
+            int pwt = pwguard_timeout_ms();  /* wake the idle loop for a pending reconnect */
+            if (pwt >= 0 && (delay < 0 || pwt < delay)) delay = pwt;
+        }
         netrec_tick();                      /* traffic history: every 5 s while on (monitor/netrec.c) */
         double nrd = netrec_timeout();
         if (nrd >= 0 && (delay < 0 || nrd < delay)) delay = nrd;
