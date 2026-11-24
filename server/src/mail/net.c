@@ -29,6 +29,14 @@ struct Conn {
 
 static SSL_CTX *ctx;
 
+/* Let the handshake finish so the UI can offer an explicit certificate pin,
+ * while retaining OpenSSL's verification result for the post-handshake check. */
+static int collect_verify_errors(int preverify_ok, X509_STORE_CTX *store) {
+    (void)preverify_ok;
+    (void)store;
+    return 1;
+}
+
 int net_init(void) {
     OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS | OPENSSL_INIT_LOAD_CRYPTO_STRINGS, NULL);
     ctx = SSL_CTX_new(TLS_client_method());
@@ -99,11 +107,15 @@ int conn_tls(Conn *c, const char *pin, TlsInfo *info) {
     if (!ctx) { snprintf(c->err, sizeof c->err, "tls-init"); return -1; }
     c->ssl = SSL_new(ctx);
     if (!c->ssl) { snprintf(c->err, sizeof c->err, "tls-memory"); return -1; }
-    SSL_set_fd(c->ssl, c->fd);
-    SSL_set_tlsext_host_name(c->ssl, c->host);
-    SSL_set1_host(c->ssl, c->host);            /* host name check (SAN / CN) */
-    /* verification errors are collected, not fatal inside OpenSSL: we decide below */
-    SSL_set_verify(c->ssl, SSL_VERIFY_NONE, NULL);
+    if (SSL_set_fd(c->ssl, c->fd) != 1 ||
+        SSL_set_tlsext_host_name(c->ssl, c->host) != 1 ||
+        SSL_set1_host(c->ssl, c->host) != 1) {
+        snprintf(c->err, sizeof c->err, "tls-config");
+        snprintf(info->reason, sizeof info->reason, "%s", c->err);
+        return -1;
+    }
+    /* Collect chain/hostname errors for the explicit fingerprint-pin decision below. */
+    SSL_set_verify(c->ssl, SSL_VERIFY_PEER, collect_verify_errors);
     int r = SSL_connect(c->ssl);
     if (r != 1) {
         unsigned long e = ERR_get_error();
