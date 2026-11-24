@@ -20,6 +20,7 @@
 #include "vstb.h"
 #include "qr.h"
 #include "ctap2.h"
+#include "fido_lease.h"
 #include "../sec/sandbox.h"
 #include "monocypher.h"
 
@@ -50,7 +51,7 @@ Vault vaults[V_COUNT] = { { .file = "contrasenas.lvault", .fd = -1, .autolock_s 
 int vault_dirfd = -1;
 static Chan chans[MAX_CHANS];
 static int nchans;
-static int fido_fd = -1;
+static FidoLease fido_lease = FIDO_LEASE_INIT;
 static char fido_name[128];
 static int debug;
 
@@ -331,7 +332,7 @@ int vault_create(Vault *v, int type, const VFactors *f, const VKdf *kdf, const c
 
 enum { FJ_UNLOCK = 1, FJ_CREATE, FJ_ADD };
 typedef struct {
-    int busy, kind, v;
+    int kind, v;
     Chan *c; uint32_t id;
     char pin[72];
     int fd;
@@ -388,9 +389,10 @@ static const char *fido_code(int e) {
 
 /* the thread finished: complete the request in the loop */
 static void fido_done(void) {
-    fj.busy = 0;
+    int revoked = fido_lease_finish(&fido_lease); /* the worker no longer touches fj.fd */
     Vault *v = &vaults[fj.v];
     Chan *c = fj.c;
+    if (revoked) { reply_err(c, fj.id, "fido-revoked"); goto out; }
     if (fj.err != FIDO_OK) { char e[64]; snprintf(e, sizeof e, "fido-%s", fido_code(fj.err)); reply_err(c, fj.id, e); goto out; }
     VFactors f = { .fido = fj.secret };
     if (fj.kind == FJ_UNLOCK) {
@@ -431,17 +433,18 @@ out:
 }
 
 static int fido_start(Chan *c, uint32_t id, int kind, int vi, const Vj *j, int o) {
-    if (fido_fd < 0) { reply_err(c, id, "no-device"); return 0; }
-    if (fj.busy) { reply_err(c, id, "busy"); return 0; }
+    if (fido_lease.busy) { reply_err(c, id, "busy"); return 0; }
     memset(&fj, 0, sizeof fj);
-    fj.busy = 1; fj.kind = kind; fj.v = vi; fj.c = c; fj.id = id; fj.fd = fido_fd;
+    fj.fd = fido_lease_begin(&fido_lease);
+    if (fj.fd < 0) { reply_err(c, id, "no-device"); return 0; }
+    fj.kind = kind; fj.v = vi; fj.c = c; fj.id = id;
     vj_getsbuf(j, o, "pin", fj.pin, sizeof fj.pin);
     vj_getsbuf(j, o, "label", fj.label, sizeof fj.label);
     if (!fj.label[0]) snprintf(fj.label, sizeof fj.label, "%.63s", fido_name[0] ? fido_name : "FIDO2");
     vf_calibrate(700, &fj.kdf, NULL);
     fido_touch_note = 0;
     pthread_t t;
-    if (pthread_create(&t, NULL, fido_thread, NULL)) { fj.busy = 0; reply_err(c, id, "thread"); return 0; }
+    if (pthread_create(&t, NULL, fido_thread, NULL)) { fido_lease_finish(&fido_lease); reply_err(c, id, "thread"); return 0; }
     pthread_detach(t);
     return 0;
 }
@@ -484,7 +487,7 @@ static void status_json(VjB *b) {
         vb_close(b, ']');
         vb_close(b, '}');
     }
-    vb_kb(b, "fido", fido_fd >= 0);
+    vb_kb(b, "fido", fido_lease.device_fd >= 0);
     if (fido_name[0]) vb_ks(b, "fidoName", fido_name);
     SmStats st;
     sm_stats(&st);
@@ -1644,9 +1647,9 @@ static void handle_ctl(Chan *c, VMsg *m) {
         sm_free(p);
         reply_ok(c, m->id);
     } else if (!strcmp(op, "fido-device")) {
-        if (fido_fd >= 0 && !fj.busy) close(fido_fd);
-        fido_fd = -1;
-        if (m->nfds >= 1) { fido_fd = m->fds[0]; m->fds[0] = -1; }
+        int newfd = -1;
+        if (m->nfds >= 1) { newfd = m->fds[0]; m->fds[0] = -1; }
+        fido_lease_attach(&fido_lease, newfd);
         vj_getsbuf(&j, 0, "name", fido_name, sizeof fido_name);
         reply_ok(c, m->id);
     } else if (!strcmp(op, "bus") && m->nfds >= 1) {
@@ -1716,7 +1719,7 @@ int main(void) {
         if (r < 0 && errno != EINTR) break;
         /* auto-lock */
         Vault *mv = &vaults[V_MAIN];
-        if (mv->unlocked && mv->autolock_s > 0 && !fj.busy && now_ms() - mv->last_use > mv->autolock_s * 1000.0) {
+        if (mv->unlocked && mv->autolock_s > 0 && !fido_lease.busy && now_ms() - mv->last_use > mv->autolock_s * 1000.0) {
             if (debug) fprintf(stderr, "lord-vault: automatic lock\n");
             vault_lock(mv);
         }
