@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
     char path[4096];
     snprintf(path, sizeof path, "%s/.config/lordos/firewall.json", home ? home : "/nonexistent");
     FwStore *cur = fw_store_new();
-    char err[200];
+    char err[200] = "out of memory";
     if (cur && fw_load(cur, path, err, sizeof err) >= 0) restrict_set_store(cur);
     else {
         fw_store_free(cur);
