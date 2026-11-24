@@ -289,6 +289,7 @@ static void drop(void) {
     P.fd = -1;
     P.up = 0;
     P.connecting = 0;
+    P.next_tick = 0;
     P.inlen = P.outlen = 0;
     memset(P.cl, 0, sizeof P.cl);
     memset(P.node, 0, sizeof P.node);
@@ -367,6 +368,7 @@ int pwguard_start(void) {
     P.fd = fd;
     P.connecting = rc != 0;
     P.up = 0;
+    P.next_tick = 0;
     P.inlen = P.outlen = 0;
     memset(P.cl, 0, sizeof P.cl);
     memset(P.node, 0, sizeof P.node);
@@ -381,6 +383,8 @@ int pwguard_start(void) {
 }
 
 int pwguard_timeout_ms(void) {
+    /* A pending connect is already watched for POLLOUT by the main loop. */
+    if (P.fd >= 0 && P.connecting) return -1;
     /* The main loop must wake both for a reconnect and for the one-second policy/process
      * revalidation while connected; otherwise an idle desktop can sleep past both. */
     double deadline = P.fd >= 0 ? P.next_tick : P.next_try;
@@ -1628,6 +1632,7 @@ void pwguard_dispatch(void) {
         socklen_t n = sizeof error;
         if (getsockopt(P.fd, SOL_SOCKET, SO_ERROR, &error, &n) || error) { drop(); return; }
         P.connecting = 0;
+        P.next_tick = now_ms(); /* start policy reconciliation as soon as the protocol is up */
         start_protocol();
         if (P.fd < 0) return;
     }
@@ -1674,6 +1679,7 @@ void pwguard_dispatch(void) {
 
 void pwguard_tick(void) {
     double t = now_ms();
+    if (P.fd >= 0 && P.connecting) return; /* POLLOUT completes the connect in dispatch() */
     if (P.fd < 0) {
         if (t >= P.next_try) pwguard_start();
         return;
