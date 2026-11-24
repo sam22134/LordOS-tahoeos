@@ -206,10 +206,14 @@ static int smtp_reply(Conn *c, char *text, size_t tcap, char *caps, size_t ccap)
         int more = line[3] == '-';
         if (caps && ccap) {
             size_t used = strlen(caps), add = l - 4;
-            if (add < ccap - used) {
-                memcpy(caps + used, line + 4, add);
-                caps[used + add] = 0;
+            size_t sep = used ? 1 : 0;
+            if (used >= ccap || sep + add >= ccap - used) {
+                free(line);
+                return -1;
             }
+            if (sep) caps[used++] = ' ';
+            memcpy(caps + used, line + 4, add);
+            caps[used + add] = 0;
         }
         if (!more) {
             complete = 1;
@@ -223,6 +227,25 @@ static int smtp_reply(Conn *c, char *text, size_t tcap, char *caps, size_t ccap)
     }
     /* A reply made only of continuation lines is incomplete, not success. */
     return -1;
+}
+
+static int smtp_has_cap(const char *caps, const char *name) {
+    size_t n = strlen(name);
+    for (const char *p = caps; p && *p;) {
+        while (*p && isspace((unsigned char)*p)) p++;
+        const char *start = p;
+        while (*p && !isspace((unsigned char)*p)) p++;
+        size_t len = (size_t)(p - start);
+        const char *eq = memchr(start, '=', len);
+        if (eq) {
+            size_t keylen = (size_t)(eq - start);
+            if (keylen == n && !strncasecmp(start, name, n)) return 1;
+            start = eq + 1;
+            len -= keylen + 1;
+        }
+        if (len == n && !strncasecmp(start, name, n)) return 1;
+    }
+    return 0;
 }
 
 static int smtp_cmd(Conn *c, char *text, size_t tcap, const char *fmt, const char *arg) {
@@ -245,12 +268,10 @@ int smtp_send(Account *a, const char *from, const char **rcpt, int nrcpt, const 
     if (!c) { free(pw); snprintf(err, ecap, "%s", why); return -1; }
     int r = -1;
     if (smtp_reply(c, text, sizeof text, NULL, 0) != 220) { snprintf(err, ecap, "greeting: %s", text); goto out; }
-    if (smtp_cmd(c, text, sizeof text, "EHLO %s", "lordos") != 250) { snprintf(err, ecap, "EHLO: %s", text); goto out; }
-    /* EHLO again to read the capabilities (the first reply already went by) */
-    conn_printf(c, "EHLO lordos\r\n");
-    if (smtp_reply(c, text, sizeof text, caps, sizeof caps) != 250) { snprintf(err, ecap, "EHLO: %s", text); goto out; }
+    if (conn_printf(c, "EHLO lordos\\r\\n") ||
+        smtp_reply(c, text, sizeof text, caps, sizeof caps) != 250) { snprintf(err, ecap, "EHLO: %s", text); goto out; }
     if (s.sec == SEC_STARTTLS) {
-        if (!strcasestr(caps, "STARTTLS")) { snprintf(err, ecap, "no-starttls"); goto out; }
+        if (!smtp_has_cap(caps, "STARTTLS")) { snprintf(err, ecap, "no-starttls"); goto out; }
         if (smtp_cmd(c, text, sizeof text, "STARTTLS%s", "") != 220) { snprintf(err, ecap, "STARTTLS: %s", text); goto out; }
         if (conn_tls(c, pin, &ti)) {
             snprintf(err, ecap, "%s", ti.code ? "cert" : "tls");
@@ -275,7 +296,7 @@ int smtp_send(Account *a, const char *from, const char **rcpt, int nrcpt, const 
     {
         size_t ul = strlen(a->user), pl = strlen(pw);
         int code;
-        if (strcasestr(caps, "PLAIN") || !strcasestr(caps, "LOGIN")) {
+        if (smtp_has_cap(caps, "PLAIN")) {
             unsigned char *raw = malloc(ul + pl + 3);
             if (!raw) goto out;
             raw[0] = 0; memcpy(raw + 1, a->user, ul); raw[1 + ul] = 0; memcpy(raw + 2 + ul, pw, pl);
@@ -287,11 +308,15 @@ int smtp_send(Account *a, const char *from, const char **rcpt, int nrcpt, const 
             code = smtp_cmd(c, text, sizeof text, "AUTH PLAIN %s", e);
             explicit_bzero(e, el);
             free(e);
-        } else {
+        } else if (smtp_has_cap(caps, "LOGIN")) {
             size_t el;
             code = smtp_cmd(c, text, sizeof text, "AUTH LOGIN%s", "");
             if (code == 334) { char *e = b64_encode((const unsigned char *)a->user, ul, 0, &el); code = e ? smtp_cmd(c, text, sizeof text, "%s", e) : -1; free(e); }
             if (code == 334) { char *e = b64_encode((const unsigned char *)pw, pl, 0, &el); code = e ? smtp_cmd(c, text, sizeof text, "%s", e) : -1; if (e) { explicit_bzero(e, el); free(e); } }
+        } else {
+            snprintf(err, ecap, "server offers no supported AUTH mechanism");
+            r = -2;
+            goto out;
         }
         if (code != 235) { snprintf(err, ecap, "auth: %s", text); r = -2; goto out; }
     }
