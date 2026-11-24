@@ -3,6 +3,7 @@
  * WebDAV XML reader. Every parser is also fed thousands of randomly mutated inputs (a small
  * deterministic fuzzer); run under -fsanitize=address,undefined in `make mail-asan`. */
 #include "mail/imapp.h"
+#include "mail/imapio.h"
 #include "mail/folderrole.h"
 #include "mail/mime.h"
 #include "mail/html.h"
@@ -51,6 +52,11 @@ static char *mutate(const char *s, size_t n, size_t *olen) {
 /* ---- IMAP ---- */
 
 static void test_imap(void) {
+    CHECK(imap_literal_size("* 1 FETCH (BODY[] {0}\\r\\n", 25) == 0);
+    CHECK(imap_literal_size("* 1 FETCH (BODY[] {123+}\\r\\n", 27) == 123);
+    CHECK(imap_literal_size("* 1 FETCH (BODY[] {999999999999}\\r\\n", 36) == 999999999999LL);
+    CHECK(imap_literal_size("* 1 FETCH (BODY[] {1000000000000}\\r\\n", 37) == -2);
+    CHECK(imap_literal_size("* 1 FETCH (BODY[] {12x}\\r\\n", 27) == -1);
     IResp r;
     const char *l1 = "* 12 FETCH (UID 4827 FLAGS (\\Seen $label1) INTERNALDATE \"17-Oct-2026 10:00:00 -0300\" RFC822.SIZE 4410 "
                      "BODY[HEADER.FIELDS (FROM SUBJECT)] {34}\r\nFrom: a@b.c\r\nSubject: hola (x)\r\n\r\n BODY[TEXT]<0> NIL)\r\n";
