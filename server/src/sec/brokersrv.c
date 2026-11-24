@@ -534,10 +534,17 @@ static void handle(AppConn *a, BrokerHdr *h, char *payload, int *fds, int nfds) 
         int f = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
         struct stat st;
         if (f < 0 || fstat(f, &st) || !S_ISREG(st.st_mode) || st.st_size > BROKER_MAX_MSG) { if (f >= 0) close(f); send_reply(fd, h->reqid, BST_ERROR, NULL, 0); break; }
-        char *buf = malloc((size_t)st.st_size);
-        ssize_t got = buf ? read(f, buf, (size_t)st.st_size) : -1;
+        size_t size = (size_t)st.st_size, off = 0;
+        char *buf = malloc(size ? size : 1);
+        int ok = buf != NULL;
+        while (ok && off < size) {
+            ssize_t got = read(f, buf + off, size - off);
+            if (got > 0) off += (size_t)got;
+            else if (got < 0 && errno == EINTR) continue;
+            else ok = 0;
+        }
         close(f);
-        if (got == st.st_size) send_reply(fd, h->reqid, BST_OK, buf, (uint32_t)got); else send_reply(fd, h->reqid, BST_ERROR, NULL, 0);
+        if (ok) send_reply(fd, h->reqid, BST_OK, buf, (uint32_t)off); else send_reply(fd, h->reqid, BST_ERROR, NULL, 0);
         free(buf);
         break;
     }
@@ -549,8 +556,15 @@ static void handle(AppConn *a, BrokerHdr *h, char *payload, int *fds, int nfds) 
         const char *data = nul + 1;
         size_t dlen = h->len - (size_t)(nul + 1 - payload);
         int f = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW, 0644);
-        int ok = f >= 0 && write(f, data, dlen) == (ssize_t)dlen;
-        if (f >= 0) close(f);
+        size_t off = 0;
+        int ok = f >= 0;
+        while (ok && off < dlen) {
+            ssize_t put = write(f, data + off, dlen - off);
+            if (put > 0) off += (size_t)put;
+            else if (put < 0 && errno == EINTR) continue;
+            else ok = 0;
+        }
+        if (f >= 0 && close(f)) ok = 0;
         send_reply(fd, h->reqid, ok ? BST_OK : BST_ERROR, NULL, 0);
         break;
     }
