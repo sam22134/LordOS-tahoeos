@@ -193,10 +193,12 @@ typedef struct {
     np_u32 rule_id, flag;
 } NpRes;
 
+/* cgroup/dev encodes access_type as (device type << 16) | access flags. */
+NP_INLINE np_u32 np_dev_type(np_u32 access_type) { return (access_type >> 16) & 0xffffu; }
+
 /* Which restriction covers opening a character device (cgroup/dev): NP_R_NO_CAMERA for video
  * devices, NP_R_NO_SCREEN for the framebuffer device, NP_R_NO_USB for raw USB, hidraw and USB
- * serial; 0 for everything else (always
- * allowed: the program only takes away what the user restricted). */
+ * serial; 0 for everything else (always allowed: the program only takes away what the user restricted). */
 NP_INLINE np_u32 np_dev_restriction(np_u32 type, np_u32 major, np_u32 hidraw_major) {
     if (type != NP_DEV_CHAR) return 0;
     if (major == NP_MAJOR_V4L) return NP_R_NO_CAMERA;
