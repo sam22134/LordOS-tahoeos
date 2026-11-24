@@ -155,8 +155,6 @@ char *compose_message(Account *a, const JVal *m, int *fds, int nfds, size_t *ole
         size_t n;
         char *data = read_fd(fds[i], &n, ATT_MAX);
         if (!data) { jb_free(&b); snprintf(err, ecap, "attachment %d is too big or unreadable", i + 1); return NULL; }
-        total += n * 4 / 3;
-        if (total > TOTAL_MAX) { free(data); jb_free(&b); snprintf(err, ecap, "the message is too big"); return NULL; }
         char name[256];
         fs_safe_name(x && json_str(x, "name") ? json_str(x, "name") : "attachment", name, sizeof name);
         const char *type = x && json_str(x, "type") ? json_str(x, "type") : "application/octet-stream";
@@ -171,11 +169,18 @@ char *compose_message(Account *a, const JVal *m, int *fds, int nfds, size_t *ole
         char *e64 = b64_encode((const unsigned char *)data, n, 1, &el);
         free(data);
         if (!e64) { jb_free(&b); snprintf(err, ecap, "memory"); return NULL; }
+        /* Check the real wrapped Base64 size and MIME headers before appending. */
+        if (b.oom || b.n > TOTAL_MAX || el > TOTAL_MAX - b.n) {
+            free(e64); jb_free(&b);
+            snprintf(err, ecap, "the message is too big");
+            return NULL;
+        }
         jb_raw(&b, e64);
         free(e64);
     }
     if (mixed) jb_printf(&b, "--%s--\r\n", bm);
     if (b.oom) { jb_free(&b); snprintf(err, ecap, "memory"); return NULL; }
+    if (b.n > TOTAL_MAX) { jb_free(&b); snprintf(err, ecap, "the message is too big"); return NULL; }
     *olen = b.n;
     return b.p;
 }
