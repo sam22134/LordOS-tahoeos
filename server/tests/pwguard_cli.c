@@ -29,7 +29,7 @@ int main(int argc, char **argv) {
     char err[200] = "out of memory";
     if (!cur || fw_load(cur, path, err, sizeof err) < 0) {
         fw_store_free(cur);
-        fprintf(stderr, "pwguard-cli: could not load %s at startup (%s)\\n", path, err);
+        fprintf(stderr, "pwguard-cli: could not load %s at startup (%s)\n", path, err);
         return 1; /* never run the integration guard with an empty/default policy */
     }
     restrict_set_store(cur);
