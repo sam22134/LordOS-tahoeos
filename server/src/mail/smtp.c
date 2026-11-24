@@ -149,7 +149,6 @@ char *compose_message(Account *a, const JVal *m, int *fds, int nfds, size_t *ole
         }
         jb_printf(&b, "--%s--\r\n", ba);
     } else text_part(&b, "text/plain", text, NULL);
-    size_t total = b.n;
     int i = 0;
     for (const JVal *x = atts && atts->type == J_ARR ? atts->kid : NULL; i < natt; i++, x = x ? x->next : NULL) {
         size_t n;
