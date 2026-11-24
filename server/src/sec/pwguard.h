@@ -28,7 +28,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-int  pwguard_start(void);       /* 0 connected; retried by pwguard_tick if PipeWire isn't up */
+int  pwguard_start(void);       /* 0 started/connecting; retried by pwguard_tick if PipeWire isn't up */
 int  pwguard_fd(void);          /* -1 if not connected */
 int  pwguard_wants_write(void);
 void pwguard_dispatch(void);
