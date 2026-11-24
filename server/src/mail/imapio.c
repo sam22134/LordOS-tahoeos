@@ -39,7 +39,7 @@ char *imap_read_response(Conn *c, size_t *len, size_t line_max, size_t literal_m
         size_t ll;
         char *line = conn_line(c, &ll, line_max);
         if (!line) { free(buf); snprintf(err, ecap, "%s", conn_error(c)); return NULL; }
-        if (ll > total_max || n > total_max - ll || ll > SIZE_MAX - n - 1) {
+        if (ll > total_max || n > total_max - ll || n == SIZE_MAX || ll > SIZE_MAX - n - 1) {
             free(line); free(buf); snprintf(err, ecap, "response too big"); return NULL;
         }
         size_t need = n + ll + 1;
