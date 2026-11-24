@@ -27,15 +27,24 @@ long long imap_literal_size(const char *buf, size_t n) {
 }
 
 char *imap_read_response(Conn *c, size_t *len, size_t line_max, size_t literal_max, char *err, size_t ecap) {
+    /* The limits are caller supplied; reject arithmetic overflow before using them
+     * in allocation and response-size calculations. */
+    if (literal_max > SIZE_MAX / 4 || line_max > SIZE_MAX - literal_max * 4) {
+        snprintf(err, ecap, "response limit overflow");
+        return NULL;
+    }
     size_t n = 0, cap = 0, total_max = line_max + literal_max * 4;
     char *buf = NULL;
     for (int parts = 0; parts < 10000; parts++) {
         size_t ll;
         char *line = conn_line(c, &ll, line_max);
         if (!line) { free(buf); snprintf(err, ecap, "%s", conn_error(c)); return NULL; }
-        if (ll > total_max || n > total_max - ll) { free(line); free(buf); snprintf(err, ecap, "response too big"); return NULL; }
-        if (n + ll + 1 > cap) {
-            size_t nc = (n + ll + 1) * 2;
+        if (ll > total_max || n > total_max - ll || ll > SIZE_MAX - n - 1) {
+            free(line); free(buf); snprintf(err, ecap, "response too big"); return NULL;
+        }
+        size_t need = n + ll + 1;
+        if (need > cap) {
+            size_t nc = need > SIZE_MAX / 2 ? need : need * 2;
             char *nb = realloc(buf, nc);
             if (!nb) { free(line); free(buf); snprintf(err, ecap, "memory"); return NULL; }
             buf = nb;
