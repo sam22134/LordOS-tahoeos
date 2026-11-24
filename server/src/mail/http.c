@@ -1,6 +1,7 @@
 /* http.c — see http.h. */
 #include "http.h"
 
+#include <arpa/inet.h>
 #include <ctype.h>
 #include <errno.h>
 #include <stdint.h>
@@ -20,14 +21,30 @@ int http_split_url(const char *url, int *tls, char *host, size_t hcap, int *port
     else if (!strncasecmp(url, "http://", 7)) { *tls = 0; p = url + 7; *port = 80; }
     else return -1;
     const char *e = p + strcspn(p, "/?#");
-    const char *at = memchr(p, '@', (size_t)(e - p));
-    if (at) return -1;                          /* no credentials in URLs */
-    const char *colon = memchr(p, ':', (size_t)(e - p));
-    size_t hl = (size_t)((colon ? colon : e) - p);
+    if (memchr(p, '@', (size_t)(e - p))) return -1; /* no credentials in URLs */
+    const char *host_start = p, *host_end = e, *colon = NULL;
+    int ipv6 = 0;
+    if (*p == '[') {
+        const char *rb = memchr(p, ']', (size_t)(e - p));
+        unsigned char addr[16];
+        if (!rb || rb == p + 1 || (size_t)(rb - (p + 1)) >= hcap) return -1;
+        size_t raw_len = (size_t)(rb - (p + 1));
+        char raw[INET6_ADDRSTRLEN];
+        if (raw_len >= sizeof raw) return -1;
+        memcpy(raw, p + 1, raw_len); raw[raw_len] = 0;
+        if (inet_pton(AF_INET6, raw, addr) != 1) return -1;
+        ipv6 = 1; host_start = p + 1; host_end = rb;
+        if (rb + 1 < e) { if (rb[1] != ':') return -1; colon = rb + 1; }
+        else if (rb + 1 != e) return -1;
+    } else {
+        colon = memchr(p, ':', (size_t)(e - p));
+        host_end = colon ? colon : e;
+    }
+    size_t hl = (size_t)(host_end - host_start);
     if (!hl || hl >= hcap) return -1;
     for (size_t i = 0; i < hl; i++) {
-        unsigned char c = (unsigned char)p[i];
-        if (!isalnum(c) && c != '-' && c != '.') return -1;
+        unsigned char c = (unsigned char)host_start[i];
+        if (ipv6 ? !(isxdigit(c) || c == ':' || c == '.') : !(isalnum(c) || c == '-' || c == '.')) return -1;
         host[i] = (char)tolower(c);
     }
     host[hl] = 0;
