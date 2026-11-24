@@ -204,7 +204,7 @@ static int imap_open(Imap *im, char *err, size_t ecap) {
     if (im->auth_plain) {
         size_t ul = strlen(a->user), pl = strlen(pw);
         unsigned char *raw = malloc(ul + pl + 3);
-        if (!raw) { free(pw); imap_close(im); return -1; }
+        if (!raw) { explicit_bzero(pw, pl); free(pw); imap_close(im); return -1; }
         raw[0] = 0;
         memcpy(raw + 1, a->user, ul);
         raw[1 + ul] = 0;
@@ -213,16 +213,19 @@ static int imap_open(Imap *im, char *err, size_t ecap) {
         char *e = b64_encode(raw, ul + pl + 2, 0, &el);
         explicit_bzero(raw, ul + pl + 2);
         free(raw);
-        if (!e) { free(pw); imap_close(im); return -1; }
+        if (!e) { explicit_bzero(pw, pl); free(pw); imap_close(im); return -1; }
         if (im->sasl_ir) r = cmd(im, NULL, NULL, "AUTHENTICATE PLAIN %s", e);
         else {
             int tag = ++im->tag;
-            conn_printf(im->c, "A%04d AUTHENTICATE PLAIN\r\n", tag);
-            size_t ll;
-            char *plus = read_raw(im, &ll);
-            if (plus && plus[0] == '+') { conn_write(im->c, e, el); conn_write(im->c, "\r\n", 2); }
-            free(plus);
-            r = wait_tag(im, tag, NULL, NULL);
+            if (conn_printf(im->c, "A%04d AUTHENTICATE PLAIN\\r\\n", tag)) r = -1;
+            else {
+                size_t ll;
+                char *plus = read_raw(im, &ll);
+                if (!plus || plus[0] != '+') r = -1;
+                else if (conn_write(im->c, e, el) || conn_write(im->c, "\\r\\n", 2)) r = -1;
+                else r = wait_tag(im, tag, NULL, NULL);
+                free(plus);
+            }
         }
         explicit_bzero(e, el);
         free(e);
