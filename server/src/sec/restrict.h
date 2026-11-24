@@ -43,8 +43,8 @@ const char *restrict_code(uint32_t flag);
 PermState restrict_perm_pkg(const char *id, Perm p);
 
 /* The restrictions of `fwid` changed from `before` to `after`: what was just restricted is taken
- * away from a running app, like revoking the permission (the camera stream and the microphone stop
- * now). Isolated apps through brokersrv_revoke; built-in apps through the hook js_media.c sets. */
+ * away from a running app, like revoking the permission. ScreenCast sessions stop through the portal;
+ * isolated camera/microphone streams go through brokersrv_revoke; built-in media through the js_media.c hook. */
 void restrict_changed(const char *fwid, uint32_t before, uint32_t after);
 typedef void (*RestrictLocalFn)(uint32_t added);
 void restrict_set_local_hook(RestrictLocalFn fn);
