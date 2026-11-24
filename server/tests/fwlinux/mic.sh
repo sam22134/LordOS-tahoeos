@@ -16,6 +16,24 @@ APP=desktop:fwmic
 SC=$(scope fwmic)
 OUTD=$(mktemp -d); chmod 755 "$OUTD"
 GLOG=$OUTD/guard.log
+NODE=
+cleanup() {
+    local rc=$?
+    trap - EXIT INT TERM HUP
+    for p in "${RP:-}" "${DECOY:-}" "${NSDECOY:-}" "${GPID:-}"; do
+        [ -n "$p" ] || continue
+        kill "$p" 2>/dev/null || :
+        wait "$p" 2>/dev/null || :
+    done
+    [ -n "$NODE" ] && sudo rm -f "$NODE"
+    rm -rf "$OUTD"
+    fwlinux_done || rc=1
+    exit "$rc"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
 restrict $APP ""
 "$CLI" 120 > "$GLOG" 2>&1 &
 GPID=$!
@@ -183,6 +201,3 @@ f=$OUTD/after.raw; timeout 3 pw-record --rate 48000 --channels 1 --format s16 "$
 n=$(stat -c %s "$f" 2>/dev/null || echo 0)
 all=$(pw-dump 2>/dev/null | grep -c '"media.class": "Audio/Source"')
 [ "$n" -gt 20000 ] && [ "$all" -gt 0 ] && ok "once lifted, the desktop still records ($n bytes, $all microphone nodes)" || bad "the desktop lost the microphone ($n bytes, $all nodes)"
-kill $GPID 2>/dev/null; wait $GPID 2>/dev/null
-rm -rf "$OUTD"
-fwlinux_done
