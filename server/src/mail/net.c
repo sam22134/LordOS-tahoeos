@@ -162,6 +162,18 @@ static int wait_in(Conn *c, int ms) {
     return r;
 }
 
+/* OpenSSL may need the opposite socket direction while reading or writing
+ * (for example during TLS protocol work). Retry only after the requested
+ * readiness event, keeping the original operation arguments unchanged. */
+static int wait_ssl(Conn *c, short events) {
+    struct pollfd p = { c->fd, events, 0 };
+    int r;
+    do r = poll(&p, 1, c->timeout); while (r < 0 && errno == EINTR);
+    if (r == 0) snprintf(c->err, sizeof c->err, "timeout");
+    else if (r < 0) snprintf(c->err, sizeof c->err, "poll");
+    return r;
+}
+
 static int fill(Conn *c) {
     if (c->rpos < c->rlen) return 1;
     c->rpos = c->rlen = 0;
@@ -170,8 +182,24 @@ static int fill(Conn *c) {
     if (w < 0) { snprintf(c->err, sizeof c->err, "poll"); return 0; }
     ssize_t n;
     if (c->ssl) {
-        n = SSL_read(c->ssl, c->rb, (int)sizeof c->rb);
-        if (n <= 0) { snprintf(c->err, sizeof c->err, "closed"); return 0; }
+        for (;;) {
+            errno = 0;
+            n = SSL_read(c->ssl, c->rb, (int)sizeof c->rb);
+            if (n > 0) break;
+            int e = SSL_get_error(c->ssl, (int)n);
+            if (e == SSL_ERROR_WANT_READ || e == SSL_ERROR_WANT_WRITE) {
+                int ready = wait_ssl(c, e == SSL_ERROR_WANT_READ ? POLLIN : POLLOUT);
+                if (ready > 0) continue;
+                return 0;
+            }
+            if (e == SSL_ERROR_SYSCALL && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)) {
+                int ready = wait_ssl(c, POLLIN);
+                if (ready > 0) continue;
+                return 0;
+            }
+            snprintf(c->err, sizeof c->err, e == SSL_ERROR_ZERO_RETURN ? "closed" : "tls-read");
+            return 0;
+        }
     } else {
         do n = read(c->fd, c->rb, sizeof c->rb); while (n < 0 && errno == EINTR);
         if (n <= 0) { snprintf(c->err, sizeof c->err, n ? "read" : "closed"); return 0; }
@@ -241,8 +269,25 @@ int conn_write(Conn *c, const void *p, size_t n) {
     while (n) {
         ssize_t w;
         if (c->ssl) {
-            w = SSL_write(c->ssl, s, (int)(n > (1u << 30) ? (1u << 30) : n));
-            if (w <= 0) { snprintf(c->err, sizeof c->err, "write"); return -1; }
+            int chunk = (int)(n > (1u << 30) ? (1u << 30) : n);
+            for (;;) {
+                errno = 0;
+                w = SSL_write(c->ssl, s, chunk);
+                if (w > 0) break;
+                int e = SSL_get_error(c->ssl, (int)w);
+                if (e == SSL_ERROR_WANT_READ || e == SSL_ERROR_WANT_WRITE) {
+                    int ready = wait_ssl(c, e == SSL_ERROR_WANT_READ ? POLLIN : POLLOUT);
+                    if (ready > 0) continue;
+                    return -1;
+                }
+                if (e == SSL_ERROR_SYSCALL && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)) {
+                    int ready = wait_ssl(c, POLLOUT);
+                    if (ready > 0) continue;
+                    return -1;
+                }
+                snprintf(c->err, sizeof c->err, e == SSL_ERROR_ZERO_RETURN ? "closed" : "tls-write");
+                return -1;
+            }
         } else {
             do w = write(c->fd, s, n); while (w < 0 && errno == EINTR);
             if (w <= 0) { snprintf(c->err, sizeof c->err, "write"); return -1; }
