@@ -96,6 +96,10 @@ int http_content_length(const char *v, unsigned long long *out) {
     return 0;
 }
 
+static int http_field_name_char(unsigned char c) {
+    return isalnum(c) || strchr("!#$%&'*+-.^_\x60|~", c) != NULL;
+}
+
 static int hdr_get(const char *line, const char *name, char *out, size_t cap) {
     size_t n = strlen(name);
     if (strncasecmp(line, name, n) || line[n] != ':') return 0;
@@ -143,9 +147,10 @@ int http_request(Conn *c, const char *method, const char *host, const char *path
         hdr_total += ll;
         if (hdr_total > 64 * 1024) { free(line); return -1; }          /* headers: 64 KB at most */
         if (!strcmp(line, "\r\n") || !strcmp(line, "\n")) { free(line); done = 1; break; }
-        if (line[0] == ' ' || line[0] == '\t' || !strchr(line, ':') || strchr(line, ':') == line) {
-            free(line);
-            return -1;
+        char *colon = strchr(line, ':');
+        if (!colon || colon == line) { free(line); return -1; }
+        for (const unsigned char *p = (const unsigned char *)line; p < (const unsigned char *)colon; p++) {
+            if (!http_field_name_char(*p)) { free(line); return -1; }
         }
         char v[64] = "";
         int hv = hdr_get(line, "Content-Length", v, sizeof v);
