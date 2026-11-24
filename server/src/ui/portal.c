@@ -1258,7 +1258,7 @@ static uint32_t rcall_seq;
 static int cast_idx(const CsSess *s) { return (int)(s - csm.s); }
 /* the Screenshot portal's one request (below) */
 enum { SH_FREE, SH_ASKING, SH_CHOOSING, SH_SAVING };
-static struct { int id, color, st; uint32_t serial; unsigned pid; char who[128], sender[256], handle[400]; } shot;
+static struct { int id, color, st, revoked; uint32_t serial; unsigned pid; char who[128], sender[256], handle[400]; } shot;
 static int shot_seq;
 static int shot_busy(void);             /* a Screenshot request is being answered */
 
@@ -1701,6 +1701,19 @@ void portal_cast_revoke(const char *fwid) {
     }
 }
 
+/* A Screenshot/PickColor request is also a screen-capture capability. A save already
+ * handed to lord-media cannot be interrupted safely, so mark it revoked and discard its
+ * completed file in portal_shot_saved before it can be delivered to the caller. */
+void portal_shot_revoke(const char *fwid) {
+    if (shot.st == SH_FREE) return;
+    int match = fwid && shot.who[0] && !strcmp(shot.who, fwid);
+    if (!shot.who[0] && appid_running(screen_restricted, NULL)) match = 1;
+    if (!match) return;
+    if (shot.st == SH_SAVING) { shot.revoked = 1; return; }
+    respond(shot.sender, shot.handle, 2);
+    shot_gone(1);
+}
+
 void portal_cast_shown(int id) {
     CsSess *s = csm_by_id(&csm, id);
     if (s && s->st == CS_STARTED) cast_shown(id);
@@ -1797,6 +1810,9 @@ static void shot_taken(void) {
 
 void portal_shot_chosen(int id, const CastSource *src, const int *area, const char *path) {
     if (shot.st != SH_CHOOSING || shot.id != id || shot.color) return;
+    if (shot.revoked || csm_gate(shot.who[0] != 0, shot.who[0] && restrict_blocks(shot.who, FW_R_NO_SCREEN), !shot.who[0] && appid_running(screen_restricted, NULL)) == CSM_GATE_REFUSE) {
+        respond(shot.sender, shot.handle, 2); shot_gone(0); return;
+    }
     if (!src) { respond(shot.sender, shot.handle, 1); shot_gone(0); return; }
     if (src->kind != CAST_SRC_MONITOR && (area || src->kind != CAST_SRC_WINDOW)) { respond(shot.sender, shot.handle, 2); shot_gone(0); return; }
     shot.st = SH_SAVING;
@@ -1814,6 +1830,12 @@ static void uri_result(DBuf *b, const char *path) {
 
 void portal_shot_saved(int tag, int ok, const char *path) {
     if (shot.st != SH_SAVING || shot.id != tag) return;
+    if (shot.revoked || (shot.who[0] ? restrict_blocks(shot.who, FW_R_NO_SCREEN) : appid_running(screen_restricted, NULL))) {
+        if (path) unlink(path);             /* the encoder may have finished after revocation */
+        respond(shot.sender, shot.handle, 2);
+        shot_gone(0);
+        return;
+    }
     /* a Flatpak app gets exactly that file lent into its view; anyone else its real path */
     char lent[PATH_MAX + 128];
     int r = ok && path ? (shot.pid ? fplend_lend(shot.pid, path, FPLEND_FILE, lent, sizeof lent) : 1) : -1;
@@ -1842,6 +1864,9 @@ void portal_shot_saved(int tag, int ok, const char *path) {
 
 void portal_color_chosen(int id, const CastSource *src, int x, int y) {
     if (shot.st != SH_CHOOSING || shot.id != id || !shot.color) return;
+    if (shot.revoked || csm_gate(shot.who[0] != 0, shot.who[0] && restrict_blocks(shot.who, FW_R_NO_SCREEN), !shot.who[0] && appid_running(screen_restricted, NULL)) == CSM_GATE_REFUSE) {
+        respond(shot.sender, shot.handle, 2); shot_gone(0); return;
+    }
     double rgb[3];
     if (!src) { respond(shot.sender, shot.handle, 1); shot_gone(0); return; }
     if (src->kind != CAST_SRC_MONITOR || portal_shot_pixel(src, x, y, rgb)) { respond(shot.sender, shot.handle, 2); shot_gone(0); return; }
