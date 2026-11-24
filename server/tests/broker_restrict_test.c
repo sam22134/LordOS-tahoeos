@@ -244,7 +244,7 @@ int main(void) {
     int writes_before = clip_writes;
     CALLS(BOP_CLIP_SET, "blocked-write");
     check(denied_with("fw.restricted.clipboard") && clip_writes == writes_before, "clipboard: no-clipboard refuses writes");
-    char secret_payload[] = "5\\0secret";
+    char secret_payload[] = "5\0secret";
     call(BOP_CLIP_SECRET, secret_payload, sizeof secret_payload - 1);
     check(denied_with("fw.restricted.clipboard") && clip_writes == writes_before, "clipboard: no-clipboard refuses sensitive writes");
     check(call(BOP_CLIP_GET, NULL, 0) && denied_with("fw.restricted.clipboard"), "clipboard: no-clipboard refuses it with fw.restricted.clipboard");
