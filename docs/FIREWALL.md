@@ -134,8 +134,8 @@ reloading anything. What each kind of app goes through:
   - `BOP_CAMERA`: `list` returns no cameras, `open` is refused, and photo or video saves (they are
     user files) are refused under `no-files`;
   - `BOP_MIC`, `BOP_PICK` (the file picker), `BOP_CLIP_GET` (reading the clipboard) and
-    new `BOP_VAULT_FIDO` attachments (the USB security key of Passwords) are refused; a FIDO
-    descriptor already handed to `lord-vault` remains open until that helper replaces it or exits;
+    new `BOP_VAULT_FIDO` attachments (the USB security key of Passwords) are refused; an attached
+    FIDO descriptor is withdrawn on `no-usb`, USB-permission revocation or Passwords app exit;
   - `BOP_DEVICE` does not light the indicator for a restricted device;
   - a prompt the user allows, or a file the user picks, after the app was restricted is refused too.
 - **Built-in apps inside `lord-server` (firewall id `lordos`).** They share one JS context with
@@ -156,13 +156,14 @@ reloading anything. What each kind of app goes through:
 **Live revocation.** Adding a restriction to a running app (`restrict_changed()`, called by
 `setRestricted`) revokes resources that have an explicit teardown path: for an isolated app
 `brokersrv_revoke()` sends `revoke`, kills the camera's `lord-media`, closes the microphone stream
-and stops a camera video that records sound; for the built-in apps a hook in `js_media.c` kills
-the camera helper (the window gets `closed` with `revoked`) and finishes microphone and screen
-recordings properly. New notifications and file picks are refused from that moment. There is not
-yet an equivalent teardown for a FIDO descriptor already passed to `lord-vault`: `no-usb` blocks
-subsequent broker attachments, but an operation using the previously attached descriptor may
-continue. Linux-app device descriptors already open before `no-usb` or `no-camera` likewise remain
-usable, as described below.
+and stops a camera video that records sound; for Passwords, `brokersrv_revoke()` withdraws
+the FIDO descriptor from `lord-vault`. If a CTAP2 command is already in progress it cannot be
+interrupted safely: its result is discarded, follow-up commands are skipped, and the worker's fd
+is closed as soon as that command returns. For the built-in apps a hook in `js_media.c` kills the
+camera helper (the window gets `closed` with `revoked`) and finishes microphone and screen
+recordings properly. New notifications and file picks are refused from that moment. Linux-app
+device descriptors already open before `no-usb` or `no-camera` likewise remain usable, as
+described below.
 
 Tested by `server/tests/broker_restrict_test.c` (`make -C server test`): the real broker code
 against a fake app, every restriction with and without it, no prompt, the error codes, live
