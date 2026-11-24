@@ -217,12 +217,12 @@ static int imap_open(Imap *im, char *err, size_t ecap) {
         if (im->sasl_ir) r = cmd(im, NULL, NULL, "AUTHENTICATE PLAIN %s", e);
         else {
             int tag = ++im->tag;
-            if (conn_printf(im->c, "A%04d AUTHENTICATE PLAIN\\r\\n", tag)) r = -1;
+            if (conn_printf(im->c, "A%04d AUTHENTICATE PLAIN\r\n", tag)) r = -1;
             else {
                 size_t ll;
                 char *plus = read_raw(im, &ll);
                 if (!plus || plus[0] != '+') r = -1;
-                else if (conn_write(im->c, e, el) || conn_write(im->c, "\\r\\n", 2)) r = -1;
+                else if (conn_write(im->c, e, el) || conn_write(im->c, "\r\n", 2)) r = -1;
                 else r = wait_tag(im, tag, NULL, NULL);
                 free(plus);
             }
