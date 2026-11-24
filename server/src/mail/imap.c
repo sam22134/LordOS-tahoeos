@@ -145,20 +145,20 @@ static int imap_open(Imap *im, char *err, size_t ecap) {
     pthread_mutex_lock(&G);
     char *pw = a->password ? strdup(a->password) : NULL;
     pthread_mutex_unlock(&G);
-    if (!strcmp(a->auth, "oauth2")) { free(pw); snprintf(err, ecap, "oauth-disabled"); return -2; }
+    if (!strcmp(a->auth, "oauth2")) { if (pw) { explicit_bzero(pw, strlen(pw)); free(pw); } snprintf(err, ecap, "oauth-disabled"); return -2; }
     if (!pw) { need_auth(a); snprintf(err, ecap, "no-password"); return -2; }
     TlsInfo ti;
     char why[64];
     im->c = open_conn(a->id, 0, a->imap.host, a->imap.port, a->imap.sec == SEC_SSL, a->pin_imap, &ti, why, sizeof why);
-    if (!im->c) { free(pw); snprintf(err, ecap, "%s", why); return !strcmp(why, "cert") ? -3 : -1; }
+    if (!im->c) { explicit_bzero(pw, strlen(pw)); free(pw); snprintf(err, ecap, "%s", why); return !strcmp(why, "cert") ? -3 : -1; }
     size_t len;
     char *greet = read_raw(im, &len);
-    if (!greet) { free(pw); snprintf(err, ecap, "greeting"); imap_close(im); return -1; }
+    if (!greet) { explicit_bzero(pw, strlen(pw)); free(pw); snprintf(err, ecap, "greeting"); imap_close(im); return -1; }
     parse_caps(im, greet);
     free(greet);
     if (a->imap.sec == SEC_STARTTLS) {
         if (!im->caps[0]) cmd(im, NULL, NULL, "CAPABILITY");
-        if (!has_cap(im, "STARTTLS") || cmd(im, NULL, NULL, "STARTTLS")) { free(pw); snprintf(err, ecap, "no-starttls"); imap_close(im); return -1; }
+        if (!has_cap(im, "STARTTLS") || cmd(im, NULL, NULL, "STARTTLS")) { explicit_bzero(pw, strlen(pw)); free(pw); snprintf(err, ecap, "no-starttls"); imap_close(im); return -1; }
         if (conn_tls(im->c, a->pin_imap, &ti)) {
             JBuf b;
             jb_init(&b);
@@ -170,6 +170,7 @@ static int imap_open(Imap *im, char *err, size_t ecap) {
             jb_raw(&b, ",\"sha256\":"); jb_str(&b, ti.sha256);
             jb_raw(&b, "}");
             if (ti.code) send_event(&b); else jb_free(&b);
+            explicit_bzero(pw, strlen(pw));
             free(pw);
             snprintf(err, ecap, "%s", ti.code ? "cert" : "tls");
             conn_close(im->c);
@@ -179,12 +180,14 @@ static int imap_open(Imap *im, char *err, size_t ecap) {
         im->caps[0] = 0;
     } else if (a->imap.sec == SEC_NONE) {
         /* never send a password in the clear */
+        explicit_bzero(pw, strlen(pw));
         free(pw);
         snprintf(err, ecap, "insecure");
         imap_close(im);
         return -1;
     }
     if (!im->caps[0] && cmd(im, NULL, NULL, "CAPABILITY")) {
+        explicit_bzero(pw, strlen(pw));
         free(pw);
         snprintf(err, ecap, "capability");
         imap_close(im);
