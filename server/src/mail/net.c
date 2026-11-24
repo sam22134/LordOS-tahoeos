@@ -171,6 +171,10 @@ static int wait_ssl(Conn *c, short events) {
     do r = poll(&p, 1, c->timeout); while (r < 0 && errno == EINTR);
     if (r == 0) snprintf(c->err, sizeof c->err, "timeout");
     else if (r < 0) snprintf(c->err, sizeof c->err, "poll");
+    else if (!(p.revents & events)) {
+        snprintf(c->err, sizeof c->err, p.revents & POLLNVAL ? "poll" : "closed");
+        return -1;
+    }
     return r;
 }
 
