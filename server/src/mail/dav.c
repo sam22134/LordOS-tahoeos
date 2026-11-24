@@ -14,7 +14,7 @@
 
 static int dav_same_origin_url(const char *a, const char *b) {
     int at, ap, bt, bp;
-    char ah[256], bh[256], ax[8], bx[8];
+    char ah[256], bh[256], ax[2048], bx[2048];
     if (http_split_url(a, &at, ah, sizeof ah, &ap, ax, sizeof ax) ||
         http_split_url(b, &bt, bh, sizeof bh, &bp, bx, sizeof bx)) return 0;
     return at == bt && ap == bp && !strcasecmp(ah, bh);
