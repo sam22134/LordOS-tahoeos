@@ -12,6 +12,14 @@
 
 #define DAV_MAX_BODY ((size_t)48 << 20)
 
+static int dav_same_origin_url(const char *a, const char *b) {
+    int at, ap, bt, bp;
+    char ah[256], bh[256], ax[8], bx[8];
+    if (http_split_url(a, &at, ah, sizeof ah, &ap, ax, sizeof ax) ||
+        http_split_url(b, &bt, bh, sizeof bh, &bp, bx, sizeof bx)) return 0;
+    return at == bt && ap == bp && !strcasecmp(ah, bh);
+}
+
 static int dav_connect(Dav *d, const char *host, int port, int tls) {
     if (d->c && !strcmp(d->host, host) && d->port == port && d->tls == tls) return 0;
     if (d->c) { conn_close(d->c); d->c = NULL; }
@@ -72,7 +80,8 @@ int dav_req(Dav *d, const char *method, const char *target, int depth, const cha
         for (int attempt = 0; attempt < 2; attempt++) {
             if (dav_connect(d, host, port, tls)) return -1;
             char hdrs[2048];
-            snprintf(hdrs, sizeof hdrs, "%s%s%s%s%s%s", d->auth, depth >= 0 ? (depth == 0 ? "Depth: 0\r\n" : depth == 1 ? "Depth: 1\r\n" : "Depth: infinity\r\n") : "",
+            const char *auth = dav_same_origin_url(d->a->url, cur) ? d->auth : "";
+            snprintf(hdrs, sizeof hdrs, "%s%s%s%s%s%s", auth, depth >= 0 ? (depth == 0 ? "Depth: 0\r\n" : depth == 1 ? "Depth: 1\r\n" : "Depth: infinity\r\n") : "",
                      ctype ? "Content-Type: " : "", ctype ? ctype : "", ctype ? "\r\n" : "", extra ? extra : "");
             int r = http_request(d->c, method, host, path, hdrs, body, body ? strlen(body) : 0, DAV_MAX_BODY, 60000, out);
             if (r == -1 && attempt == 0) { conn_close(d->c); d->c = NULL; continue; }      /* the server closed a kept-alive connection */
