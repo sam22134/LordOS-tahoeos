@@ -45,6 +45,7 @@ else:
     res["open_block_device"] = "no-device"
 # the session's sockets: none reachable except the display and the sound server's
 t("connect_session_bus", lambda: conn(rt + "/bus"))
+t("connect_system_bus", lambda: conn("/run/dbus/system_bus_socket"))
 t("connect_systemd_private", lambda: conn(rt + "/systemd/private"))
 t("connect_pipewire_manager", lambda: conn(rt + "/pipewire-0-manager"))
 t("connect_wayland", lambda: conn(rt + "/" + os.environ.get("WAYLAND_DISPLAY", "wayland-0")))
