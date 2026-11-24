@@ -179,6 +179,7 @@ void brokersrv_revoke(const char *app, const char *perm) {
     if (!strcmp(perm, "microphone")) for (int i = 0; i < MAX_APPS; i++)
         if (apps[i].used && !strcmp(apps[i].id, app) && apps[i].mic) { maudio_close(apps[i].mic); apps[i].mic = NULL; }
     if (!strcmp(perm, "microphone")) brokercam_revoke_mic(app);
+    if (!strcmp(perm, "usb") && !strcmp(app, "passwords")) vc_fido_revoke();
     if (!strcmp(perm, "camera")) brokercam_revoke(app);     /* kills its lord-media: the stream stops now */
     if (!strcmp(perm, "status-item")) for (int i = 0; i < MAX_APPS; i++) if (apps[i].used && !strcmp(apps[i].id, app)) status_off(&apps[i]);
     if (!strcmp(perm, "camera") || !strcmp(perm, "microphone"))
@@ -340,6 +341,7 @@ int brokersrv_conn_link(int conn, const char *msg, int passfd) {
 int brokersrv_count(void) { int n = 0; for (int i = 0; i < MAX_APPS; i++) n += apps[i].used; return n; }
 
 static void drop(AppConn *a) {
+    if (a->vault) vc_fido_revoke();
     brokercam_conn_closed((int)(a - apps));
     brokerkr_conn_closed((int)(a - apps));
     brokermail_conn_closed((int)(a - apps));
