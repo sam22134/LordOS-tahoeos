@@ -1101,6 +1101,8 @@ static void test_dav(void) {
     CHECK(!dav_href_resolve("https://dav.example.test:5233/ana/", "/ana/cal/", o, sizeof o)); CHECKS(o, "https://dav.example.test:5233/ana/cal/");
     CHECK(!dav_href_resolve("https://dav.example.test/ana/cal/", "x 1.ics", o, sizeof o)); CHECKS(o, "https://dav.example.test/ana/cal/x%201.ics");
     CHECK(!dav_href_resolve("https://dav.example.test/ana/cal/a.ics", "b.ics", o, sizeof o)); CHECKS(o, "https://dav.example.test/ana/cal/b.ics");
+    CHECK(!dav_href_resolve("https://dav.example.test/ana/cal/a.ics?old=1", "?new=2", o, sizeof o)); CHECKS(o, "https://dav.example.test/ana/cal/a.ics?new=2");
+    CHECK(!dav_href_resolve("https://dav.example.test/ana/cal/a.ics?old=1", "#section", o, sizeof o)); CHECKS(o, "https://dav.example.test/ana/cal/a.ics?old=1#section");
     CHECK(!dav_href_resolve("https://dav.example.test", "b.ics", o, sizeof o)); CHECKS(o, "https://dav.example.test/b.ics");
     CHECK(!dav_href_resolve("https://a.example.test/", "HTTPS://P07-X.Example.TEST:443/1/c/", o, sizeof o)); CHECKS(o, "https://p07-x.example.test/1/c/");
     CHECK(!dav_href_resolve("https://a.example.test/", "  /trim/  ", o, sizeof o)); CHECKS(o, "https://a.example.test/trim/");
