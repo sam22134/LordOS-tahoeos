@@ -25,6 +25,7 @@ int   vc_pending(void);                       /* requests without a reply */
 void  vc_lock_all(const char *why);           /* "screen", "switch", "logout", "idle" */
 void  vc_session_password(const char *pass);  /* from lord-sessiond: open the session keyring */
 int   vc_fido_attach(char *name, size_t n);   /* opens the first FIDO2 key and hands it to lord-vault */
+void  vc_fido_revoke(void);                   /* withdraws the attached key; an active operation is cancelled safely */
 void  vc_prompt_done(unsigned prompt, int ok);/* result of the Secret Service unlock prompt */
 /* Dedicated channel for the sandboxed Passwords app process: returns the fd of the other end. */
 int   vc_attach_app(void);
