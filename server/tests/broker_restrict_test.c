@@ -53,6 +53,8 @@ const char *kb_variants(void) { return ""; }
 int kb_group(void) { return 0; }
 void sha256(const void *d, size_t n, uint8_t out[32]) { (void)d; (void)n; memset(out, 0, 32); }
 int vc_fido_attach(char *name, size_t n) { snprintf(name, n, "test key"); return 0; }
+static int fido_revokes;
+void vc_fido_revoke(void) { fido_revokes++; }
 void brokerkr_handle(int conn, int fd, uint32_t reqid, const char *app, char *payload, uint32_t len) { (void)conn; (void)fd; (void)reqid; (void)app; (void)payload; (void)len; }
 int brokerkr_resolve(uint32_t prompt, int allow) { (void)prompt; (void)allow; return 0; }
 void brokerkr_conn_closed(int conn) { (void)conn; }
@@ -339,6 +341,13 @@ int main(void) {
     restrict_app("lpk:game", FW_R_NO_USB);
     check(call(BOP_VAULT_FIDO, NULL, 0) && denied_with("fw.restricted.usb"), "usb: no-usb refuses it with fw.restricted.usb");
     restrict_app("lpk:game", 0);
+    int fido_revokes_before = fido_revokes;
+    restrict_app("lpk:passwords", FW_R_NO_USB);
+    check(fido_revokes == fido_revokes_before + 1, "usb: adding no-usb to Passwords withdraws the attached FIDO descriptor");
+    restrict_app("lpk:passwords", 0);
+    fido_revokes_before = fido_revokes;
+    brokersrv_revoke("passwords", "usb");
+    check(fido_revokes == fido_revokes_before + 1, "usb: revoking the saved USB permission withdraws the FIDO descriptor");
 
     /* ---- other apps and ids ---- */
     restrict_app("lpk:other", FW_R_ALL);
