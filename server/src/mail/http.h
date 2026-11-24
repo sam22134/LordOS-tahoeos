@@ -20,7 +20,7 @@ typedef struct {
 /* URL pieces: https only unless http is allowed. 0 ok. */
 int  http_split_url(const char *url, int *tls, char *host, size_t hcap, int *port, char *path, size_t pcap);
 /* One request on an open connection. extra_headers: "Name: value\r\n…" or NULL. 0 ok (any status). */
-int  http_request(Conn *c, const char *method, const char *host, const char *path, const char *extra_headers,
+int  http_request(Conn *c, const char *method, const char *host, int port, const char *path, const char *extra_headers,
                   const char *body, size_t blen, size_t max_body, int deadline_ms, HttpResp *out);
 void http_resp_free(HttpResp *r);
 /* strict parsers (exposed for tests): 0 ok, -1 invalid */
