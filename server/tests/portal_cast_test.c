@@ -43,7 +43,8 @@ int cast_begin(int id, const CastSource *src, int n, int cursor_embedded) {
     memcpy(begun_src, src, sizeof src[0] * (size_t)n);
     return 0;
 }
-void cast_end(int id) { (void)id; }
+static int cast_ends;
+void cast_end(int id) { (void)id; cast_ends++; }
 int cast_remote(int id, uint32_t req) { (void)id; (void)req; return -1; }
 void cast_shown(int id) { (void)id; }
 int cast_thumb(const CastSource *src, int max) { (void)src; (void)max; return 0; }
@@ -346,6 +347,28 @@ int main(void) {
     shared("r8", s4, t5);
     session_close(s4);
     CHECK(!asks_again("r9", t5));                               /* a new token works again once unlocked */
+
+    /* 5c. Firewall revocation ends this app's active share, drops its restore token and
+     * leaves the portal indicator empty. */
+    int ends_before = cast_ends;
+    shared("r10", s4, t5);
+    CHECK(strlen(t5) == 32);
+    portal_cast_revoke(fake_app);
+    pump(100);
+    CHECK(cast_ends == ends_before + 1);
+    CHECK(!strcmp(last_kind, "portal-casts") && !strcmp(last_json, "[]"));
+    CHECK(asks_again("r11", t5));                                  /* token was revoked */
+
+    /* 5d. A restriction added while the chooser is open is checked again on selection. */
+    emits_cast = 0;
+    cast_start("r12", NULL, s4);
+    CHECK(emits_cast == 1);
+    ends_before = cast_ends;
+    screen_blocked = 1;
+    portal_cast_chosen(json_id(), &mon, 1);
+    pump(100);
+    CHECK(cast_ends == ends_before + 1);
+    screen_blocked = 0;
 
     /* 6. Screenshot: the chooser (always interactive), the file lent to a Flatpak app, the indicator */
     fake_app = "flatpak:org.flameshot.Flameshot";
