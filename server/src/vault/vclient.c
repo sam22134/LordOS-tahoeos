@@ -437,6 +437,13 @@ void vc_session_password(const char *pass) {
     explicit_bzero(j, sizeof j);
 }
 
+void vc_fido_revoke(void) {
+    pthread_mutex_lock(&mu);
+    int running = sock >= 0;
+    pthread_mutex_unlock(&mu);
+    if (running) ctl("{\"op\":\"fido-device\",\"name\":\"\"}", NULL, 0);
+}
+
 int vc_fido_attach(char *name, size_t n) {
     FidoDev d[4];
     int k = fidodev_list(d, 4);
