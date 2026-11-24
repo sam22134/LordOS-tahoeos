@@ -877,6 +877,9 @@ void brokersrv_dispatch(struct pollfd *pfd, int n) {
         char cbuf[CMSG_SPACE(16 * sizeof(int))];
         struct msghdr m = { .msg_iov = iov, .msg_iovlen = 2, .msg_control = cbuf, .msg_controllen = sizeof cbuf };
         ssize_t r = recvmsg(apps[i].fd, &m, MSG_CMSG_CLOEXEC);
+        /* poll can race with another consumer or a signal; transient receive
+         * failures are not evidence that the peer sent a malformed frame. */
+        if (r < 0 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)) { free(buf); continue; }
         int fds[16], nfds = 0;
         for (struct cmsghdr *c = CMSG_FIRSTHDR(&m); c; c = CMSG_NXTHDR(&m, c))
             if (c->cmsg_level == SOL_SOCKET && c->cmsg_type == SCM_RIGHTS) {
@@ -887,7 +890,7 @@ void brokersrv_dispatch(struct pollfd *pfd, int n) {
                     if (nfds < 16) fds[nfds++] = f; else close(f);
                 }
             }
-        if (r < (ssize_t)sizeof h || (m.msg_flags & MSG_CTRUNC)) { for (int j = 0; j < nfds; j++) close(fds[j]); free(buf); drop(&apps[i]); continue; }
+        if (r < (ssize_t)sizeof h || (m.msg_flags & (MSG_CTRUNC | MSG_TRUNC))) { for (int j = 0; j < nfds; j++) close(fds[j]); free(buf); drop(&apps[i]); continue; }
         uint32_t len = (uint32_t)r - sizeof h;
         if (h.len != len || len > BROKER_MAX_MSG) { for (int j = 0; j < nfds; j++) close(fds[j]); free(buf); drop(&apps[i]); continue; }
         buf[len] = 0;
