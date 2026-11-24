@@ -69,6 +69,7 @@ int http_split_url(const char *url, int *tls, char *host, size_t hcap, int *port
         path[0] = '/';
         memcpy(path + 1, e, ql);
         path[ql + 1] = 0;
+        for (char *c = path; *c; c++) if ((unsigned char)*c <= 0x20 || *c == 0x7f) return -1;
         return 0;
     }
     if (pl >= pcap) return -1;
