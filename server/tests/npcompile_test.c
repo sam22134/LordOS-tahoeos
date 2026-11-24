@@ -428,6 +428,14 @@ static void bench(void) {
  * ("lordos"), and that they don't change any network decision. */
 static void device_cases(void) {
     const uint32_t HID = 242;
+    /* access_type is (device type << 16) | operation flags; READ/WRITE/MKNOD must not
+     * be mistaken for the device type. Exercise each operation encoding. */
+    CHECK(np_dev_type((NP_DEV_CHAR << 16) | 1u) == NP_DEV_CHAR); /* MKNOD */
+    CHECK(np_dev_type((NP_DEV_CHAR << 16) | 2u) == NP_DEV_CHAR); /* READ */
+    CHECK(np_dev_type((NP_DEV_CHAR << 16) | 4u) == NP_DEV_CHAR); /* WRITE */
+    CHECK(np_dev_type((NP_DEV_CHAR << 16) | 6u) == NP_DEV_CHAR); /* READ | WRITE */
+    CHECK(np_dev_restriction(np_dev_type((NP_DEV_CHAR << 16) | 4u), 189, HID) == NP_R_NO_USB);
+    CHECK(np_dev_restriction(np_dev_type((NP_DEV_CHAR << 16) | 6u), 81, HID) == NP_R_NO_CAMERA);
     CHECK(np_dev_restriction(NP_DEV_CHAR, 81, HID) == NP_R_NO_CAMERA);          /* /dev/video* */
     CHECK(np_dev_restriction(NP_DEV_CHAR, 29, HID) == NP_R_NO_SCREEN);          /* /dev/fb* */
     CHECK(np_dev_restriction(NP_DEV_CHAR, 189, HID) == NP_R_NO_USB);            /* /dev/bus/usb */
