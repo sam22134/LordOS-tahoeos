@@ -393,9 +393,14 @@ static int deliver(Account *a, const JVal *m, const char *raw, size_t rl, char *
     const char *lists[] = { "to", "cc", "bcc" };
     for (int l = 0; l < 3; l++) {
         const JVal *arr = json_get(m, lists[l]);
-        for (const JVal *x = arr && arr->type == J_ARR ? arr->kid : NULL; x && nr < 300; x = x->next) {
+        for (const JVal *x = arr && arr->type == J_ARR ? arr->kid : NULL; x; x = x->next) {
             const char *e = json_str(x, "email");
-            if (valid_email(e)) rcpt[nr++] = e;
+            if (!valid_email(e)) continue;
+            if (nr == (int)(sizeof rcpt / sizeof rcpt[0])) {
+                snprintf(err, ecap, "too many recipients (maximum 300)");
+                return -1;
+            }
+            rcpt[nr++] = e;
         }
     }
     if (!nr) { snprintf(err, ecap, "no recipients"); return -1; }
