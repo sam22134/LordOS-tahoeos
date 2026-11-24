@@ -24,14 +24,16 @@ bad() { fail=$((fail+1)); echo "  BAD:  $*"; }
 python3 - <<'PY'
 import json, socket, struct
 s = socket.socket(socket.AF_UNIX); s.settimeout(3); s.connect('/run/lordos/netperm.sock')
-h = s.recv(5)
-if len(h) != 5: raise SystemExit('no initial status from lord-netperm')
+def recv_exact(n):
+    data = b''
+    while len(data) < n:
+        part = s.recv(n - len(data))
+        if not part: raise SystemExit('truncated status')
+        data += part
+    return data
+h = recv_exact(5)
 length, kind = struct.unpack('<IB', h)
-body = b''
-while len(body) < length - 1:
-    part = s.recv(length - 1 - len(body))
-    if not part: raise SystemExit('truncated status')
-    body += part
+body = recv_exact(length - 1)
 if kind != 10: raise SystemExit('expected STATUS (10), got ' + str(kind))
 status = json.loads(body)
 if status.get('bpf') is not True or status.get('attached') is not True:
