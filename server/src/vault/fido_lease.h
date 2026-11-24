@@ -36,6 +36,15 @@ static inline int fido_lease_revoked(const FidoLease *l) {
     return l && atomic_load_explicit(&l->revoked, memory_order_acquire);
 }
 
+/* Atomically reserve the next CTAP command against a concurrent revoke. A successful CAS means
+ * the command began before revocation; after the revoke store, no later command can start. */
+static inline int fido_lease_command_begin(const FidoLease *l) {
+    if (!l) return 0;
+    int active = 0;
+    return atomic_compare_exchange_strong_explicit((atomic_int *)&l->revoked, &active, 0,
+                                                    memory_order_acq_rel, memory_order_acquire);
+}
+
 /* Called only after the worker has stopped using job_fd. Returns 1 if the result was revoked. */
 static inline int fido_lease_finish(FidoLease *l) {
     if (!l || !l->busy) return 0;
