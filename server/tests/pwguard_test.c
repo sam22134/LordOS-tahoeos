@@ -263,7 +263,7 @@ static int test_pwguard_socket(char *dir, size_t dir_size, char *path, size_t pa
         listen(*server, 1) || setenv("XDG_RUNTIME_DIR", dir, 1) ||
         pwguard_start() != 0) return -1;
     *peer = accept(*server, NULL, NULL);
-    if (*peer >= 0) CHECK(pwguard_timeout_ms() == -1);
+    if (*peer >= 0) {\n        pwguard_tick();\n        int tick_ms = pwguard_timeout_ms();\n        CHECK(tick_ms > 0 && tick_ms <= 1000);\n    }
     return *peer < 0 ? -1 : 0;
 }
 
