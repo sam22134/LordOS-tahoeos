@@ -362,9 +362,9 @@ static void *fido_thread(void *arg) {
         fj.err = FIDO_ERR_NO_CREDENTIAL;
         Vault *v = &vaults[fj.v];
         for (int i = 0; i < v->h.nslots; i++) {
-            if (!fido_lease_command_begin(&fido_lease)) break;
             VSlot *s = &v->h.slots[i];
             if (s->type != VS_FIDO2) continue;
+            if (!fido_lease_command_begin(&fido_lease)) break;
             fj.slot_tried = i;
             fj.err = fido_hmac_secret(fj.fd, s->fido_pin ? pin : NULL, s->cred, s->cred_len, s->hmac_salt, fj.secret, 30000, fido_status, NULL);
             if (fido_lease_revoked(&fido_lease) || fj.err != FIDO_ERR_NO_CREDENTIAL) break;
