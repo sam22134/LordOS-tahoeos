@@ -157,6 +157,8 @@ int main(void) {
     snprintf(wpath, sizeof wpath, "%s/w.txt", home);
     int wo = open(wpath, O_WRONLY | O_CREAT, 0600);
     check(req(3, "{\"op\":\"contact-import\"}", &wo, 1) == BST_ERROR, "a write-only fd → refused");
+    int pathfd = open(wpath, O_PATH);
+    check(req(3, "{\"op\":\"contact-import\"}", &pathfd, 1) == BST_ERROR, "an O_PATH fd that cannot be read → refused");
     f = file_fd("dana.vcf", "BEGIN:VCARD\r\nEND:VCARD\r\n");
     check(req(3, "{\"op\":\"contact-import\"}", &f, 1) == BST_OK && req_nfds == 1, "Contacts: import a .vcf fd");
     f = file_fd("e.ics", "BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n");
