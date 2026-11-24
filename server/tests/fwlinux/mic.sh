@@ -115,11 +115,8 @@ after=$(stat -c %s "$f" 2>/dev/null || echo 0)
 kill "$RP" 2>/dev/null; wait "$RP" 2>/dev/null
 RP=
 [ "$before" -gt 20000 ] && ok "the pre-existing stream was recording before disconnect ($before bytes)" || bad "the pre-existing stream never recorded ($before bytes)"
-if [ "$during" -gt "$before" ]; then
-    [ "$after" = "$settled" ] && ok "the pre-existing stream stopped after the guard reconnected ($settled → $after)" || bad "the pre-existing stream kept recording after reconnection ($settled → $after)"
-else
-    ok "PipeWire had already stopped the pre-existing stream during guard downtime ($before → $during)"
-fi
+[ "$during" -gt "$before" ] && ok "the pre-existing stream remained active while the guard was disconnected ($before → $during)" || bad "the pre-existing stream did not remain active during guard downtime ($before → $during)"
+[ "$after" = "$settled" ] && ok "the pre-existing stream stopped after the guard reconnected ($settled → $after)" || bad "the pre-existing stream kept recording after reconnection ($settled → $after)"
 
 seen=$(in_scope "$SC" pw-dump 2>/dev/null | grep -c '"media.class": "Audio/Source"')
 all=$(pw-dump 2>/dev/null | grep -c '"media.class": "Audio/Source"')
