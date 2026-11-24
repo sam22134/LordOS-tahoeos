@@ -140,13 +140,18 @@ static void hdr_copy(const char *line, const char *name, char *out, size_t cap) 
     out[l] = 0;
 }
 
-int http_request(Conn *c, const char *method, const char *host, const char *path, const char *extra, const char *body, size_t blen,
+int http_request(Conn *c, const char *method, const char *host, int port, const char *path, const char *extra, const char *body, size_t blen,
                  size_t max_body, int deadline_ms, HttpResp *out) {
     memset(out, 0, sizeof *out);
     double end = now_ms() + (deadline_ms > 0 ? deadline_ms : 60000);
     char host_header[300];
-    if (strchr(host, ':')) snprintf(host_header, sizeof host_header, "[%s]", host);
-    else snprintf(host_header, sizeof host_header, "%s", host);
+    if (strchr(host, ':')) {
+        if (port == 443) snprintf(host_header, sizeof host_header, "[%s]", host);
+        else snprintf(host_header, sizeof host_header, "[%s]:%d", host, port);
+    } else {
+        if (port == 443) snprintf(host_header, sizeof host_header, "%s", host);
+        else snprintf(host_header, sizeof host_header, "%s:%d", host, port);
+    }
     if (conn_printf(c, "%s %s HTTP/1.1\r\nHost: %s\r\nUser-Agent: LordOS-Mail/1.0\r\nAccept-Encoding: identity\r\n%sContent-Length: %zu\r\n\r\n",
                     method, path, host_header, extra ? extra : "", body ? blen : 0)) return -1;
     if (body && blen && conn_write(c, body, blen)) return -1;
