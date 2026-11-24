@@ -1581,6 +1581,10 @@ void portal_cast_chosen(int id, const CastSource *src, int n) {
     snprintf(req, sizeof req, "%s", s->req);
     uint32_t kinds[CSM_MAX_SOURCES];
     if (n < 0) n = 0;
+    /* The firewall may have changed while the chooser was open. Recheck at the point
+     * where the selected source would otherwise become a live capture. */
+    int ci = cast_idx(s);
+    if (cast_app[ci].who[0] && restrict_blocks(cast_app[ci].who, FW_R_NO_SCREEN)) { cast_close(s, 1); return; }
     for (int i = 0; i < n && i < CSM_MAX_SOURCES; i++) kinds[i] = (uint32_t)src[i].kind;
     int e = csm_chosen(&csm, s, kinds, n);
     if (e) { respond(s->sender, req, 2); csm_chosen(&csm, s, NULL, 0); return; }
@@ -1685,6 +1689,16 @@ void portal_cast_tokens_drop(void) { csm_token_drop(&csm, NULL); }
 void portal_cast_stop(int id) {
     CsSess *s = csm_by_id(&csm, id);
     if (s && s->st == CS_STARTED) cast_close(s, 1);
+}
+
+/* A firewall restriction applies to the portal as well as to new requests. Match only the
+ * identity obtained from the bus credentials; never a process-supplied application name. */
+void portal_cast_revoke(const char *fwid) {
+    if (!fwid || !fwid[0]) return;
+    for (int i = 0; i < CSM_MAX; i++) {
+        CsSess *s = &csm.s[i];
+        if (s->st != CS_FREE && cast_app[i].who[0] && !strcmp(cast_app[i].who, fwid)) cast_close(s, 1);
+    }
 }
 
 void portal_cast_shown(int id) {
