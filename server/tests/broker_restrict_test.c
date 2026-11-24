@@ -43,8 +43,9 @@ int share_companion(const char *id, int may_input) { (void)id; (void)may_input; 
 int statusitem_clean(const char *app, const char *json, size_t len, char *out, size_t n) { (void)app; (void)json; (void)len; snprintf(out, n, "{}"); return 0; }
 int statusitem_id_ok(const char *id) { (void)id; return 1; }
 const char *term_clipboard(void) { return "clipboard text"; }
-void term_set_clipboard(const char *s, size_t n) { (void)s; (void)n; }
-void term_clipboard_mark(const char *app, int secret) { (void)app; (void)secret; }
+static int clip_writes, clip_secret_marks;
+void term_set_clipboard(const char *s, size_t n) { (void)s; (void)n; clip_writes++; }
+void term_clipboard_mark(const char *app, int secret) { (void)app; clip_secret_marks += secret; }
 unsigned term_clipboard_gen(void) { return 1; }
 unsigned wl_clip_image_gen(void) { return 0; }
 void term_clipboard_wipe(void) {}
@@ -237,7 +238,15 @@ int main(void) {
     check(call(BOP_COMPANION, NULL, 0) && got_status == BST_DENIED && !spawned, "companion: an app from the home folder is refused, nothing started");
     check(call(BOP_STATUS, "{}", 2) && got_status == BST_DENIED, "status item: refused without the permission");
     check(call(BOP_CLIP_GET, NULL, 0) && got_status == BST_OK && !strcmp(got, "clipboard text"), "clipboard: read with the permission");
+    CALLS(BOP_CLIP_SET, "write-test");
+    check(got_status == BST_OK && clip_writes == 1, "clipboard: write with permission");
     restrict_app("lpk:game", FW_R_NO_CLIPBOARD);
+    int writes_before = clip_writes;
+    CALLS(BOP_CLIP_SET, "blocked-write");
+    check(denied_with("fw.restricted.clipboard") && clip_writes == writes_before, "clipboard: no-clipboard refuses writes");
+    char secret_payload[] = "5\\0secret";
+    call(BOP_CLIP_SECRET, secret_payload, sizeof secret_payload - 1);
+    check(denied_with("fw.restricted.clipboard") && clip_writes == writes_before, "clipboard: no-clipboard refuses sensitive writes");
     check(call(BOP_CLIP_GET, NULL, 0) && denied_with("fw.restricted.clipboard"), "clipboard: no-clipboard refuses it with fw.restricted.clipboard");
     check(strstr(got, "app=game") != NULL, "clipboard: the code line names the app");
     restrict_app("lpk:game", 0);
