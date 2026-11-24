@@ -289,8 +289,8 @@ int smtp_send(Account *a, const char *from, const char **rcpt, int nrcpt, const 
             }
             goto out;
         }
-        conn_printf(c, "EHLO lordos\r\n");
-        if (smtp_reply(c, text, sizeof text, caps, sizeof caps) != 250) { snprintf(err, ecap, "EHLO: %s", text); goto out; }
+        if (conn_printf(c, "EHLO lordos\r\n") ||
+            smtp_reply(c, text, sizeof text, caps, sizeof caps) != 250) { snprintf(err, ecap, "EHLO: %s", text); goto out; }
     }
     /* AUTH PLAIN (or LOGIN) */
     {
@@ -311,7 +311,11 @@ int smtp_send(Account *a, const char *from, const char **rcpt, int nrcpt, const 
         } else if (smtp_has_cap(caps, "LOGIN")) {
             size_t el;
             code = smtp_cmd(c, text, sizeof text, "AUTH LOGIN%s", "");
-            if (code == 334) { char *e = b64_encode((const unsigned char *)a->user, ul, 0, &el); code = e ? smtp_cmd(c, text, sizeof text, "%s", e) : -1; free(e); }
+            if (code == 334) {
+                char *e = b64_encode((const unsigned char *)a->user, ul, 0, &el);
+                code = e ? smtp_cmd(c, text, sizeof text, "%s", e) : -1;
+                if (e) { explicit_bzero(e, el); free(e); }
+            }
             if (code == 334) { char *e = b64_encode((const unsigned char *)pw, pl, 0, &el); code = e ? smtp_cmd(c, text, sizeof text, "%s", e) : -1; if (e) { explicit_bzero(e, el); free(e); } }
         } else {
             snprintf(err, ecap, "server offers no supported AUTH mechanism");
