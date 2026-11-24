@@ -188,6 +188,7 @@ char *compose_message(Account *a, const JVal *m, int *fds, int nfds, size_t *ole
 
 static int smtp_reply(Conn *c, char *text, size_t tcap, char *caps, size_t ccap) {
     int code = -1, complete = 0;
+    if (text && tcap) text[0] = 0;
     if (caps && ccap) caps[0] = 0;
     for (int n = 0; n < 100; n++) {
         size_t l;
