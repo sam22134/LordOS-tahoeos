@@ -359,6 +359,19 @@ int main(void) {
     CHECK(!strcmp(last_kind, "portal-casts") && !strcmp(last_json, "[]"));
     CHECK(asks_again("r11", t5));                                  /* token was revoked */
 
+    /* Only the app named by the rule is stopped; another app keeps its own stream. */
+    char other_session[400], other_token[64];
+    shared("r13", s4, t5);
+    fake_app = "desktop:org.example.Other";
+    shared("r14", other_session, other_token);
+    fake_app = "flatpak:org.chromium.Chromium";
+    ends_before = cast_ends;
+    portal_cast_revoke(fake_app);
+    pump(100);
+    CHECK(cast_ends == ends_before + 1);
+    CHECK(strstr(last_json, "desktop:org.example.Other") != NULL);
+    session_close(other_session);
+
     /* 5d. A restriction added while the chooser is open is checked again on selection. */
     emits_cast = 0;
     cast_start("r12", NULL, s4);
