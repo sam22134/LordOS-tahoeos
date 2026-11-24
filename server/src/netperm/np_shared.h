@@ -26,8 +26,8 @@
  *                                                     resolution, time, the network service), counted only
  *
  * Besides the network, the same per-app policy carries the device restrictions (docs/FIREWALL.md,
- * "Linux apps"): "no camera", "no USB" and "no screen capture" (/dev/fb*) (cgroup/dev, by device
- * major) and "no Bluetooth"
+ * "Linux apps"): "no files" (block devices), "no camera", "no USB" and "no screen capture"
+ * (/dev/fb*) (cgroup/dev, by device type/major) and "no Bluetooth"
  * (socket(AF_BLUETOOTH), cgroup/lsm_socket_create).
  */
 #ifndef LORD_NP_SHARED_H
