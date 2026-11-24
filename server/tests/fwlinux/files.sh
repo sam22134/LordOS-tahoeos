@@ -67,6 +67,7 @@ probe
 expect read_documents ok
 expect list_home ok
 expect connect_session_bus ok
+if [ -S /run/dbus/system_bus_socket ]; then expect connect_system_bus ok; fi
 if [ -n "$BLOCK_ARG" ]; then expect open_block_device ok; else ok "no block device available for raw-device probe"; fi
 rm -f ~/.cache/fwprobe/escaped ~/.config/autostart/fwlinux.desktop ~/.local/share/applications/fwlinux-evil.desktop
 
@@ -90,6 +91,7 @@ expect write_runtime_dir ok
 expect connect_wayland ok
 expect connect_pipewire ok
 expect connect_session_bus "No such file"
+if [ -S /run/dbus/system_bus_socket ]; then expect connect_system_bus ok; fi
 expect connect_systemd_private "No such file"
 expect connect_pipewire_manager "No such file"
 expect outside_proc_visible "No such file"
@@ -121,6 +123,7 @@ for r in no-mic no-camera no-usb no-bluetooth; do
     expect read_documents ok
     expect write_own_config ok
     expect connect_session_bus "No such file"
+    if [ -S /run/dbus/system_bus_socket ]; then expect connect_system_bus ok; fi
     expect connect_systemd_private "No such file"
     expect connect_pipewire_manager "No such file"
     expect cwd_relative_bus "No such file"
