@@ -1575,7 +1575,7 @@ static void on_message(uint32_t id, uint32_t opcode, PwPod body) {
         }
         if (pwpod_struct_field(body, 0, &f) || pwpod_int(f, &a) || a < 0 ||
             tracked_global_id((uint32_t)a)) {
-            fprintf(stderr, "pwguard: duplicate or invalid tracked PipeWire global; resetting connection\\n");
+            fprintf(stderr, "pwguard: duplicate or invalid tracked PipeWire global; resetting connection\n");
             drop();
             return;
         }
