@@ -13,12 +13,14 @@ APP=desktop:fwdev
 SC=$(scope fwdev)
 OPEN='
 import os, sys, errno
+modes = {"ro": os.O_RDONLY, "wo": os.O_WRONLY, "rw": os.O_RDWR}
 try:
-    fd = os.open(sys.argv[1], os.O_RDONLY | os.O_NONBLOCK); os.close(fd); print("ok")
+    mode = modes[sys.argv[2]] if len(sys.argv) > 2 else os.O_RDONLY
+    fd = os.open(sys.argv[1], mode | os.O_NONBLOCK); os.close(fd); print("ok")
 except OSError as e:
     print(errno.errorcode.get(e.errno, str(e.errno)))
 '
-op() { in_scope "$SC" python3 -c "$OPEN" "$1" 2>&1 | tail -1; }
+op() { in_scope "$SC" python3 -c "$OPEN" "$1" "${2:-ro}" 2>&1 | tail -1; }
 expect() { local want=$1 got=$2 what=$3; case "$got" in $want*) ok "$what → $got";; *) bad "$what → $got (expected $want)";; esac; }
 
 echo "1. not restricted: the camera and USB open"
@@ -30,7 +32,9 @@ got=$(in_scope "$SC" v4l2-ctl -d "$VID" --info 2>&1 | grep -c "Driver name")
 
 echo "2. no-camera: the video device is refused, USB still opens"
 restrict $APP no-camera
-expect EPERM "$(op "$VID")" "open $VID"
+expect EPERM "$(op "$VID" ro)" "open $VID read-only"
+expect EPERM "$(op "$VID" wo)" "open $VID write-only"
+expect EPERM "$(op "$VID" rw)" "open $VID read-write"
 got=$(in_scope "$SC" v4l2-ctl -d "$VID" --info 2>&1 | tail -1)
 case "$got" in *"ermission denied"*|*"not permitted"*) ok "v4l2-ctl --info refused ($got)";; *) bad "v4l2-ctl --info → $got";; esac
 [ -n "$USB" ] && expect ok "$(op "$USB")" "open $USB"
@@ -41,7 +45,11 @@ expect ok "$got" "the same open outside the app's scope"
 
 echo "3. no-usb: raw USB is refused, the camera opens"
 restrict $APP no-usb
-[ -n "$USB" ] && expect EPERM "$(op "$USB")" "open $USB"
+if [ -n "$USB" ]; then
+    expect EPERM "$(op "$USB" ro)" "open $USB read-only"
+    expect EPERM "$(op "$USB" wo)" "open $USB write-only"
+    expect EPERM "$(op "$USB" rw)" "open $USB read-write"
+fi
 expect ok "$(op "$VID")" "open $VID"
 
 echo "4. lifted again: works at once (no restart)"
