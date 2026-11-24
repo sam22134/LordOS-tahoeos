@@ -187,21 +187,42 @@ char *compose_message(Account *a, const JVal *m, int *fds, int nfds, size_t *ole
 /* ---- SMTP ---- */
 
 static int smtp_reply(Conn *c, char *text, size_t tcap, char *caps, size_t ccap) {
-    int code = -1;
+    int code = -1, complete = 0;
     if (caps && ccap) caps[0] = 0;
     for (int n = 0; n < 100; n++) {
         size_t l;
         char *line = conn_line(c, &l, 4096);
         if (!line) return -1;
-        if (l < 4) { free(line); return -1; }
-        code = atoi(line);
-        if (caps && ccap && strlen(caps) + l + 1 < ccap) strcat(caps, line + 4);
+        if (l < 4 || line[0] < '0' || line[0] > '9' ||
+            line[1] < '0' || line[1] > '9' ||
+            line[2] < '0' || line[2] > '9' ||
+            (line[3] != '-' && line[3] != ' ')) {
+            free(line);
+            return -1;
+        }
+        int current = (line[0] - '0') * 100 + (line[1] - '0') * 10 + (line[2] - '0');
+        if (code < 0) code = current;
+        else if (current != code) { free(line); return -1; }
         int more = line[3] == '-';
-        if (!more && text) { snprintf(text, tcap, "%s", line + 4); for (char *p = text; *p; p++) if (*p == '\r' || *p == '\n') *p = 0; }
+        if (caps && ccap) {
+            size_t used = strlen(caps), add = l - 4;
+            if (add < ccap - used) {
+                memcpy(caps + used, line + 4, add);
+                caps[used + add] = 0;
+            }
+        }
+        if (!more) {
+            complete = 1;
+            if (text && tcap) {
+                snprintf(text, tcap, "%s", line + 4);
+                for (char *p = text; *p; p++) if (*p == '\r' || *p == '\n') *p = 0;
+            }
+        }
         free(line);
-        if (!more) break;
+        if (complete) return code;
     }
-    return code;
+    /* A reply made only of continuation lines is incomplete, not success. */
+    return -1;
 }
 
 static int smtp_cmd(Conn *c, char *text, size_t tcap, const char *fmt, const char *arg) {
