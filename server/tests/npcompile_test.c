@@ -455,7 +455,7 @@ static void device_cases(void) {
     FwStore *s = fw_store_new();
     DnsMap *names = dnsmap_new(0);
     fw_set_restricted(s, "desktop:cam", FW_R_NO_CAMERA | FW_R_NO_USB | FW_R_NO_BLUETOOTH | FW_R_NO_FILES | FW_R_NO_MIC);
-    fw_set_restricted(s, "lordos", FW_R_NO_CAMERA | FW_R_NO_USB | FW_R_NO_BLUETOOTH | FW_R_NO_INTERNET);
+    fw_set_restricted(s, "lordos", FW_R_NO_CAMERA | FW_R_NO_USB | FW_R_NO_BLUETOOTH | FW_R_NO_FILES | FW_R_NO_INTERNET);
     NpCompiled c = compile(s, "desktop:cam", names, 1000);
     CHECK(c.app.flags == (NP_R_NO_CAMERA | NP_R_NO_USB | NP_R_NO_BLUETOOTH | NP_R_NO_MIC | NP_R_NO_FILES));
     uint8_t a[16];
