@@ -1139,6 +1139,13 @@ static void on_global(PwPod body) {
     PwPod props;
     int has_props = !pwpod_struct_field(body, 4, &props);
     if (!strcmp(type, "PipeWire:Interface:Client")) {
+        int32_t version = 1;
+        if (pwpod_struct_field(body, 3, &f) || pwpod_int(f, &version) || version < 1) {
+            fprintf(stderr, "pwguard: invalid Client interface version; disconnecting client %d\\n", (int)id);
+            destroy_global((uint32_t)id);
+            return;
+        }
+        if (version > 3) version = 3;
         PgClient *c = NULL;
         for (int i = 0; i < MAX_CLIENTS && !c; i++) if (!P.cl[i].live) c = &P.cl[i];
         uint32_t px = c ? proxy_new() : 0;
@@ -1153,7 +1160,7 @@ static void on_global(PwPod body) {
         c->id = (uint32_t)id;
         {
             Pb b = { .n = 0 };
-            size_t s = pb_begin(&b); pb_int(&b, id); pb_str(&b, "PipeWire:Interface:Client"); pb_int(&b, 3); pb_int(&b, (int32_t)px); pb_end(&b, s);
+            size_t s = pb_begin(&b); pb_int(&b, id); pb_str(&b, "PipeWire:Interface:Client"); pb_int(&b, version); pb_int(&b, (int32_t)px); pb_end(&b, s);
             send_msg(2, 1, &b);                                 /* registry.bind → client.info follows */
             c->proxy = px;
         }
