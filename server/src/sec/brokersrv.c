@@ -399,7 +399,13 @@ static int data_path(const char *id, const char *rel, char *out, size_t n) {
     char tmp[PATH_MAX];
     snprintf(tmp, sizeof tmp, "%s", out);
     char *slash = strrchr(tmp, '/');
-    if (slash) { *slash = 0; if (realpath(tmp, real) && strncmp(real, base, strlen(base))) return -1; }
+    if (slash) {
+        *slash = 0;
+        if (realpath(tmp, real)) {
+            size_t bl = strlen(base);
+            if (strncmp(real, base, bl) || (real[bl] && real[bl] != '/')) return -1;
+        }
+    }
     return 0;
 }
 
