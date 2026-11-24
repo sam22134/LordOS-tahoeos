@@ -21,6 +21,26 @@ ok()  { pass=$((pass+1)); echo "  ok:   $*"; }
 bad() { fail=$((fail+1)); echo "  BAD:  $*"; }
 [ -d "$SESS" ] || { echo "no LordOS session for uid $U ($SESS)"; exit 2; }
 [ -S /run/lordos/netperm.sock ] || { echo "lord-netperm is not running"; exit 2; }
+python3 - <<'PY'
+import json, socket, struct
+s = socket.socket(socket.AF_UNIX); s.settimeout(3); s.connect('/run/lordos/netperm.sock')
+h = s.recv(5)
+if len(h) != 5: raise SystemExit('no initial status from lord-netperm')
+length, kind = struct.unpack('<IB', h)
+body = b''
+while len(body) < length - 1:
+    part = s.recv(length - 1 - len(body))
+    if not part: raise SystemExit('truncated status')
+    body += part
+if kind != 10: raise SystemExit('expected STATUS (10), got ' + str(kind))
+status = json.loads(body)
+if status.get('bpf') is not True or status.get('attached') is not True:
+    raise SystemExit('firewall BPF is not attached: ' + repr(status))
+if not isinstance(status.get('devices'), bool) or not isinstance(status.get('bluetooth'), bool):
+    raise SystemExit('missing optional-protection status: ' + repr(status))
+print('netperm status: BPF attached; optional protections reported')
+s.close()
+PY
 mkdir -p ~/.config/lordos
 BACKUP=$(mktemp); HAD=0
 [ -f "$FW" ] && { cp "$FW" "$BACKUP"; HAD=1; }
