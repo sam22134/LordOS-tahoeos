@@ -440,6 +440,36 @@ int main(void) {
     CHECK(emits_shot == 0 && g && g->code == 2);
     screen_blocked = 0;
 
+    /* 6b. A newly added screen restriction revokes the screenshot chooser, an in-flight
+     * PNG (which must never be delivered), and PickColor. */
+    emits_shot = emits_taken = 0;
+    shot_call("Screenshot");
+    CHECK(emits_shot == 1);
+    portal_shot_revoke(fake_app);
+    pump(100);
+    g = last_response();
+    CHECK(g && g->code == 2);                                  /* chooser cancelled */
+
+    emits_shot = emits_taken = 0;
+    shot_call("Screenshot");
+    id = json_id();
+    portal_shot_chosen(id, &mon, NULL, "/tmp/lordos-revoked-shot.png");
+    CHECK(captured == 3);
+    portal_shot_revoke(fake_app);                              /* encoder may still be running */
+    portal_shot_saved(id, 1, "/tmp/lordos-revoked-shot.png");
+    pump(100);
+    g = last_response();
+    CHECK(g && g->code == 2 && emits_taken == 0);               /* no URI or success indicator */
+
+    emits_shot = emits_taken = 0;
+    shot_call("PickColor");
+    CHECK(emits_shot == 1);
+    portal_shot_revoke(fake_app);
+    portal_color_chosen(json_id(), &mon, 25, 50);               /* stale chooser event is ignored */
+    pump(100);
+    g = last_response();
+    CHECK(g && g->code == 2 && emits_taken == 0);
+
     /* 7. PickColor: the overlay, the point's color */
     shot_call("PickColor");
     CHECK(strstr(last_json, "\"color\":true") != NULL);
