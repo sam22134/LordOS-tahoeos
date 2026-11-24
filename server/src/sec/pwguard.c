@@ -380,6 +380,14 @@ int pwguard_start(void) {
     return 0;
 }
 
+int pwguard_timeout_ms(void) {
+    if (P.fd >= 0) return -1;
+    double left = P.next_try - now_ms();
+    if (left <= 0) return 0;
+    if (left >= INT_MAX) return INT_MAX;
+    return (int)left + 1; /* round up: never wake early and spin before the retry deadline */
+}
+
 int pwguard_fd(void) { return P.fd; }
 int pwguard_wants_write(void) { return P.fd >= 0 && (P.connecting || P.outlen > 0); }
 
