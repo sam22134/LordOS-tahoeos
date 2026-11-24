@@ -57,6 +57,13 @@ static void serve(void) {
 
 void sd_cgroup_start(void) {
     pid_t p = fork();
+    if (p < 0) {
+        int e = errno;
+        cg_pid = -1;
+        cg_restart_at = rd_now() + 1;
+        sd_log("cgroup: could not start placement service: %s (retrying)", strerror(e));
+        return;
+    }
     if (p == 0) { serve(); _exit(0); }
     cg_pid = p;
 }
