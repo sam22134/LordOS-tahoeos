@@ -67,13 +67,11 @@ void dav_end(Dav *d) {
 
 void dav_abs(const Dav *d, const char *path, char *out, size_t cap) {
     if (!strncasecmp(path, "https://", 8) || !strncasecmp(path, "http://", 7)) { snprintf(out, cap, "%s", path); return; }
-    const char *fmt_host = strchr(d->host, ':') ? "[%s]" : "%s";
-    if (d->port == 443) snprintf(out, cap, "https://%s%s", d->host, path);
-    else {
-        char authority[300];
-        snprintf(authority, sizeof authority, fmt_host, d->host);
-        snprintf(out, cap, "https://%s:%d%s", authority, d->port, path);
-    }
+    char authority[300];
+    if (strchr(d->host, ':')) snprintf(authority, sizeof authority, "[%s]", d->host);
+    else snprintf(authority, sizeof authority, "%s", d->host);
+    if (d->port == 443) snprintf(out, cap, "https://%s%s", authority, path);
+    else snprintf(out, cap, "https://%s:%d%s", authority, d->port, path);
 }
 
 int dav_req(Dav *d, const char *method, const char *target, int depth, const char *body, const char *ctype, const char *extra, HttpResp *out) {
