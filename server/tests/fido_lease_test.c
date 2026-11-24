@@ -28,10 +28,11 @@ int main(void) {
     check(fido_lease_begin(&l) == old, "worker borrows attached descriptor");
     fido_lease_attach(&l, -1);
     check(open_fd(old), "revocation does not close a descriptor under the worker");
+    check(fido_lease_revoked(&l), "worker sees the atomic revocation signal");
     check(fido_lease_finish(&l) == 1, "worker result is marked revoked");
     errno = 0;
     check(!open_fd(old) && errno == EBADF, "revoked descriptor closes after worker completion");
-    check(l.device_fd == -1 && !l.busy, "revoked lease has no attached device");
+    check(l.device_fd == -1 && !l.busy && !fido_lease_revoked(&l), "revoked lease has no attached device or stale signal");
 
     old = pipe_read();
     int next = pipe_read();
