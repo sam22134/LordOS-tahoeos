@@ -275,7 +275,7 @@ int main(void) {
     check(mkfifo(fifo_path, 0600) == 0, "files: create FIFO fixture");
     check(call(BOP_FS_READ, "pipe", 4) && got_status != BST_OK,
           "files: FS_READ rejects FIFO without blocking");
-    char fifo_write[] = "pipe\\0x";
+    char fifo_write[] = "pipe\0x";
     check(call(BOP_FS_WRITE, fifo_write, sizeof fifo_write - 1) && got_status != BST_OK,
           "files: FS_WRITE rejects FIFO without blocking");
     const char *perms_on[] = { "camera", "microphone", "clipboard", "usb", "files", "screen", "bluetooth", "notifications" };
