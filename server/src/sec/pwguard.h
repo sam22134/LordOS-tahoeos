@@ -30,6 +30,7 @@
 
 int  pwguard_start(void);       /* 0 started/connecting; retried by pwguard_tick if PipeWire isn't up */
 int  pwguard_fd(void);          /* -1 if not connected */
+int  pwguard_timeout_ms(void); /* -1 connected; otherwise milliseconds until the next retry */
 int  pwguard_wants_write(void);
 void pwguard_dispatch(void);
 void pwguard_tick(void);        /* every pass of the main loop; does work once a second */
