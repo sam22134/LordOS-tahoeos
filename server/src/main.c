@@ -3073,7 +3073,7 @@ int main(int argc, char **argv) {
         if (!s.headless && !any_flip_pending(&s) && display_take_resync()) outputs_apply(&s);
         if (!s.greeter) {
             pwguard_tick();                  /* Linux-app camera/microphone restrictions (sec/pwguard.c) */
-            int pwt = pwguard_timeout_ms();  /* wake the idle loop for a pending reconnect */
+            int pwt = pwguard_timeout_ms();  /* wake for reconnects and periodic policy refresh */
             if (pwt >= 0 && (delay < 0 || pwt < delay)) delay = pwt;
         }
         netrec_tick();                      /* traffic history: every 5 s while on (monitor/netrec.c) */
