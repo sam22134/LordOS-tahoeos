@@ -184,7 +184,19 @@ static int imap_open(Imap *im, char *err, size_t ecap) {
         imap_close(im);
         return -1;
     }
-    if (!im->caps[0] || !strcasestr(im->caps, "AUTH")) cmd(im, NULL, NULL, "CAPABILITY");
+    if (!im->caps[0] && cmd(im, NULL, NULL, "CAPABILITY")) {
+        free(pw);
+        snprintf(err, ecap, "capability");
+        imap_close(im);
+        return -1;
+    }
+    if (!im->auth_plain && has_cap(im, "LOGINDISABLED")) {
+        explicit_bzero(pw, strlen(pw));
+        free(pw);
+        snprintf(err, ecap, "server disables LOGIN and offers no supported AUTH mechanism");
+        imap_close(im);
+        return -2;
+    }
     int r;
     if (im->auth_plain) {
         size_t ul = strlen(a->user), pl = strlen(pw);
