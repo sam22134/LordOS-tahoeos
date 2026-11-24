@@ -588,6 +588,7 @@ static void handle(AppConn *a, BrokerHdr *h, char *payload, int *fds, int nfds) 
         break;
     }
     case BOP_CLIP_SET:
+        if (deny_restricted(fd, h->reqid, a->id, FW_R_NO_CLIPBOARD)) break;
         term_set_clipboard(payload, h->len);
         term_clipboard_mark(a->id, 0);
         bclip_copied(a->id, clip_gen(), term_clipboard_gen(), 0, 0, mono_s());
@@ -719,6 +720,10 @@ static void handle(AppConn *a, BrokerHdr *h, char *payload, int *fds, int nfds) 
     }
     case BOP_CLIP_SECRET: {
         /* "seconds\0text": sensitive copy (Passwords), cleared later if unchanged */
+        if (deny_restricted(fd, h->reqid, a->id, FW_R_NO_CLIPBOARD)) {
+            explicit_bzero(payload, h->len);
+            break;
+        }
         char *nul = memchr(payload, 0, h->len);
         if (!nul) { send_reply(fd, h->reqid, BST_ERROR, NULL, 0); break; }
         int secs = atoi(payload);
