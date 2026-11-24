@@ -107,7 +107,13 @@ int dav_href_resolve(const char *base, const char *href, char *out, size_t cap) 
     size_t o = (size_t)n;
     int r;
     if (h[0] == '/') r = put_path(out, cap, &o, h, hl);
-    else {
+    else if (h[0] == '?' || h[0] == '#') {
+        /* Query-only and fragment-only references retain the base resource,
+         * rather than being resolved against its containing directory. */
+        size_t bp = strcspn(b.path, h[0] == '?' ? "?#" : "#");
+        r = bp ? put_path(out, cap, &o, b.path, bp) : 0;
+        if (!r) r = put_path(out, cap, &o, h, hl);
+    } else {
         /* relative: base's folder (without query or fragment) + href */
         size_t bp = strcspn(b.path, "?#");
         while (bp && b.path[bp - 1] != '/') bp--;
