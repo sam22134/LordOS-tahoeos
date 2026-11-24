@@ -458,6 +458,18 @@ static void device_cases(void) {
     fw_set_restricted(s, "lordos", FW_R_NO_CAMERA | FW_R_NO_USB | FW_R_NO_BLUETOOTH | FW_R_NO_FILES | FW_R_NO_INTERNET);
     NpCompiled c = compile(s, "desktop:cam", names, 1000);
     CHECK(c.app.flags == (NP_R_NO_CAMERA | NP_R_NO_USB | NP_R_NO_BLUETOOTH | NP_R_NO_MIC | NP_R_NO_FILES));
+    np_compiled_free(&c);
+    fw_set_restricted(s, "desktop:files", FW_R_NO_FILES);
+    c = compile(s, "desktop:files", names, 1000);
+    CHECK(c.app.flags == NP_R_NO_FILES);
+    CHECK(c.app.flags & np_dev_restriction(NP_DEV_BLOCK, 8, HID));
+    np_compiled_free(&c);
+    fw_set_restricted(s, "desktop:usb", FW_R_NO_USB);
+    c = compile(s, "desktop:usb", names, 1000);
+    CHECK(c.app.flags == NP_R_NO_USB);
+    CHECK(!(c.app.flags & np_dev_restriction(NP_DEV_BLOCK, 8, HID)));
+    np_compiled_free(&c);
+    c = compile(s, "desktop:cam", names, 1000);
     uint8_t a[16];
     FwDecision ref;
     NpRes got;
