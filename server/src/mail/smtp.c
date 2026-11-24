@@ -268,7 +268,7 @@ int smtp_send(Account *a, const char *from, const char **rcpt, int nrcpt, const 
     if (!c) { free(pw); snprintf(err, ecap, "%s", why); return -1; }
     int r = -1;
     if (smtp_reply(c, text, sizeof text, NULL, 0) != 220) { snprintf(err, ecap, "greeting: %s", text); goto out; }
-    if (conn_printf(c, "EHLO lordos\\r\\n") ||
+    if (conn_printf(c, "EHLO lordos\r\n") ||
         smtp_reply(c, text, sizeof text, caps, sizeof caps) != 250) { snprintf(err, ecap, "EHLO: %s", text); goto out; }
     if (s.sec == SEC_STARTTLS) {
         if (!smtp_has_cap(caps, "STARTTLS")) { snprintf(err, ecap, "no-starttls"); goto out; }
