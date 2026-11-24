@@ -66,5 +66,6 @@ void restrict_changed(const char *fwid, uint32_t before, uint32_t after) {
          * lord-media is killed and the microphone stream is closed */
         if (added & FW_R_NO_CAMERA) brokersrv_revoke(fwid + 4, "camera");
         if (added & FW_R_NO_MIC) brokersrv_revoke(fwid + 4, "microphone");
+        if (added & FW_R_NO_USB) brokersrv_revoke(fwid + 4, "usb");
     } else if (!strcmp(fwid, "lordos") && local_hook) local_hook(added);
 }
