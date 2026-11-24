@@ -60,7 +60,7 @@ PermState restrict_perm_pkg(const char *id, Perm p) {
 void restrict_changed(const char *fwid, uint32_t before, uint32_t after) {
     uint32_t added = after & ~before;
     if (!fwid || !added) return;
-    if (added & FW_R_NO_SCREEN) portal_cast_revoke(fwid);
+    if (added & FW_R_NO_SCREEN) { portal_cast_revoke(fwid); portal_shot_revoke(fwid); }
     if (!strncmp(fwid, "lpk:", 4) && fwid[4]) {
         /* the same path as revoking the permission in Privacy: the app is told, the camera's
          * lord-media is killed and the microphone stream is closed */
