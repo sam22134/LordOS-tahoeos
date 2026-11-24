@@ -366,12 +366,12 @@ static void *fido_thread(void *arg) {
             if (s->type != VS_FIDO2) continue;
             fj.slot_tried = i;
             fj.err = fido_hmac_secret(fj.fd, s->fido_pin ? pin : NULL, s->cred, s->cred_len, s->hmac_salt, fj.secret, 30000, fido_status, NULL);
-            if (fj.err == FIDO_OK || (fj.err != FIDO_ERR_NO_CREDENTIAL)) break;
+            if (fido_lease_revoked(&fido_lease) || fj.err == FIDO_OK || fj.err != FIDO_ERR_NO_CREDENTIAL) break;
         }
     } else {
         fj.cred_len = 0;
         fj.err = fido_make_credential(fj.fd, pin, fj.cred, &fj.cred_len, 30000, fido_status, NULL);
-        if (fj.err == FIDO_OK) {
+        if (fj.err == FIDO_OK && !fido_lease_revoked(&fido_lease)) {
             vc_random(fj.hmac_salt, 32);
             fido_touch_note = 0;
             fj.err = fido_hmac_secret(fj.fd, pin, fj.cred, fj.cred_len, fj.hmac_salt, fj.secret, 30000, fido_status, NULL);
