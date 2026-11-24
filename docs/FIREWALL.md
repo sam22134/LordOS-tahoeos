@@ -105,7 +105,7 @@ A valid id:
   | no screen capture | `no-screen` | broker (the `screen` permission; isolated apps have no capture API) | `js_media.c` | by design (no capture protocol), the ScreenCast portal (`ui/portal.c` refuses the app before any question; the PipeWire guard hides every shared screen from it), and `lord-netperm` (`/dev/fb*`) |
   | no USB | `no-usb` | broker (`BOP_VAULT_FIDO`, the `usb` permission; an attached FIDO descriptor in `lord-vault` is not revoked) | not offered (the desktop itself) | `lord-netperm` (`cgroup/dev`) |
   | no Bluetooth | `no-bluetooth` | broker (the `bluetooth` permission; no Bluetooth API in app mode) | not offered (the desktop itself) | `lord-netperm` (`socket(AF_BLUETOOTH)`); BlueZ over D-Bus is not covered |
-  | no access to your files | `no-files` | broker (file picker, camera saves, the `files` permission) | not offered (the desktop itself) | the launcher (own namespaces + Landlock), at the next launch |
+  | no access to your files | `no-files` | broker (file picker, camera saves, the `files` permission) | not offered (the desktop itself) | launcher (own namespaces + Landlock) and `lord-netperm` (block devices), at the next launch |
   | no reading the clipboard | `no-clipboard` | broker (`BOP_CLIP_GET`, the `clipboard` permission) | not offered (the desktop itself) | not offered yet |
   | no notifications | `no-notifications` | `sdk/notify.js` and the `notifications` permission | `sdk/notify.js` | `hw/notifyd.c` (by the caller's cgroup) |
 
@@ -185,7 +185,7 @@ the app gives itself.
 | no screen capture | by design, the ScreenCast portal (`ui/portal.c`), the PipeWire guard (`sec/pwguard.c`) and `lord-netperm` | the compositor offers no capture protocol, Xwayland (0.8.3) sees only X windows and a restricted app gets no X display; LordOS's own ScreenCast portal (0.8.8.8) refuses the app before any question, and the PipeWire guard hides shared-screen nodes (`Video/Source`, `media.role` Screen) from it; `/dev/fb*` (29) is denied | always | `tests/fwlinux/screen.sh`, `build/pwguard-test`, `tests/screencast_model_test.mjs` |
 | no microphone | PipeWire guard | capture nodes (`Audio/Source*`, `Audio/Duplex`) and their ports hidden, the app's `Stream/Input/Audio` streams destroyed, including a recording already running | within 1 s | `tests/fwlinux/mic.sh` (`pw-record`, `parecord`, `arecord`) |
 | | `lord-netperm`, `cgroup/dev` | ALSA capture PCM nodes (`/dev/snd/pcmC*D*c`, from `/sys/class/sound`): recording from the card without PipeWire | at once (next `open`) | `mic.sh` |
-| no access to your files | the launcher (`apps.c`, `sec/sandbox.c`) | its own user, mount and PID namespace and Landlock (below) | at the next launch | `tests/fwlinux/files.sh` (a probe app, malicious `.desktop` files, `gtk4-print-editor`) |
+| no access to your files | the launcher (`apps.c`, `sec/sandbox.c`) and `lord-netperm` (`cgroup/dev`) | its own user, mount and PID namespace and Landlock; raw block-device opens are denied by the device hook | at the next launch | `tests/fwlinux/files.sh` (a probe app, raw block-device open, malicious `.desktop` files, `gtk4-print-editor`) |
 | no notifications | `hw/notifyd.c` | the caller's PID from the bus → its cgroup → its app: dropped, answered with a valid id | the next notification | `tests/fwlinux/notify.sh`, `notifyd-test` |
 | no reading the clipboard | — | not offered for Linux apps yet: the Wayland data device is not mediated per app | — | — |
 
@@ -193,7 +193,9 @@ Settings → Privacy shows "(at next launch)" next to "No access to your files" 
 says that everything else applies at once, and has one help line per restriction.
 
 **Devices (`cgroup/dev`).** In cgroup v2 the device controller *is* a `BPF_PROG_TYPE_CGROUP_DEVICE`
-program; with none attached, everything is allowed. `lord-netperm` attaches one (with a
+program; with none attached, everything is allowed. For an app with `no-files`, it also denies
+opening or creating any block device (for example `/dev/sda` and `/dev/nvme0n1`): raw block access
+would bypass Landlock's path-based protection of mounted files. `lord-netperm` attaches one (with a
 `bpf_link`, multi-attach) to `lordos.service` and to each session's `user@<uid>.service`. It looks
 the app up exactly like the network programs (its scope's ancestor id, or the `user@` union), runs
 on `open()` and `mknod()` of a device node, and returns 0 only for the device classes the app is
@@ -213,7 +215,7 @@ their own permission and restriction checks.
 
 What `no-camera` and `no-usb` don't cover: a V4L2 memory-to-memory codec (the Raspberry Pi's
 hardware video decoder) has the same major and is denied too; USB storage is a block device and
-its files are covered by `no-files`, not `no-usb`; USB keyboards, mice, sound cards and cameras
+is denied by `no-files`, not `no-usb`; USB keyboards, mice, sound cards and cameras
 reach the app through the input, sound and camera paths, not as raw USB. As with `no-camera`,
 `cgroup/dev` only checks device `open()`/`mknod()`: a raw USB fd opened before `no-usb` is applied
 remains usable. This restriction does not forcibly close an already-open device descriptor.
