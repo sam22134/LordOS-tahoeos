@@ -559,8 +559,9 @@ static void handle(AppConn *a, BrokerHdr *h, char *payload, int *fds, int nfds) 
         char path[PATH_MAX];
         const char *rel = payload[0] && strcmp(payload, ".") ? payload : "";
         if (rel[0] ? data_path(a->id, rel, path, sizeof path) : data_path(a->id, ".", path, sizeof path)) { send_reply(fd, h->reqid, BST_DENIED, NULL, 0); break; }
-        DIR *d = opendir(path);
-        if (!d) { send_reply(fd, h->reqid, BST_ERROR, NULL, 0); break; }
+        int dirfd = open(path, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+        DIR *d = dirfd >= 0 ? fdopendir(dirfd) : NULL;
+        if (!d) { if (dirfd >= 0) close(dirfd); send_reply(fd, h->reqid, BST_ERROR, NULL, 0); break; }
         size_t cap = 64 * 1024, len = 0;
         char *out = malloc(cap);
         if (!out) { closedir(d); send_reply(fd, h->reqid, BST_ERROR, NULL, 0); break; }
