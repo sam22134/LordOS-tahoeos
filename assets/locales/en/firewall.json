@@ -3,6 +3,8 @@
   "status.on": "Active: lord-netperm enforces the rules in the kernel. Domain names: {dns}.",
   "status.noDaemon": "The lord-netperm service is not running: rules are saved but not enforced.",
   "status.noBpf": "lord-netperm could not use BPF on this computer ({error}): rules are saved but not enforced.",
+  "status.noDevices": "Camera, microphone, screen-capture and USB restrictions are unavailable: the kernel could not load the device-control program.",
+  "status.noBluetooth": "The no-Bluetooth restriction is unavailable: the kernel does not provide the required BPF hook.",
   "dns.resolved": "from systemd-resolved",
   "dns.packet": "from the answers of the system DNS servers",
   "dns.none": "no source (domain rules do not apply)",
