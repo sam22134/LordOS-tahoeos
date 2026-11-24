@@ -176,8 +176,8 @@ the app gives itself.
 | network (4) | `lord-netperm` | cgroup `sock_addr`/`sock_create` programs (above) | at once: new connections, binds and sockets | `tests/netperm_integration.sh` |
 | no camera | `lord-netperm`, `cgroup/dev` | `open()` of a V4L2 node (major 81) → `EPERM` | at once (next `open`; an fd already open stays usable) | `tests/fwlinux/devices.sh` (v4l2loopback, `v4l2-ctl`) |
 | | PipeWire guard (`sec/pwguard.c`) | `Video/Source` nodes hidden from the app, its `Stream/Input/Video` streams destroyed | within 1 s | unit test only (no PipeWire camera node on the test VM) |
-| no USB | `lord-netperm`, `cgroup/dev` | `/dev/bus/usb/*` (189), `/dev/hidraw*` (dynamic, from `/proc/devices`), `/dev/ttyACM*` (166), `/dev/ttyUSB*` (188) | at once (next `open`) | `devices.sh` |
-| no Bluetooth | `lord-netperm`, `cgroup/lsm_socket_create` | `socket(AF_BLUETOOTH, …)` → `EPERM` | at once (new sockets) | `tests/fwlinux/bluetooth.sh` |
+| no USB | `lord-netperm`, `cgroup/dev` | `/dev/bus/usb/*` (189), `/dev/hidraw*` (dynamic, from `/proc/devices`), `/dev/ttyACM*` (166), `/dev/ttyUSB*` (188) | at once (next `open`; an fd already open stays usable) | `devices.sh` |
+| no Bluetooth | `lord-netperm`, `cgroup/lsm_socket_create` | `socket(AF_BLUETOOTH, …)` → `EPERM` | at once (new sockets; existing sockets stay usable) | `tests/fwlinux/bluetooth.sh` |
 | no screen capture | by design, the ScreenCast portal (`ui/portal.c`), the PipeWire guard (`sec/pwguard.c`) and `lord-netperm` | the compositor offers no capture protocol, Xwayland (0.8.3) sees only X windows and a restricted app gets no X display; LordOS's own ScreenCast portal (0.8.8.8) refuses the app before any question, and the PipeWire guard hides shared-screen nodes (`Video/Source`, `media.role` Screen) from it; `/dev/fb*` (29) is denied | always | `tests/fwlinux/screen.sh`, `build/pwguard-test`, `tests/screencast_model_test.mjs` |
 | no microphone | PipeWire guard | capture nodes (`Audio/Source*`, `Audio/Duplex`) and their ports hidden, the app's `Stream/Input/Audio` streams destroyed, including a recording already running | within 1 s | `tests/fwlinux/mic.sh` (`pw-record`, `parecord`, `arecord`) |
 | | `lord-netperm`, `cgroup/dev` | ALSA capture PCM nodes (`/dev/snd/pcmC*D*c`, from `/sys/class/sound`): recording from the card without PipeWire | at once (next `open`) | `mic.sh` |
@@ -210,7 +210,9 @@ their own permission and restriction checks.
 What `no-camera` and `no-usb` don't cover: a V4L2 memory-to-memory codec (the Raspberry Pi's
 hardware video decoder) has the same major and is denied too; USB storage is a block device and
 its files are covered by `no-files`, not `no-usb`; USB keyboards, mice, sound cards and cameras
-reach the app through the input, sound and camera paths, not as raw USB.
+reach the app through the input, sound and camera paths, not as raw USB. As with `no-camera`,
+`cgroup/dev` only checks device `open()`/`mknod()`: a raw USB fd opened before `no-usb` is applied
+remains usable. This restriction does not forcibly close an already-open device descriptor.
 
 **Bluetooth sockets (`cgroup/lsm_socket_create`).** The inet `sock_create` hook never sees
 `AF_BLUETOOTH`, so this is a per-cgroup LSM program (`BPF_LSM_CGROUP`, kernel 6.0 or later, with
@@ -230,7 +232,9 @@ a Pi 5 (2026-10-18): `lord-netperm: 9 BPF programs loaded (devices: yes, Bluetoo
 user): `socket(AF_BLUETOOTH)` in the restricted app's scope → `EPERM`, inet and unix sockets there
 still work, the same call outside the scope works, and lifting the restriction gives it back.
 
-*Not covered:* BlueZ over D-Bus. An app can still ask `bluetoothd` on the system bus (`org.bluez`)
+*Not covered:* Bluetooth sockets that the app created before `no-bluetooth` was applied
+remain open; this hook blocks creation, it does not revoke existing sockets. BlueZ over D-Bus is
+also outside this restriction. An app can still ask `bluetoothd` on the system bus (`org.bluez`)
 to scan, pair and connect, and a profile it registers gets its connected socket from `bluetoothd`.
 The system bus policy can't tell two apps of the same user apart; mediating it per app needs a
 D-Bus proxy per app in front of the system bus, which isn't built. `no-files` doesn't hide the
