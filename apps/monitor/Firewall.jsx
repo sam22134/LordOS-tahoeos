@@ -21,7 +21,8 @@ const DESKTOP_ALWAYS = ['no-files', 'no-usb', 'no-clipboard', 'no-bluetooth'];
 // Linux and Flatpak apps: the clipboard of a Wayland app isn't mediated per app yet, so it isn't offered.
 const LINUX_NOT_YET = ['no-clipboard'];
 // For a Linux app every restriction applies at once (new connections, device opens, sockets,
-// sound streams, notifications), except files: the app's view is built when it starts.
+// sound streams, notifications), except its filesystem view: that is built when it starts. Raw
+// block-device opens are separately denied by lord-netperm as soon as no-files is selected.
 const NEXT_LAUNCH = ['no-files'];
 const isLinux = (id) => id.startsWith('desktop:') || id.startsWith('flatpak:');
 // (0.8.5) LordOS's components with their own scope (Mail, Store, Printers, Terminal, Blocklists): they
@@ -119,6 +120,7 @@ export function FirewallPrivacy() {
     tr('firewall.status.on', { dns: tr(`firewall.dns.${status.dns || 'none'}`) });
   const statusWarnings = [];
   if (status.daemon && status.bpf && status.attached === true && status.devices === false) statusWarnings.push(tr('firewall.status.noDevices'));
+  if (status.devices === false) statusWarnings.push(tr('firewall.status.noBlockDevices'));
   if (status.daemon && status.bpf && status.attached === true && status.bluetooth === false) statusWarnings.push(tr('firewall.status.noBluetooth'));
   const setFlag = (id, flag, on) => {
     // Keep valid restrictions saved while their enforcement is unavailable; changing another
