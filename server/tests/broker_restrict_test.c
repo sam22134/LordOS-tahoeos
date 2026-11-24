@@ -259,6 +259,9 @@ int main(void) {
           "files: FS_LIST refuses an intermediate symlink outside app data");
     check(call(BOP_FS_READ, "jump/secret", 11) && got_status != BST_OK,
           "files: FS_READ refuses an intermediate symlink outside app data");
+    char blocked_write[] = "jump/newfile\\0blocked";
+    check(call(BOP_FS_WRITE, blocked_write, sizeof blocked_write - 1) && got_status != BST_OK,
+          "files: FS_WRITE refuses an intermediate symlink outside app data");
     check(call(BOP_FS_LIST, "../outside", 10) && got_status != BST_OK,
           "files: FS_LIST refuses parent-directory traversal");
     char emptyfile[512];
