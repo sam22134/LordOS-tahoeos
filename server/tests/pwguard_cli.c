@@ -27,12 +27,12 @@ int main(int argc, char **argv) {
     snprintf(path, sizeof path, "%s/.config/lordos/firewall.json", home ? home : "/nonexistent");
     FwStore *cur = fw_store_new();
     char err[200] = "out of memory";
-    if (cur && fw_load(cur, path, err, sizeof err) >= 0) restrict_set_store(cur);
-    else {
+    if (!cur || fw_load(cur, path, err, sizeof err) < 0) {
         fw_store_free(cur);
-        cur = NULL;
-        fprintf(stderr, "pwguard-cli: could not load %s at startup (%s)\n", path, err);
+        fprintf(stderr, "pwguard-cli: could not load %s at startup (%s)\\n", path, err);
+        return 1; /* never run the integration guard with an empty/default policy */
     }
+    restrict_set_store(cur);
     if (pwguard_start()) {
         fw_store_free(cur);
         fprintf(stderr, "pwguard-cli: no PipeWire manager socket\n");
