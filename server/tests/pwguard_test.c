@@ -263,6 +263,7 @@ static int test_pwguard_socket(char *dir, size_t dir_size, char *path, size_t pa
         listen(*server, 1) || setenv("XDG_RUNTIME_DIR", dir, 1) ||
         pwguard_start() != 0) return -1;
     *peer = accept(*server, NULL, NULL);
+    if (*peer >= 0) CHECK(pwguard_timeout_ms() == -1);
     return *peer < 0 ? -1 : 0;
 }
 
@@ -369,10 +370,13 @@ static void test_disconnect_reconnects_and_restarts_protocol(void) {
     close(first);
     pwguard_dispatch();
     CHECK(pwguard_fd() == -1); /* EOF drops the old registry snapshot */
+    int retry_ms = pwguard_timeout_ms();
+    CHECK(retry_ms > 0 && retry_ms <= 2000);
 
     /* Reconnect is intentionally rate-limited to two seconds after a transport failure. */
     struct timespec pause = { .tv_sec = 2, .tv_nsec = 200000000 };
     while (nanosleep(&pause, &pause) && errno == EINTR) {}
+    CHECK(pwguard_timeout_ms() == 0); /* the event loop can wake exactly when retry becomes due */
     pwguard_tick();
     CHECK(pwguard_fd() >= 0);
 
