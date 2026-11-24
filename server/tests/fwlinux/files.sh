@@ -20,6 +20,20 @@ echo secret > ~/Documents/fwlinux-secret.txt
 echo "opened with" > ~/fwlinux-open/note.txt
 echo sibling > ~/fwlinux-open/fwlinux-sibling.txt
 mkdir -p ~/.config/fwprobe ~/.cache/fwprobe ~/.cache/fontconfig
+# Give the probe a harmless, read-only-openable alias for a real block device. It never reads data.
+BLOCK_NODE=/dev/lordos-fwlinux-block-$U
+BLOCK_ARG=""
+BLOCK_SRC=$(find /dev -type b -print -quit)
+sudo rm -f "$BLOCK_NODE"
+if [ -n "$BLOCK_SRC" ]; then
+    sudo python3 - "$BLOCK_SRC" "$BLOCK_NODE" <<'PY'
+import os, stat, sys
+st = os.stat(sys.argv[1])
+os.mknod(sys.argv[2], stat.S_IFBLK | 0o666, st.st_rdev)
+os.chmod(sys.argv[2], 0o666)
+PY
+    BLOCK_ARG="--block-device=$BLOCK_NODE"
+fi
 echo shm > /dev/shm/fwlinux-shm-$U                  # the session's shared memory: not visible to the app
 PROBE=~/.config/fwprobe/probe.py           # its own config dir: visible to the restricted app
 cp "$D/files_probe.py" "$PROBE"
@@ -32,7 +46,7 @@ cat > "$APPS/fwprobe.desktop" <<DESK
 [Desktop Entry]
 Type=Application
 Name=Files restriction probe
-Exec=python3 $PROBE --outside-pid=$SPID --tmp-socket=$TSOCK %f
+Exec=python3 $PROBE --outside-pid=$SPID --tmp-socket=$TSOCK $BLOCK_ARG %f
 Path=/run/user/$U
 MimeType=text/plain;
 NoDisplay=false
@@ -53,6 +67,7 @@ probe
 expect read_documents ok
 expect list_home ok
 expect connect_session_bus ok
+if [ -n "$BLOCK_ARG" ]; then expect open_block_device ok; else ok "no block device available for raw-device probe"; fi
 rm -f ~/.cache/fwprobe/escaped ~/.config/autostart/fwlinux.desktop ~/.local/share/applications/fwlinux-evil.desktop
 
 echo "2. no-files: only its own folders, the system, /tmp and the runtime dir"
@@ -62,6 +77,7 @@ expect read_documents "@(Permission denied|No such file)*"
 expect list_documents "@(Permission denied|No such file)*"
 expect list_home "Permission denied"
 expect read_firewall_json "@(Permission denied|No such file)*"
+if [ -n "$BLOCK_ARG" ]; then expect open_block_device "Operation not permitted"; fi
 expect write_autostart "@(Permission denied|No such file)*"
 expect read_ssh "@(Permission denied|No such file)*"
 expect read_system ok
@@ -184,4 +200,5 @@ DESK
 fi
 rm -f "$APPS/fwprobe.desktop" "$APPS/fwgtk.desktop" ~/Documents/fwlinux-secret.txt "$OUT" /dev/shm/fwlinux-shm-$U ~/.cache/fontconfig/fwlinux-probe
 rm -rf ~/fwlinux-open ~/.config/fwprobe ~/.cache/fwprobe ~/.local/share/fwprobe ~/.local/state/fwprobe
+sudo rm -f "$BLOCK_NODE"
 fwlinux_done
