@@ -13,8 +13,12 @@
  *   built-in apps inside lord-server, firewall id "lordos": js_media.c (camera, microphone,
  *     screen capture and recording).
  *
- * Linux apps (desktop:<id>) are not sandboxed: they reach devices directly, so only the network
- * restrictions apply to them. Bluetooth and notifications have no app API yet.
+ * Linux apps (desktop:<id>) are not sandboxed: they reach devices and services directly. Network
+ * restrictions are enforced by lord-netperm; camera, microphone and shared-screen capture are
+ * additionally enforced by the PipeWire guard, while device-level camera/microphone/USB and
+ * Bluetooth-socket restrictions use lord-netperm. File access is restricted by the launcher at
+ * the next launch. Clipboard access is not mediated per app. Bluetooth through BlueZ D-Bus is
+ * not covered. Notifications are filtered by the notification server.
  *
  * The store is lord.fw's (ui/js_fw.c, the one Settings edits), so a change is seen at once. */
 #ifndef LORD_SEC_RESTRICT_H
