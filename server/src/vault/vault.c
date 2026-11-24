@@ -366,7 +366,7 @@ static void *fido_thread(void *arg) {
             if (s->type != VS_FIDO2) continue;
             fj.slot_tried = i;
             fj.err = fido_hmac_secret(fj.fd, s->fido_pin ? pin : NULL, s->cred, s->cred_len, s->hmac_salt, fj.secret, 30000, fido_status, NULL);
-            if (fido_lease_revoked(&fido_lease) || fj.err == FIDO_OK || fj.err != FIDO_ERR_NO_CREDENTIAL) break;
+            if (fido_lease_revoked(&fido_lease) || fj.err != FIDO_ERR_NO_CREDENTIAL) break;
         }
     } else {
         fj.cred_len = 0;
