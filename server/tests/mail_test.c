@@ -549,6 +549,7 @@ static void test_xml(void) {
     }
     const char *bad[] = {
         "<!DOCTYPE x [<!ENTITY a \"aaaa\">]><x>&a;</x>", "<a><b></a>", "<a>", "<a></a><b></b>", "<a x=\"1></a>", "<a>&#0;</a>",
+        "<a>&#4294967297;</a>", "<a>&#99999999999;</a>", "<a>&#1;</a>", "<a>\x01</a>",
         "<a>&#xD800;</a>", "<a>&nope;</a>", "text<a/>", "<a><![CDATA[x</a>", "<a b='<'/>",
     };
     for (size_t i = 0; i < sizeof bad / sizeof bad[0]; i++) { MxNode *x = mx_parse(bad[i], strlen(bad[i]), &err); CHECK(x == NULL); }
