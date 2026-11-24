@@ -10,8 +10,8 @@
  *   cgroup/bind4, bind6         "no incoming connections" and inbound rules (local port != 0)
  *   cgroup/sock_create          "no network": not even creating an AF_INET/AF_INET6 socket
  *   cgroup/dev                  "no files" (block devices), "no camera", "no USB", "no screen capture" and "no microphone":
- *                               opening video devices, raw USB devices (/dev/bus/usb), hidraw,
- *                               ttyACM, ttyUSB, the framebuffer (by major) and ALSA capture
+ *                               opening block devices, video devices, raw USB devices (/dev/bus/usb),
+ *                               hidraw, ttyACM, ttyUSB, the framebuffer (by major) and ALSA capture
  *                               nodes (np_snd: for an app's own scope every ALSA node not known
  *                               to be a non-capture one); every other device stays allowed
  *   cgroup/lsm_socket_create    "no Bluetooth": socket(AF_BLUETOOTH) (a per-cgroup LSM program,
