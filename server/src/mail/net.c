@@ -71,7 +71,11 @@ void conn_set_timeout(Conn *c, int ms) {
 
 void conn_close(Conn *c) {
     if (!c) return;
-    if (c->ssl) { SSL_shutdown(c->ssl); SSL_free(c->ssl); }
+    if (c->ssl) {
+        /* A failed or incomplete handshake has no TLS session to shut down. */
+        if (SSL_is_init_finished(c->ssl)) SSL_shutdown(c->ssl);
+        SSL_free(c->ssl);
+    }
     if (c->fd >= 0) close(c->fd);
     free(c);
 }
