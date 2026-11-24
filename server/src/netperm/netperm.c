@@ -755,12 +755,24 @@ static void send_uid(unsigned uid, int type, const char *json, size_t n, int dro
     for (int i = 0; i < G.ncl; i++) if (G.cl[i].uid == uid) cl_send(&G.cl[i], type, json, n, droppable);
 }
 
+static int bpf_attached(void) {
+    return G.bpf_ok && G.attached_cg && G.nprogs > 0 && G.nlinks == G.nprogs;
+}
+
 static void status_json(char *b, size_t n) {
     char err[260];
     json_quote(err, sizeof err, G.bpf_ok ? "" : G.bpf_err);
-    snprintf(b, n, "{\"bpf\":%s,\"devices\":%s,\"bluetooth\":%s,\"bytes\":%s,\"dns\":\"%s\",\"error\":%s}", G.bpf_ok ? "true" : "false",
-             G.bpf_ok && G.dev_ok ? "true" : "false", G.bpf_ok && G.bt_ok ? "true" : "false", G.bpf_ok && G.acct_ok == 2 ? "true" : "false",
-             G.dns ? npdns_source(G.dns) : "none", err);
+    int attached = bpf_attached();
+    snprintf(b, n, "{\"bpf\":%s,\"attached\":%s,\"devices\":%s,\"bluetooth\":%s,\"bytes\":%s,\"dns\":\"%s\",\"error\":%s}",
+             G.bpf_ok ? "true" : "false", attached ? "true" : "false",
+             attached && G.dev_ok ? "true" : "false", attached && G.bt_ok ? "true" : "false",
+             attached && G.acct_ok == 2 ? "true" : "false", G.dns ? npdns_source(G.dns) : "none", err);
+}
+
+static void status_publish(void) {
+    char st[400];
+    status_json(st, sizeof st);
+    for (int i = 0; i < G.ncl; i++) cl_send(&G.cl[i], NP_MSG_STATUS, st, strlen(st), 0);
 }
 
 static void accept_client(void) {
@@ -1502,6 +1514,7 @@ static int bpf_setup(void) {
  * (another id), the old links are dropped and attached again. */
 static void attach_service(void) {
     if (!G.bpf_ok) return;
+    int was_attached = bpf_attached();
     int dfd = open(CG_ROOT "/system.slice", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
     uint64_t id = dfd >= 0 ? bpfs_cgroup_id(dfd, "lordos.service") : 0;
     if (dfd >= 0) close(dfd);
@@ -1511,15 +1524,23 @@ static void attach_service(void) {
     if (G.cgfd >= 0) close(G.cgfd);
     G.cgfd = -1;
     G.attached_cg = 0;
-    if (!id) { logf_("waiting for lordos.service (its cgroup doesn't exist)"); return; }
+    if (!id) {
+        logf_("waiting for lordos.service (its cgroup doesn't exist)");
+        if (was_attached) status_publish();
+        return;
+    }
     G.cgfd = open(CG_ROOT "/" CG_SERVICE, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
-    if (G.cgfd < 0) return;
+    if (G.cgfd < 0) {
+        if (was_attached) status_publish();
+        return;
+    }
     for (int i = 0; i < G.nprogs; i++) {
         int l = bpfs_link_create(G.progs[i], G.cgfd, G.attach[i]);
         if (l < 0) {
             logf_("could not attach a program: %s", strerror(errno));
             for (int k = 0; k < G.nlinks; k++) close(G.links[k]);
             G.nlinks = 0;
+            if (was_attached) status_publish();
             return;
         }
         G.links[G.nlinks++] = l;
@@ -1528,6 +1549,7 @@ static void attach_service(void) {
     if (G.root_wd >= 0) inotify_rm_watch(G.ifd, G.root_wd);
     G.root_wd = inotify_add_watch(G.ifd, CG_ROOT "/" CG_SERVICE, IN_CREATE | IN_DELETE | IN_ONLYDIR);
     logf_("%d BPF programs attached to " CG_SERVICE " (scopes at level %d)", G.nlinks, SCOPE_LEVEL);
+    if (!was_attached) status_publish();
 }
 
 /* ---- main ------------------------------------------------------------------------------------ */
