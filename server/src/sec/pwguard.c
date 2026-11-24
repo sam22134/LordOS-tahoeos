@@ -1141,7 +1141,7 @@ static void on_global(PwPod body) {
     if (!strcmp(type, "PipeWire:Interface:Client")) {
         int32_t version = 1;
         if (pwpod_struct_field(body, 3, &f) || pwpod_int(f, &version) || version < 1) {
-            fprintf(stderr, "pwguard: invalid Client interface version; disconnecting client %d\\n", (int)id);
+            fprintf(stderr, "pwguard: invalid Client interface version; disconnecting client %d\n", (int)id);
             destroy_global((uint32_t)id);
             return;
         }
