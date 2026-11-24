@@ -26,9 +26,11 @@ int main(void) {
     check(old >= 0, "create active descriptor");
     fido_lease_attach(&l, old);
     check(fido_lease_begin(&l) == old, "worker borrows attached descriptor");
+    check(fido_lease_command_begin(&l), "an attached device accepts a CTAP command");
     fido_lease_attach(&l, -1);
     check(open_fd(old), "revocation does not close a descriptor under the worker");
     check(fido_lease_revoked(&l), "worker sees the atomic revocation signal");
+    check(!fido_lease_command_begin(&l), "no new CTAP command starts after revocation");
     check(fido_lease_finish(&l) == 1, "worker result is marked revoked");
     errno = 0;
     check(!open_fd(old) && errno == EBADF, "revoked descriptor closes after worker completion");
@@ -46,6 +48,7 @@ int main(void) {
     check(!open_fd(old) && errno == EBADF, "old descriptor closes after replacement finishes");
     check(open_fd(next) && l.device_fd == next, "new descriptor remains available for next operation");
     check(fido_lease_begin(&l) == next, "next operation uses replacement");
+    check(fido_lease_command_begin(&l), "replacement accepts a new CTAP command");
     check(fido_lease_finish(&l) == 0 && open_fd(next), "normal completion keeps attached descriptor");
     fido_lease_attach(&l, -1);
     errno = 0;
