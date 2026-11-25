@@ -473,7 +473,7 @@ static void on_fetch(Imap *im, IResp *r, void *u) {
     free(refs);
 }
 
-typedef struct { uint32_t *u; size_t n, cap; } Uids;
+typedef struct { uint32_t *u; size_t n, cap; int failed; } Uids;
 
 static void on_search(Imap *im, IResp *r, void *u) {
     (void)im;
