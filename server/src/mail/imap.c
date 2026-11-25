@@ -473,7 +473,7 @@ static void on_fetch(Imap *im, IResp *r, void *u) {
     free(refs);
 }
 
-typedef struct { uint32_t *u; size_t n, cap; int failed; } Uids;
+typedef struct { uint32_t *u; size_t n, cap; int failed, seen; } Uids;
 
 static int uid_push(Uids *s, uint32_t value) {
     if (s->n == s->cap) {
@@ -492,6 +492,7 @@ static void on_search(Imap *im, IResp *r, void *u) {
     (void)im;
     Uids *s = u;
     if (!iv_is(r->first, "SEARCH") && !iv_is(r->first, "ESEARCH")) return;
+    s->seen = 1;
     for (IVal *k = r->first->next; k; k = k->next) {
         if (k->type == IV_ATOM && iv_is(k, "ALL") && k->next) {
             char set[1 << 16];
@@ -572,7 +573,12 @@ static int sync_folder(Imap *im, Folder *f) {
     /* which uids exist on the server */
     Uids s = { 0 };
     if (im->exists) {
-        if (cmd(im, on_search, &s, "UID SEARCH ALL") || s.failed) { free(s.u); return -1; }
+        if (cmd(im, on_search, &s, "UID SEARCH ALL") || s.failed || !s.seen) {
+            /* A tagged OK without SEARCH/ESEARCH data is not an empty
+             * mailbox; never reconcile the cache from a missing response. */
+            free(s.u);
+            return -1;
+        }
         qsort(s.u, s.n, sizeof *s.u, cmp_u32);
     }
     /* gone from the server: avoid passing a NULL UID array to bsearch when the
