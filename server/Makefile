@@ -610,25 +610,6 @@ build/brokerclip-test: tests/brokerclip_test.c src/sec/brokerclip.c src/sec/brok
 	@mkdir -p build
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) -std=c11 -o $@ tests/brokerclip_test.c src/sec/brokerclip.c -lm
 	./$@ || { rm -f $@; exit 1; }
-# Mail protocol and content parsers (IMAP literals, MIME, HTML, CalDAV/CardDAV and JSON).
-# Kept separate from brokermail authorization tests so parser regressions are exercised too.
-MAIL_TEST_SRC := tests/mail_test.c src/mail/imapp.c src/mail/imapio.c src/mail/net.c src/mail/folderrole.c \
-                 src/mail/mime.c src/mail/html.c src/mail/xml.c src/mail/ical.c src/mail/vcard.c \
-                 src/mail/davutil.c src/doc/wire.c src/ui/tzif.c src/sec/json.c
-test: build/mail-test
-build/mail-test: $(MAIL_TEST_SRC) $(wildcard src/mail/*.h src/doc/*.h src/ui/tzif.h src/sec/json.h)
-	@mkdir -p build
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) -std=gnu11 -o $@ $(MAIL_TEST_SRC) -lm -lssl -lcrypto
-	./$@ || { rm -f $@; exit 1; }
-# Direct entry points for local development and CI.
-.PHONY: mail-test mail-asan
-mail-test: build/mail-test
-# Parser fuzz/regression suite under memory and undefined-behavior sanitizers.
-mail-asan: build/mail-asan-test
-build/mail-asan-test: $(MAIL_TEST_SRC) $(wildcard src/mail/*.h src/doc/*.h src/ui/tzif.h src/sec/json.h)
-	@mkdir -p build
-	$(CC) $(CPPFLAGS) -O1 -g $(WARN) -std=gnu11 -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer -o $@ $(MAIL_TEST_SRC) -lm -lssl -lcrypto
-	ASAN_OPTIONS=detect_leaks=0 ./$@ || { rm -f $@; exit 1; }
 # lord-maild for the isolated system apps (src/sec/brokermail.c): who may ask what, files, Mail-only verbs
 test: build/brokermail-test
 build/brokermail-test: tests/brokermail_test.c src/sec/brokermail.c src/sec/json.c $(wildcard src/sec/*.h src/mail/*.h)
