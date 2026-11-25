@@ -376,7 +376,7 @@ static time_t internaldate(const IVal *v) {
     return mime_date(d);
 }
 
-typedef struct { Account *a; Folder *f; uint32_t old_uidnext; int added, fresh, failed; JBuf news; int nnews; } FetchCtx;
+typedef struct { Account *a; Folder *f; uint32_t old_uidnext; int added, fresh, failed, expect_headers; JBuf news; int nnews; } FetchCtx;
 
 static void addr_list_text(const char *raw, char *out, size_t cap) {
     char dec[2048];
@@ -396,14 +396,23 @@ static void on_fetch(Imap *im, IResp *r, void *u) {
     FetchCtx *fc = u;
     if (!r->first || !iv_is(r->first->next, "FETCH")) return;
     IVal *list = r->first->next->next;
-    if (!list || list->type != IV_LIST) return;
+    if (!list || list->type != IV_LIST) {
+        if (fc->expect_headers) fc->failed = 1;
+        return;
+    }
     uint32_t uid = (uint32_t)iv_num(imap_fetch_item(list, "UID"), 0);
-    if (!uid) return;
+    if (!uid) {
+        if (fc->expect_headers) fc->failed = 1;
+        return;
+    }
     IVal *hdr = imap_fetch_item(list, "BODY[HEADER");
     IVal *flags = imap_fetch_item(list, "FLAGS");
     IVal *ms = imap_fetch_item(list, "MODSEQ");
     (void)ms;
     if (!hdr) {
+        /* Header fetches are required for newly discovered messages. A
+         * successful tagged completion with a missing header is partial. */
+        if (fc->expect_headers) { fc->failed = 1; return; }
         /* flags only */
         pthread_mutex_lock(&G);
         Msg *m = store_msg(fc->f, uid);
@@ -421,8 +430,9 @@ static void on_fetch(Imap *im, IResp *r, void *u) {
         return;
     }
     IVal *text = imap_fetch_item(list, "BODY[TEXT]");
-    const char *h = hdr->type == IV_STR ? hdr->s : "";
-    size_t hl = hdr->type == IV_STR ? hdr->n : 0;
+    if (hdr->type != IV_STR) { fc->failed = 1; return; }
+    const char *h = hdr->s;
+    size_t hl = hdr->n;
     char v[4096], dec[2048];
     Msg m;
     memset(&m, 0, sizeof m);
@@ -600,6 +610,7 @@ static int sync_folder(Imap *im, Folder *f) {
     fc.a = a; fc.f = f; fc.old_uidnext = old_next; fc.fresh = known && !strcmp(f->special, "inbox");
     jb_init(&fc.news);
     int rc = 0, complete = want != NULL;
+    fc.expect_headers = 1;
     for (size_t off = 0; want && off < nw && !a->stop; off += CHUNK) {
         size_t n = nw - off < CHUNK ? nw - off : CHUNK;
         uint32_t chunk[CHUNK];
@@ -625,6 +636,8 @@ static int sync_folder(Imap *im, Folder *f) {
     }
     if (a->stop) complete = 0;
     free(want);
+    /* The remaining FETCH is a flags-only reconciliation. */
+    fc.expect_headers = 0;
     /* flags of what we already had */
     if (rc == 0 && complete && cached) {
         if (im->condstore && f->modseq && si.hms && !si.nomodseq)
