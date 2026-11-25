@@ -737,6 +737,8 @@ static int run_move(Imap *im, Job *j, const char *dest) {
     Folder *f = store_folder(a, j->folder, 0);
     pthread_mutex_unlock(&G);
     if (!f) return 1;
+    if (!j->uids || j->nuids <= 0) return 1;
+    if ((size_t)j->nuids > (SIZE_MAX - 16) / 12) return -1;
     qsort(j->uids, (size_t)j->nuids, sizeof *j->uids, cmp_u32);
     char *set = malloc((size_t)j->nuids * 12 + 16);
     if (!set) return -1;
@@ -768,8 +770,7 @@ static int run_move(Imap *im, Job *j, const char *dest) {
             int requested = bsearch(&uid, j->uids, (size_t)j->nuids, sizeof *j->uids, cmp_u32) != NULL;
             if (requested) store_remove(a, f, uid);
         }
-        /* A mailbox-wide EXPUNGE can remove messages deleted by another
-         * client too. Force UID SEARCH reconciliation on the next sync. */
+        /* EXPUNGE can remove messages deleted by another client too. */
         f->synced = 0;
         store_save(a, f);
         Folder *df = dest ? store_folder(a, dest, 0) : NULL;
