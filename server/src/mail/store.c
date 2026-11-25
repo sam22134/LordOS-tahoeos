@@ -214,12 +214,17 @@ void store_save(Account *a, Folder *f) {
     }
     char rel[700];
     folder_path(a, f, "index", rel, sizeof rel);
-    if (!b.oom) fs_write(rel, b.p ? b.p : "", b.n);
+    /* Keep dirty set on allocation or disk errors so the next save retries.
+     * The state cursor is written only after the corresponding index. */
+    if (b.oom || fs_write(rel, b.p ? b.p : "", b.n) != 0) {
+        jb_free(&b);
+        return;
+    }
     jb_free(&b);
     char st[96];
     snprintf(st, sizeof st, "%u %u %llu\n", f->uidvalidity, f->uidnext, (unsigned long long)f->modseq);
     folder_path(a, f, "state", rel, sizeof rel);
-    fs_write(rel, st, strlen(st));
+    if (fs_write(rel, st, strlen(st)) != 0) return;
     f->dirty = 0;
 }
 
