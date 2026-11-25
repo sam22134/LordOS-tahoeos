@@ -228,7 +228,9 @@ int fs_write(const char *rel, const void *data, size_t len) {
         if (w <= 0) { if (w < 0 && errno == EINTR) continue; close(fd); unlinkat(cache_fd, tmp, 0); return -1; }
         off += (size_t)w;
     }
-    close(fd);
+    /* Surface delayed write errors before publishing the temporary file. */
+    int close_error = close(fd);
+    if (close_error) { unlinkat(cache_fd, tmp, 0); return -1; }
     if (renameat(cache_fd, tmp, cache_fd, rel)) { unlinkat(cache_fd, tmp, 0); return -1; }
     return 0;
 }
