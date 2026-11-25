@@ -743,9 +743,10 @@ static int run_move(Imap *im, Job *j, const char *dest) {
     imap_uidset(j->uids, (size_t)j->nuids, set, (size_t)j->nuids * 12 + 16);
     if (select_folder(im, f->name, NULL, 0)) { free(set); return -1; }
     int r;
-    /* Without UIDPLUS, EXPUNGE is mailbox-wide, not limited to our UID set.
-     * Keep the local cache consistent with every message the server removes. */
-    int global_expunge = !im->uidplus && (!dest || !im->move);
+    /* Without UIDPLUS, EXPUNGE is mailbox-wide. Even with UIDPLUS, the
+     * server may have concurrent changes, so invalidate and reconcile the
+     * source folder after a successful move/delete instead of guessing. */
+    int reconcile_source = !im->uidplus && (!dest || !im->move);
     if (dest) {
         int lit;
         char *q = imap_quote(dest, im->literalplus, &lit);
@@ -767,13 +768,16 @@ static int run_move(Imap *im, Job *j, const char *dest) {
         for (int i = f->n - 1; i >= 0; i--) {
             uint32_t uid = f->msgs[i].uid;
             int requested = bsearch(&uid, j->uids, (size_t)j->nuids, sizeof *j->uids, cmp_u32) != NULL;
-            if (requested || (global_expunge && (f->msgs[i].flags & F_DELETED)))
-                store_remove(a, f, uid);
+            if (requested) store_remove(a, f, uid);
         }
+        /* A mailbox-wide EXPUNGE can remove messages deleted by another
+         * client too. Force UID SEARCH reconciliation on the next sync. */
+        f->synced = 0;
         store_save(a, f);
         Folder *df = dest ? store_folder(a, dest, 0) : NULL;
         pthread_mutex_unlock(&G);
         folder_event(a, f, "changed");
+        if (reconcile_source) sync_folder(im, f);
         if (df) sync_folder(im, df);
     }
     return r;
