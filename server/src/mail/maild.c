@@ -234,11 +234,29 @@ int fs_write(const char *rel, const void *data, size_t len) {
         if (w <= 0) { if (w < 0 && errno == EINTR) continue; close(fd); unlinkat(cache_fd, tmp, 0); return -1; }
         off += (size_t)w;
     }
-    /* Surface delayed write errors before publishing the temporary file. */
+    /* Persist file contents before atomically publishing the new cache entry. */
+    int sync_error;
+    do { sync_error = fsync(fd); } while (sync_error && errno == EINTR);
     int close_error = close(fd);
-    if (close_error) { unlinkat(cache_fd, tmp, 0); return -1; }
+    if (sync_error || close_error) { unlinkat(cache_fd, tmp, 0); return -1; }
     if (renameat(cache_fd, tmp, cache_fd, rel)) { unlinkat(cache_fd, tmp, 0); return -1; }
-    return 0;
+
+    /* Persist the rename too, otherwise a power loss may roll back the name
+     * even though the file data itself was flushed successfully. */
+    char parent[1024];
+    const char *slash = strrchr(rel, '/');
+    int dirfd = cache_fd;
+    if (slash) {
+        size_t plen = (size_t)(slash - rel);
+        if (!plen || plen >= sizeof parent) return -1;
+        memcpy(parent, rel, plen);
+        parent[plen] = 0;
+        dirfd = openat(cache_fd, parent, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+        if (dirfd < 0) return -1;
+    }
+    do { sync_error = fsync(dirfd); } while (sync_error && errno == EINTR);
+    if (dirfd != cache_fd) close(dirfd);
+    return sync_error ? -1 : 0;
 }
 
 int fs_exists(const char *rel) { struct stat st; return fstatat(cache_fd, rel, &st, AT_SYMLINK_NOFOLLOW) == 0; }
