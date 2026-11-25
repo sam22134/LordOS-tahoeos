@@ -10,6 +10,7 @@
 #include <string.h>
 #include <strings.h>
 #include <time.h>
+#include <limits.h>
 
 typedef struct { char id[40]; FolderList fl; int idx; } Store;
 static Store stores[MAIL_MAX_ACCOUNTS * 2];
@@ -145,8 +146,11 @@ Msg *store_add(Account *a, Folder *f, const Msg *src) {
         return NULL;
     }
 
+    if (f->n == INT_MAX) { msg_free(&copy); return NULL; }
     if (f->n == f->cap) {
+        if (f->cap > INT_MAX / 2) { msg_free(&copy); return NULL; }
         int nc = f->cap ? f->cap * 2 : 64;
+        if ((size_t)nc > SIZE_MAX / sizeof *f->msgs) { msg_free(&copy); return NULL; }
         Msg *nm = realloc(f->msgs, (size_t)nc * sizeof *nm);
         if (!nm) { msg_free(&copy); return NULL; }
         f->msgs = nm;
