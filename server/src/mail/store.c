@@ -159,6 +159,11 @@ void store_remove(Account *a, Folder *f, uint32_t uid) {
     snprintf(name, sizeof name, "m/%u", uid);
     folder_path(a, f, name, rel, sizeof rel);
     fs_unlink(rel);
+    /* Searchable body text is stored separately from the raw message. Keep
+     * the two cache entries in lockstep when a UID disappears. */
+    snprintf(name, sizeof name, "t/%u", uid);
+    folder_path(a, f, name, rel, sizeof rel);
+    fs_unlink(rel);
     msg_free(m);
     int pos = (int)(m - f->msgs);
     memmove(&f->msgs[pos], &f->msgs[pos + 1], (size_t)(f->n - pos - 1) * sizeof *f->msgs);
@@ -173,6 +178,9 @@ void store_clear(Account *a, Folder *f) {
     f->unread = 0;
     char rel[700];
     folder_path(a, f, "m", rel, sizeof rel);
+    fs_rmtree(rel);
+    /* UIDVALIDITY changes invalidate searchable text sidecars as well. */
+    folder_path(a, f, "t", rel, sizeof rel);
     fs_rmtree(rel);
     f->uidnext = 0;
     f->modseq = 0;
