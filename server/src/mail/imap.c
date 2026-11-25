@@ -777,7 +777,7 @@ static int run_move(Imap *im, Job *j, const char *dest) {
         Folder *df = dest ? store_folder(a, dest, 0) : NULL;
         pthread_mutex_unlock(&G);
         folder_event(a, f, "changed");
-        if (reconcile_source) sync_folder(im, f);
+        sync_folder(im, f);
         if (df) sync_folder(im, df);
     }
     return r;
