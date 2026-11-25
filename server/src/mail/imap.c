@@ -609,8 +609,11 @@ static int sync_folder(Imap *im, Folder *f) {
         }
     }
     free(s.u);
+    /* A tagged NO/BAD is not a successful flag reconciliation. Do not advance
+     * sync cursors or mark this folder synchronized after a partial failure. */
+    if (rc != 0) complete = 0;
     pthread_mutex_lock(&G);
-    if (rc >= 0 && complete) {
+    if (rc == 0 && complete) {
         if (si.uidnext) f->uidnext = si.uidnext;
         if (si.hms) f->modseq = si.hms;
         f->synced = 1;
