@@ -250,16 +250,25 @@ int fs_rmtree(const char *rel) {
     if (dfd < 0) return -1;
     DIR *d = fdopendir(dfd);
     if (!d) { close(dfd); return -1; }
+    int failed = 0;
     struct dirent *e;
+    errno = 0;
     while ((e = readdir(d))) {
         if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
         char sub[1200];
-        snprintf(sub, sizeof sub, "%s/%s", rel, e->d_name);
-        if (e->d_type == DT_DIR) fs_rmtree(sub);
-        else unlinkat(cache_fd, sub, 0);
+        int n = snprintf(sub, sizeof sub, "%s/%s", rel, e->d_name);
+        if (n < 0 || (size_t)n >= sizeof sub) { failed = 1; continue; }
+        struct stat st;
+        /* d_type is optional on several filesystems. Use a no-follow stat
+         * so DT_UNKNOWN and symlinks are handled without traversing links. */
+        if (fstatat(cache_fd, sub, &st, AT_SYMLINK_NOFOLLOW) == 0 && S_ISDIR(st.st_mode)) {
+            if (fs_rmtree(sub) != 0) failed = 1;
+        } else if (unlinkat(cache_fd, sub, 0) != 0 && errno != ENOENT) failed = 1;
+        errno = 0;
     }
+    if (errno) failed = 1;
     closedir(d);
-    return 0;
+    return failed ? -1 : 0;
 }
 
 void fs_safe_name(const char *in, char *out, size_t cap) { mime_safe_filename(in, out, cap); }
