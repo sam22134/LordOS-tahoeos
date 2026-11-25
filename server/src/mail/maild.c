@@ -198,7 +198,13 @@ char *fs_read(const char *rel, size_t *len, size_t max) {
     size_t got = 0;
     while (got < (size_t)st.st_size) {
         ssize_t r = read(fd, b + got, (size_t)st.st_size - got);
-        if (r <= 0) { if (r < 0 && errno == EINTR) continue; break; }
+        if (r < 0 && errno == EINTR) continue;
+        if (r <= 0) {
+            /* Never expose a short read as a valid cache file. */
+            close(fd);
+            free(b);
+            return NULL;
+        }
         got += (size_t)r;
     }
     close(fd);
