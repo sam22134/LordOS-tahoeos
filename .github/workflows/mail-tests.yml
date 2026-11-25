@@ -1,0 +1,39 @@
+name: Mail parser regression tests
+
+on:
+  push:
+    branches:
+      - tahoe/round-1-functional-fixes
+    paths:
+      - "server/src/mail/**"
+      - "server/src/doc/wire.*"
+      - "server/src/ui/tzif.*"
+      - "server/src/sec/json.*"
+      - "server/tests/mail_test.c"
+      - "server/Makefile"
+      - ".github/workflows/mail-tests.yml"
+  pull_request:
+    paths:
+      - "server/src/mail/**"
+      - "server/src/doc/wire.*"
+      - "server/src/ui/tzif.*"
+      - "server/src/sec/json.*"
+      - "server/tests/mail_test.c"
+      - "server/Makefile"
+      - ".github/workflows/mail-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  parser-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Install mail test dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential libssl-dev
+      - name: Run parser regression suite
+        run: make -C server mail-test
+      - name: Run parser suite with sanitizers
+        run: make -C server mail-asan
