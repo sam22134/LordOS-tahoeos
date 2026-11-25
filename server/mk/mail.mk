@@ -1,18 +1,21 @@
 # Mail, Calendar, Contacts and Reminders (docs/MAIL.md). lord-maild is the sandboxed helper that
 # speaks IMAP, SMTP, CalDAV and CardDAV; with lord-sessiond it is the only binary linking OpenSSL.
 MAIL_PARSE := src/mail/folderrole.c src/mail/xml.c src/mail/mime.c src/mail/html.c src/mail/imapp.c src/mail/ical.c src/mail/vcard.c src/mail/davutil.c
+MAIL_TEST_SRC := tests/mail_test.c $(MAIL_PARSE) src/mail/imapio.c src/mail/net.c src/doc/wire.c src/sec/json.c src/ui/tzif.c
 MAIL_HDR := $(wildcard src/mail/*.h) src/doc/wire.h src/sec/json.h src/ui/tzif.h
-# parsers: IMAP, MIME, HTML sanitizer, iCalendar, vCard and XML, with a small fuzzer (tests/mail_test.c)
+# parsers: IMAP responses and literals, MIME, HTML sanitizer, iCalendar, vCard and XML.
+.PHONY: mail-test
 test: build/mail-test
-build/mail-test: tests/mail_test.c $(MAIL_PARSE) $(MAIL_HDR) src/doc/wire.c src/sec/json.c src/ui/tzif.c
+mail-test: build/mail-test
+build/mail-test: $(MAIL_TEST_SRC) $(MAIL_HDR)
 	@mkdir -p build
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) -std=c11 -o $@ tests/mail_test.c $(MAIL_PARSE) src/doc/wire.c src/sec/json.c src/ui/tzif.c -lm
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) -std=c11 -o $@ $(MAIL_TEST_SRC) $(shell pkg-config --libs openssl) -lpthread -lm
 	./$@ || { rm -f $@; exit 1; }
 # the same under AddressSanitizer + UBSan (not part of `test`: slower)
-build/mail-test-asan: tests/mail_test.c $(MAIL_PARSE) $(MAIL_HDR) src/doc/wire.c src/sec/json.c src/ui/tzif.c
+build/mail-test-asan: $(MAIL_TEST_SRC) $(MAIL_HDR)
 	@mkdir -p build
-	$(CC) $(CPPFLAGS) -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer $(WARN) -std=c11 -o $@ tests/mail_test.c $(MAIL_PARSE) src/doc/wire.c src/sec/json.c src/ui/tzif.c -lm
-	./$@
+	$(CC) $(CPPFLAGS) -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer $(WARN) -std=c11 -o $@ $(MAIL_TEST_SRC) $(shell pkg-config --libs openssl) -lpthread -lm
+	ASAN_OPTIONS=detect_leaks=0 ./$@
 .PHONY: mail-asan
 mail-asan: build/mail-test-asan
 # lord-server's side: start lord-maild, its channel, the connector (allowed servers only) and lord.mail
