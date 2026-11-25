@@ -575,7 +575,7 @@ static int sync_folder(Imap *im, Folder *f) {
     memset(&fc, 0, sizeof fc);
     fc.a = a; fc.f = f; fc.old_uidnext = old_next; fc.fresh = known && !strcmp(f->special, "inbox");
     jb_init(&fc.news);
-    int rc = 0;
+    int rc = 0, complete = want != NULL;
     for (size_t off = 0; want && off < nw && !a->stop; off += CHUNK) {
         size_t n = nw - off < CHUNK ? nw - off : CHUNK;
         uint32_t chunk[CHUNK];
@@ -584,7 +584,7 @@ static int sync_folder(Imap *im, Folder *f) {
         imap_uidset(chunk, n, set, sizeof set);
         rc = cmd(im, on_fetch, &fc, "UID FETCH %s (UID FLAGS INTERNALDATE RFC822.SIZE BODY.PEEK[HEADER.FIELDS (FROM TO CC SUBJECT DATE MESSAGE-ID IN-REPLY-TO "
                                     "REFERENCES CONTENT-TYPE CONTENT-TRANSFER-ENCODING)] BODY.PEEK[TEXT]<0.2048>)", set);
-        if (rc < 0) break;
+        if (rc != 0) { complete = 0; break; }
         pthread_mutex_lock(&G);
         store_save(a, f);
         pthread_mutex_unlock(&G);
@@ -593,12 +593,12 @@ static int sync_folder(Imap *im, Folder *f) {
         pthread_mutex_lock(&a->qmu);
         int urgent = a->jobs && a->jobs->prio >= 5;
         pthread_mutex_unlock(&a->qmu);
-        if (urgent) break;
+        if (urgent) { complete = 0; break; }
     }
-    int complete = !want || fc.added >= (int)nw || rc < 0 ? (rc >= 0) : 0;
+    if (a->stop) complete = 0;
     free(want);
     /* flags of what we already had */
-    if (rc >= 0 && cached) {
+    if (rc == 0 && complete && cached) {
         if (im->condstore && f->modseq && si.hms && !si.nomodseq)
             rc = cmd(im, on_fetch, &fc, "UID FETCH 1:* (UID FLAGS) (CHANGEDSINCE %llu)", (unsigned long long)f->modseq);
         else if (s.n <= 6000) rc = cmd(im, on_fetch, &fc, "UID FETCH 1:* (UID FLAGS)");
