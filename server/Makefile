@@ -620,8 +620,10 @@ build/mail-test: $(MAIL_TEST_SRC) $(wildcard src/mail/*.h src/doc/*.h src/ui/tzi
 	@mkdir -p build
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) -std=gnu11 -o $@ $(MAIL_TEST_SRC) -lm -lssl -lcrypto
 	./$@ || { rm -f $@; exit 1; }
+# Direct entry points for local development and CI.
+.PHONY: mail-test mail-asan
+mail-test: build/mail-test
 # Parser fuzz/regression suite under memory and undefined-behavior sanitizers.
-.PHONY: mail-asan
 mail-asan: build/mail-asan-test
 build/mail-asan-test: $(MAIL_TEST_SRC) $(wildcard src/mail/*.h src/doc/*.h src/ui/tzif.h src/sec/json.h)
 	@mkdir -p build
