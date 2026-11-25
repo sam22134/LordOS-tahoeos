@@ -743,10 +743,8 @@ static int run_move(Imap *im, Job *j, const char *dest) {
     imap_uidset(j->uids, (size_t)j->nuids, set, (size_t)j->nuids * 12 + 16);
     if (select_folder(im, f->name, NULL, 0)) { free(set); return -1; }
     int r;
-    /* Without UIDPLUS, EXPUNGE is mailbox-wide. Even with UIDPLUS, the
-     * server may have concurrent changes, so invalidate and reconcile the
-     * source folder after a successful move/delete instead of guessing. */
-    int reconcile_source = !im->uidplus && (!dest || !im->move);
+    /* EXPUNGE without UIDPLUS is mailbox-wide; reconcile the source
+     * folder after every successful move/delete to capture concurrent changes. */
     if (dest) {
         int lit;
         char *q = imap_quote(dest, im->literalplus, &lit);
