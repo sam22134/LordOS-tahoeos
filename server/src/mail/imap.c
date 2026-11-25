@@ -376,7 +376,7 @@ static time_t internaldate(const IVal *v) {
     return mime_date(d);
 }
 
-typedef struct { Account *a; Folder *f; uint32_t old_uidnext; int added, fresh; JBuf news; int nnews; } FetchCtx;
+typedef struct { Account *a; Folder *f; uint32_t old_uidnext; int added, fresh, failed; JBuf news; int nnews; } FetchCtx;
 
 static void addr_list_text(const char *raw, char *out, size_t cap) {
     char dec[2048];
@@ -458,9 +458,11 @@ static void on_fetch(Imap *im, IResp *r, void *u) {
     m.msgid = msgid; m.inreplyto = irt; m.refs = refs ? refs : (char *)""; m.preview = preview;
     pthread_mutex_lock(&G);
     int is_new = !store_msg(fc->f, uid);
-    store_add(fc->a, fc->f, &m);
-    fc->added++;
+    Msg *stored = store_add(fc->a, fc->f, &m);
+    if (!stored) fc->failed = 1;
+    else fc->added++;
     pthread_mutex_unlock(&G);
+    if (!stored) { free(refs); return; }
     /* new mail notification: new since the last sync, unread, recent */
     if (is_new && fc->fresh && uid >= fc->old_uidnext && !(m.flags & F_SEEN) && m.date > time(NULL) - 86400 && fc->nnews < 5) {
         if (fc->nnews) jb_raw(&fc->news, ",");
@@ -606,7 +608,11 @@ static int sync_folder(Imap *im, Folder *f) {
         imap_uidset(chunk, n, set, sizeof set);
         rc = cmd(im, on_fetch, &fc, "UID FETCH %s (UID FLAGS INTERNALDATE RFC822.SIZE BODY.PEEK[HEADER.FIELDS (FROM TO CC SUBJECT DATE MESSAGE-ID IN-REPLY-TO "
                                     "REFERENCES CONTENT-TYPE CONTENT-TRANSFER-ENCODING)] BODY.PEEK[TEXT]<0.2048>)", set);
-        if (rc != 0) { complete = 0; break; }
+        if (rc != 0 || fc.failed) {
+            if (fc.failed && rc == 0) rc = -1;
+            complete = 0;
+            break;
+        }
         pthread_mutex_lock(&G);
         store_save(a, f);
         pthread_mutex_unlock(&G);
