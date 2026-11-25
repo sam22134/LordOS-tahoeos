@@ -674,11 +674,13 @@ static int fetch_body(Imap *im, Folder *f, uint32_t uid) {
     store_body_path(im->a, f, uid, rel, sizeof rel);
     int ok = fs_write(rel, bc.raw, bc.len) == 0;
     char *text = msg_body_text(bc.raw, bc.len);
-    if (text) {
+    if (text && ok) {
         char tr[800];
         snprintf(tr, sizeof tr, "%s/f/%s/t/%u", im->a->id, f->dir, uid);
         size_t tl = strlen(text) > 16000 ? 16000 : strlen(text);
-        fs_write(tr, text, tl);
+        /* The body cache is considered complete only when its searchable
+         * text sidecar is durable too; otherwise a later request retries. */
+        if (fs_write(tr, text, tl) != 0) ok = 0;
     }
     pthread_mutex_lock(&G);
     Msg *m = store_msg(f, uid);
