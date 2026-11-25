@@ -495,6 +495,9 @@ static void on_search(Imap *im, IResp *r, void *u) {
     for (IVal *k = r->first->next; k; k = k->next) {
         if (k->type == IV_ATOM && iv_is(k, "ALL") && k->next) {
             char set[1 << 16];
+            /* iv_copy truncates to the destination size; never parse a
+             * shortened UID set as if it were the complete server result. */
+            if (k->next->n >= sizeof set) { s->failed = 1; return; }
             iv_copy(k->next, set, sizeof set);
             uint32_t tmp[8192];
             size_t c = imap_parse_uidset(set, tmp, 8192);
