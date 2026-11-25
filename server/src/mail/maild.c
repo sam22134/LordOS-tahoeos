@@ -182,8 +182,13 @@ Conn *open_conn(const char *acct, int smtp, const char *host, int port, int tls_
 
 int fs_mkdirs(const char *rel) {
     char tmp[1024];
-    snprintf(tmp, sizeof tmp, "%s", rel);
-    for (char *s = tmp + 1; *s; s++) if (*s == '/') { *s = 0; mkdirat(cache_fd, tmp, 0700); *s = '/'; }
+    int n = snprintf(tmp, sizeof tmp, "%s", rel);
+    if (n < 0 || (size_t)n >= sizeof tmp) return -1;
+    for (char *s = tmp + 1; *s; s++) if (*s == '/') {
+        *s = 0;
+        if (mkdirat(cache_fd, tmp, 0700) && errno != EEXIST) { *s = '/'; return -1; }
+        *s = '/';
+    }
     return mkdirat(cache_fd, tmp, 0700) && errno != EEXIST ? -1 : 0;
 }
 
@@ -216,14 +221,16 @@ char *fs_read(const char *rel, size_t *len, size_t max) {
 int fs_write(const char *rel, const void *data, size_t len) {
     char tmp[1100];
     static unsigned seq;
-    snprintf(tmp, sizeof tmp, "%s.%u.%u.tmp", rel, (unsigned)getpid(), __atomic_add_fetch(&seq, 1, __ATOMIC_RELAXED));
+    int tn = snprintf(tmp, sizeof tmp, "%s.%u.%u.tmp", rel, (unsigned)getpid(), __atomic_add_fetch(&seq, 1, __ATOMIC_RELAXED));
+    if (tn < 0 || (size_t)tn >= sizeof tmp) return -1;
     int fd = openat(cache_fd, tmp, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW, 0600);
     if (fd < 0) {
         /* parent folder missing: create it */
         char dir[1024];
-        snprintf(dir, sizeof dir, "%s", rel);
+        int dn = snprintf(dir, sizeof dir, "%s", rel);
+        if (dn < 0 || (size_t)dn >= sizeof dir) return -1;
         char *sl = strrchr(dir, '/');
-        if (sl) { *sl = 0; fs_mkdirs(dir); }
+        if (sl) { *sl = 0; if (fs_mkdirs(dir) != 0) return -1; }
         fd = openat(cache_fd, tmp, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW, 0600);
         if (fd < 0) return -1;
     }
