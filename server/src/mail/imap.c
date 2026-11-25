@@ -557,11 +557,12 @@ static int sync_folder(Imap *im, Folder *f) {
         if (cmd(im, on_search, &s, "UID SEARCH ALL")) { free(s.u); return -1; }
         qsort(s.u, s.n, sizeof *s.u, cmp_u32);
     }
-    /* gone from the server */
+    /* gone from the server: avoid passing a NULL UID array to bsearch when the
+     * mailbox is empty. An empty SEARCH result means every cached UID is gone. */
     pthread_mutex_lock(&G);
     for (int i = f->n - 1; i >= 0; i--) {
         uint32_t u = f->msgs[i].uid;
-        if (!bsearch(&u, s.u, s.n, sizeof *s.u, cmp_u32)) store_remove(a, f, u);
+        if (!s.n || !bsearch(&u, s.u, s.n, sizeof *s.u, cmp_u32)) store_remove(a, f, u);
     }
     /* new ones, newest first */
     uint32_t *want = malloc((s.n ? s.n : 1) * sizeof *want);
