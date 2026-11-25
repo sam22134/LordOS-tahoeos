@@ -122,10 +122,33 @@ Msg *store_add(Account *a, Folder *f, const Msg *src) {
         f->dirty = 1; f->version++;
         return ex;
     }
+
+    /* Duplicate all owned strings before changing the folder. A partial
+     * allocation must not leave a half-populated message in the cache. */
+    Msg copy = *src;
+    copy.from_name = copy.from_email = copy.to = copy.cc = NULL;
+    copy.subject = copy.msgid = copy.inreplyto = copy.refs = NULL;
+    copy.preview = copy.text = NULL;
+    copy.doc = 0;
+    copy.from_name = sdup(src->from_name);
+    copy.from_email = sdup(src->from_email);
+    copy.to = sdup(src->to);
+    copy.cc = sdup(src->cc);
+    copy.subject = sdup(src->subject);
+    copy.msgid = sdup(src->msgid);
+    copy.inreplyto = sdup(src->inreplyto);
+    copy.refs = sdup(src->refs);
+    copy.preview = sdup(src->preview);
+    if (!copy.from_name || !copy.from_email || !copy.to || !copy.cc ||
+        !copy.subject || !copy.msgid || !copy.inreplyto || !copy.refs || !copy.preview) {
+        msg_free(&copy);
+        return NULL;
+    }
+
     if (f->n == f->cap) {
         int nc = f->cap ? f->cap * 2 : 64;
         Msg *nm = realloc(f->msgs, (size_t)nc * sizeof *nm);
-        if (!nm) return NULL;
+        if (!nm) { msg_free(&copy); return NULL; }
         f->msgs = nm;
         f->cap = nc;
     }
@@ -133,16 +156,11 @@ Msg *store_add(Account *a, Folder *f, const Msg *src) {
     while (pos > 0 && f->msgs[pos - 1].uid > src->uid) pos--;
     memmove(&f->msgs[pos + 1], &f->msgs[pos], (size_t)(f->n - pos) * sizeof *f->msgs);
     Msg *m = &f->msgs[pos];
-    *m = *src;
-    m->from_name = sdup(src->from_name); m->from_email = sdup(src->from_email); m->to = sdup(src->to); m->cc = sdup(src->cc);
-    m->subject = sdup(src->subject); m->msgid = sdup(src->msgid); m->inreplyto = sdup(src->inreplyto); m->refs = sdup(src->refs);
-    m->preview = sdup(src->preview);
-    m->text = NULL;
-    m->doc = 0;
+    *m = copy;
     f->n++;
     if (!(m->flags & F_SEEN)) f->unread++;
     store_msg_text(m, NULL);
-    /* search docs point at (folder, uid): re-adding is enough */
+    /* Search docs point at (folder, uid): re-adding is enough. */
     index_msg(a, f, m);
     f->dirty = 1;
     f->version++;
