@@ -547,7 +547,9 @@ static int sync_folder(Imap *im, Folder *f) {
     int known = f->uidvalidity != 0;
     if (f->uidvalidity && si.uidvalidity && f->uidvalidity != si.uidvalidity) { store_clear(a, f); known = 0; }
     if (si.uidvalidity) f->uidvalidity = si.uidvalidity;
-    int unchanged = f->synced && si.uidnext && f->uidnext == si.uidnext && si.hms && f->modseq == si.hms && (uint32_t)f->n == im->exists;
+    /* UIDVALIDITY may be absent on some servers; do not trust cache identity
+     * unless the server explicitly supplied it for this selection. */
+    int unchanged = f->synced && si.uidvalidity && f->uidvalidity == si.uidvalidity && si.uidnext && f->uidnext == si.uidnext && si.hms && f->modseq == si.hms && (uint32_t)f->n == im->exists;
     int cached = f->n;
     pthread_mutex_unlock(&G);
     if (unchanged) return 0;
