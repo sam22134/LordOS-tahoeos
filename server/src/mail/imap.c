@@ -475,23 +475,36 @@ static void on_fetch(Imap *im, IResp *r, void *u) {
 
 typedef struct { uint32_t *u; size_t n, cap; int failed; } Uids;
 
+static int uid_push(Uids *s, uint32_t value) {
+    if (s->n == s->cap) {
+        size_t nc = s->cap ? s->cap * 2 : 1024;
+        if (nc < s->cap || nc > SIZE_MAX / sizeof *s->u) { s->failed = 1; return -1; }
+        uint32_t *nu = realloc(s->u, nc * sizeof *nu);
+        if (!nu) { s->failed = 1; return -1; }
+        s->u = nu;
+        s->cap = nc;
+    }
+    s->u[s->n++] = value;
+    return 0;
+}
+
 static void on_search(Imap *im, IResp *r, void *u) {
     (void)im;
     Uids *s = u;
     if (!iv_is(r->first, "SEARCH") && !iv_is(r->first, "ESEARCH")) return;
     for (IVal *k = r->first->next; k; k = k->next) {
-        if (k->type == IV_ATOM && iv_is(k, "ALL") && k->next) {           /* ESEARCH ... ALL 1:5,7 */
+        if (k->type == IV_ATOM && iv_is(k, "ALL") && k->next) {
             char set[1 << 16];
             iv_copy(k->next, set, sizeof set);
             uint32_t tmp[8192];
             size_t c = imap_parse_uidset(set, tmp, 8192);
-            for (size_t i = 0; i < c; i++) { if (s->n == s->cap) { s->cap = s->cap ? s->cap * 2 : 1024; uint32_t *nu = realloc(s->u, s->cap * sizeof *nu); if (!nu) return; s->u = nu; } s->u[s->n++] = tmp[i]; }
+            if (c == 8192) { s->failed = 1; return; } /* reject potentially truncated expansion */
+            for (size_t i = 0; i < c; i++) if (uid_push(s, tmp[i])) return;
             break;
         }
         long long x = iv_num(k, -1);
         if (x <= 0 || x > 4294967295LL) continue;
-        if (s->n == s->cap) { s->cap = s->cap ? s->cap * 2 : 1024; uint32_t *nu = realloc(s->u, s->cap * sizeof *nu); if (!nu) return; s->u = nu; }
-        s->u[s->n++] = (uint32_t)x;
+        if (uid_push(s, (uint32_t)x)) return;
     }
 }
 
@@ -556,7 +569,7 @@ static int sync_folder(Imap *im, Folder *f) {
     /* which uids exist on the server */
     Uids s = { 0 };
     if (im->exists) {
-        if (cmd(im, on_search, &s, "UID SEARCH ALL")) { free(s.u); return -1; }
+        if (cmd(im, on_search, &s, "UID SEARCH ALL") || s.failed) { free(s.u); return -1; }
         qsort(s.u, s.n, sizeof *s.u, cmp_u32);
     }
     /* gone from the server: avoid passing a NULL UID array to bsearch when the
