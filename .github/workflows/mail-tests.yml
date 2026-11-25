@@ -11,6 +11,7 @@ on:
       - "server/src/sec/json.*"
       - "server/tests/mail_test.c"
       - "server/Makefile"
+      - "server/mk/mail.mk"
       - ".github/workflows/mail-tests.yml"
   pull_request:
     paths:
