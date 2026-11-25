@@ -34,6 +34,6 @@ jobs:
       - name: Install mail test dependencies
         run: sudo apt-get update && sudo apt-get install -y build-essential libssl-dev
       - name: Run parser regression suite
-        run: make -C server mail-test
+        run: make -C server SESSIOND=0 mail-test
       - name: Run parser suite with sanitizers
-        run: make -C server mail-asan
+        run: make -C server SESSIOND=0 mail-asan
