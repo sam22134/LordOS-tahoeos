@@ -617,8 +617,13 @@ static int sync_folder(Imap *im, Folder *f) {
         for (size_t i = 0; i < n; i++) chunk[i] = want[off + n - 1 - i];      /* ascending for a compact set */
         char set[CHUNK * 12];
         imap_uidset(chunk, n, set, sizeof set);
+        int before = fc.added;
         rc = cmd(im, on_fetch, &fc, "UID FETCH %s (UID FLAGS INTERNALDATE RFC822.SIZE BODY.PEEK[HEADER.FIELDS (FROM TO CC SUBJECT DATE MESSAGE-ID IN-REPLY-TO "
                                     "REFERENCES CONTENT-TYPE CONTENT-TRANSFER-ENCODING)] BODY.PEEK[TEXT]<0.2048>)", set);
+        /* A tagged OK is not enough: every requested new UID must have
+         * produced a usable header FETCH response. Missing UIDs are retried
+         * on the next sync instead of advancing the folder cursor. */
+        if (rc == 0 && !fc.failed && fc.added - before != (int)n) fc.failed = 1;
         if (rc != 0 || fc.failed) {
             if (fc.failed && rc == 0) rc = -1;
             complete = 0;
