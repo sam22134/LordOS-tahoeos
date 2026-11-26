@@ -131,7 +131,7 @@ char *compose_message(Account *a, const JVal *m, int *fds, int nfds, size_t *ole
     /* threading headers: ids only (no line breaks smuggled in) */
     if (irt && *irt && !strpbrk(irt, "\r\n")) jb_printf(&b, "In-Reply-To: %.*s\r\n", 998, irt);
     if (refs && *refs && !strpbrk(refs, "\r\n")) jb_printf(&b, "References: %.*s\r\n", 3000, refs);
-        jb_raw(&b, ",\"raw\":");
+    jb_raw(&b, "MIME-Version: 1.0\r\nX-Mailer: LordOS Mail\r\n");
     const char *text = json_str(m, "text"), *html = json_str(m, "html");
     const char *ics = json_str(m, "calendar"), *icsm = json_str(m, "calendarMethod");
     const JVal *atts = json_get(m, "attachments");
@@ -171,10 +171,10 @@ char *compose_message(Account *a, const JVal *m, int *fds, int nfds, size_t *ole
         int type_ok = strlen(type) < 100 && strchr(type, '/') && !strpbrk(type, "\r\n;\"");
         jb_printf(&b, "--%s\r\nContent-Type: %s; name=\"", bm, type_ok ? type : "application/octet-stream");
         char *en = mime_encode_header(name);
-        jb_raw(&b, ",\"raw\":");
-        jb_raw(&b, ",\"raw\":");
+        if (en) { jb_raw(&b, en); free(en); }
+        jb_raw(&b, "\"\r\nContent-Disposition: attachment; filename*=UTF-8''");
         pct(&b, name);
-        jb_raw(&b, ",\"raw\":");
+        jb_raw(&b, "\r\nContent-Transfer-Encoding: base64\r\n\r\n");
         size_t el;
         char *e64 = b64_encode((const unsigned char *)data, n, 1, &el);
         free(data);
@@ -185,7 +185,7 @@ char *compose_message(Account *a, const JVal *m, int *fds, int nfds, size_t *ole
             snprintf(err, ecap, "the message is too big");
             return NULL;
         }
-        jb_raw(&b, ",\"raw\":");
+        jb_raw(&b, e64);
         free(e64);
         if (b.oom || b.n > TOTAL_MAX) { jb_free(&b); snprintf(err, ecap, "the message is too big"); return NULL; }
     }
@@ -324,13 +324,13 @@ int smtp_send(Account *a, const char *from, const char **rcpt, int nrcpt, const 
             if (ti.code) {
                 JBuf b;
                 jb_init(&b);
-        jb_raw(&b, ",\"raw\":");
-        jb_raw(&b, ",\"raw\":");
+                jb_raw(&b, "{\"ev\":\"cert\",\"acct\":"); jb_str(&b, a->id);
+                jb_raw(&b, ",\"host\":"); jb_str(&b, s.host);
                 jb_printf(&b, ",\"port\":%d,\"smtp\":true,\"reason\":", s.port); jb_str(&b, ti.reason);
-        jb_raw(&b, ",\"raw\":");
-        jb_raw(&b, ",\"raw\":");
-        jb_raw(&b, ",\"raw\":");
-        jb_raw(&b, ",\"raw\":");
+                jb_raw(&b, ",\"subject\":"); jb_str(&b, ti.subject);
+                jb_raw(&b, ",\"issuer\":"); jb_str(&b, ti.issuer);
+                jb_raw(&b, ",\"sha256\":"); jb_str(&b, ti.sha256);
+                jb_raw(&b, "}");
                 send_event(&b);
             }
             goto out;
@@ -449,9 +449,9 @@ void sender_queue(Job *j) {
 static void sent_event(const char *acct, const char *msgid, const char *subject, int later) {
     JBuf b;
     jb_init(&b);
-        jb_raw(&b, ",\"raw\":");
-        jb_raw(&b, ",\"raw\":");
-        jb_raw(&b, ",\"raw\":");
+    jb_raw(&b, "{\"ev\":\"sent\",\"acct\":"); jb_str(&b, acct);
+    jb_raw(&b, ",\"msgid\":"); jb_str(&b, msgid);
+    jb_raw(&b, ",\"subject\":"); jb_str(&b, subject ? subject : "");
     jb_printf(&b, ",\"later\":%s}", later ? "true" : "false");
     send_event(&b);
 }
@@ -555,11 +555,11 @@ static void outbox_env_json(JBuf *b, const JVal *env) {
 static void outbox_requeue(const char *rel, const JVal *root, const JVal *env, const char *raw, unsigned delay) {
     JBuf b; jb_init(&b);
     int tries = (int)json_num(root, "retries", 0) + 1;
-        jb_raw(&b, ",\"raw\":");
-        jb_printf(&b, ",\"sendAt\":%.0f,\"retries\":0,\"msgid\":", at);
+    jb_raw(&b, "{\"acct\":"); jb_str(&b, json_str(root, "acct"));
+    jb_printf(&b, ",\"sendAt\":%.0f,\"retries\":%d,\"msgid\":",
               ((double)time(NULL) + delay) * 1000, tries);
-        jb_raw(&b, ",\"raw\":");
-        jb_raw(&b, ",\"raw\":");
+    jb_str(&b, json_str(root, "msgid")); jb_raw(&b, ",\"env\":"); outbox_env_json(&b, env);
+    jb_raw(&b, ",\"raw\":"); jb_str(&b, raw ? raw : ""); jb_raw(&b, "}");
     if (!b.oom) fs_write(rel, b.p, b.n);
     jb_free(&b);
 }
@@ -677,7 +677,7 @@ static void *sender(void *arg) {
         if (json_bool(m, "test", 0)) {
             int r = smtp_send(a, NULL, NULL, 0, NULL, 0, err, sizeof err);
             if (r) reply_err(j->req, r == -2 ? "auth" : "smtp", err);
-        jb_raw(&b, ",\"raw\":");
+            else { JBuf b; jb_init(&b); jb_raw(&b, "{\"ok\":true}"); reply_done(j->req, &b); }
             json_free(&d);
             job_free(j);
             continue;
@@ -688,12 +688,12 @@ static void *sender(void *arg) {
         double at = json_num(m, "sendAt", 0);
         if (at / 1000 > (double)time(NULL) + 20) {
             int r = outbox_store(a, m, raw, rl, msgid, at);
-        jb_raw(&b, ",\"raw\":");
+            if (j->req) { if (r) reply_err(j->req, "outbox", ""); else { JBuf b; jb_init(&b); jb_raw(&b, "{\"ok\":true,\"scheduled\":true,\"msgid\":"); jb_str(&b, msgid); jb_raw(&b, "}"); reply_done(j->req, &b); } }
         } else {
             int r = deliver(a, m, raw, rl, err, sizeof err);
             if (j->req) {
                 if (r) reply_err(j->req, r == -2 ? "auth" : "smtp", err);
-        jb_raw(&b, ",\"raw\":");
+                else { JBuf b; jb_init(&b); jb_raw(&b, "{\"ok\":true,\"msgid\":"); jb_str(&b, msgid); jb_raw(&b, "}"); reply_done(j->req, &b); }
             }
             if (!r) sent_event(a->id, msgid, json_str(m, "subject"), 0);
         }
