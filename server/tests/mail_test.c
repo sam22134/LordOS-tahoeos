@@ -204,6 +204,11 @@ static void test_mime(void) {
     CHECK(mime_date("17 Oct 2026 17:05:00 GMT") == 1792256700);
     CHECK(mime_date("Fri, 17 Oct 26 17:05 +0000") == 1792256700 - 0);
     CHECK(mime_date("garbage") == 0);
+    CHECK(mime_date("30 Feb 2026 12:00:00 +0000") == 0);
+    CHECK(mime_date("29 Feb 2025 12:00:00 +0000") == 0);
+    CHECK(mime_date("29 Feb 2024 12:00:00 +0000") > 0);
+    CHECK(mime_date("31 Apr 2026 12:00:00 +0000") == 0);
+    CHECK(mime_date("17 Oct 2026 -1:05:00 +0000") == 0);
 
     MimeMsg *m = malloc(sizeof *m);
     mime_parse(MSG1, strlen(MSG1), m);
