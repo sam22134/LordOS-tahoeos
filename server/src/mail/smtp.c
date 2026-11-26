@@ -46,14 +46,36 @@ static void hdr(JBuf *b, const char *name, const char *value) {
 static int valid_email(const char *e) {
     if (!e || !*e || strlen(e) > 254 || !strchr(e, '@')) return 0;
     const char *at = strchr(e, '@');
-    if (at == e || !at[1] || strchr(at + 1, '@')) return 0;
-    for (const char *c = e; *c; c++) {
-        unsigned char v = (unsigned char)*c;
-        if (v <= 0x20 || v == 0x7f || v == '<' || v == '>' || v == ',' ||
-            v == ';' || v == '"' || v == '\\' || v == ':' || v == '/' ||
-            v == '[' || v == ']') return 0;
+    if (at == e || !at[1] || strchr(at + 1, '@') || (size_t)(at - e) > 64) return 0;
+
+    /* This sender implements ordinary dot-atom addresses, not quoted local
+     * parts or SMTPUTF8. Reject unsupported forms instead of sending a
+     * malformed envelope that only fails after the SMTP transaction starts. */
+    const char *atom = e;
+    for (const char *p = e; p < at; p++) {
+        unsigned char c = (unsigned char)*p;
+        int atext = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+                    (c >= '0' && c <= '9') || strchr("!#$%&'*+-/=?^_`{|}~", c) != NULL;
+        if (c == '.') {
+            if (p == atom || p + 1 == at) return 0;
+            atom = p + 1;
+        } else if (!atext) return 0;
     }
-    if (at[1] == '.' || e[strlen(e)-1] == '.') return 0;
+
+    /* SMTP domain names are ASCII DNS labels: 1–63 bytes, with no
+     * leading/trailing hyphen and no empty labels. Internationalized names
+     * must be supplied in their IDNA (punycode) form. */
+    const char *label = at + 1;
+    for (const char *p = label; ; p++) {
+        unsigned char c = (unsigned char)*p;
+        if (c == '.' || c == 0) {
+            size_t n = (size_t)(p - label);
+            if (!n || n > 63 || label[0] == '-' || p[-1] == '-') return 0;
+            if (!c) break;
+            label = p + 1;
+        } else if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+                     (c >= '0' && c <= '9') || c == '-')) return 0;
+    }
     return 1;
 }
 
