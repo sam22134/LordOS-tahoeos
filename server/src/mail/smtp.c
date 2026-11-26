@@ -35,7 +35,7 @@ static void rand_hex(char *out, size_t bytes) {
 static void hdr(JBuf *b, const char *name, const char *value) {
     if (!value || !*value) return;
     char *e = mime_encode_header(value);
-    if (!e) return;
+    if (!e) { b->oom = 1; return; }
     jb_raw(b, name);
     jb_raw(b, ": ");
     jb_raw(b, e);
@@ -88,7 +88,7 @@ static void addr_hdr(JBuf *b, const char *name, const JVal *list) {
         const char *e = json_str(x, "email");
         if (!valid_email(e)) continue;
         char *f = mime_format_addr(json_str(x, "name"), e);
-        if (!f) continue;
+        if (!f) { b->oom = 1; break; }
         if (!first) jb_raw(b, ",\r\n ");
         jb_raw(b, f);
         free(f);
@@ -101,7 +101,9 @@ static void text_part(JBuf *b, const char *type, const char *text, const char *e
     jb_printf(b, "Content-Type: %s; charset=utf-8%s\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n", type, extra_params ? extra_params : "");
     size_t ql;
     char *q = qp_encode(text ? text : "", text ? strlen(text) : 0, &ql);
-    if (q) { jb_raw(b, q); free(q); }
+    if (!q) { b->oom = 1; return; }
+    jb_raw(b, q);
+    free(q);
     jb_raw(b, "\r\n");
 }
 
