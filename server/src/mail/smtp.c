@@ -463,9 +463,23 @@ static int deliver(Account *a, const JVal *m, const char *raw, size_t rl, char *
     const char *lists[] = { "to", "cc", "bcc" };
     for (int l = 0; l < 3; l++) {
         const JVal *arr = json_get(m, lists[l]);
-        for (const JVal *x = arr && arr->type == J_ARR ? arr->kid : NULL; x; x = x->next) {
+        if (arr && arr->type != J_ARR) {
+            snprintf(err, ecap, "invalid %s recipient list", lists[l]);
+            return -1;
+        }
+        for (const JVal *x = arr ? arr->kid : NULL; x; x = x->next) {
             const char *e = json_str(x, "email");
-            if (!valid_email(e)) continue;
+            if (!valid_email(e)) {
+                snprintf(err, ecap, "invalid recipient in %s", lists[l]);
+                return -1;
+            }
+            /* The same address in To, Cc and Bcc is one SMTP recipient. */
+            int duplicate = 0;
+            for (int i = 0; i < nr; i++) if (!strcasecmp(rcpt[i], e)) {
+                duplicate = 1;
+                break;
+            }
+            if (duplicate) continue;
             if (nr == (int)(sizeof rcpt / sizeof rcpt[0])) {
                 snprintf(err, ecap, "too many recipients (maximum 300)");
                 return -1;
