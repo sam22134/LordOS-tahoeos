@@ -10,6 +10,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <math.h>
 #include <poll.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -718,7 +719,16 @@ static void *sender(void *arg) {
         size_t rl;
         char *raw = compose_message(a, m, j->fds, j->nfds, &rl, msgid, sizeof msgid, err, sizeof err);
         if (!raw) { if (j->req) reply_err(j->req, "compose", err); json_free(&d); job_free(j); continue; }
+        const JVal *send_at = json_get(m, "sendAt");
         double at = json_num(m, "sendAt", 0);
+        if (send_at && (send_at->type != J_NUM || !isfinite(at) ||
+                        at < 0 || at > (double)INT64_MAX)) {
+            if (j->req) reply_err(j->req, "bad-schedule", "invalid send time");
+            free(raw);
+            json_free(&d);
+            job_free(j);
+            continue;
+        }
         if (at / 1000 > (double)time(NULL) + 20) {
             int r = outbox_store(a, m, raw, rl, msgid, at);
             if (j->req) { if (r) reply_err(j->req, "outbox", ""); else { JBuf b; jb_init(&b); jb_raw(&b, "{\"ok\":true,\"scheduled\":true,\"msgid\":"); jb_str(&b, msgid); jb_raw(&b, "}"); reply_done(j->req, &b); } }
