@@ -507,7 +507,7 @@ static void run_outbox(void) {
                     jb_printf(&ev,",\\"retryIn\\":%u,\\"attempt\\":%d}",delay,tries);send_event(&ev);
                 }
             }
-        } else if(!a) outbox_requeue(rel,d.root,env,raw,1800);
+        } else if(!a && env && raw) outbox_requeue(rel,d.root,env,raw,1800);
         else fs_unlink(rel);
         json_free(&d);free(t);
     }
