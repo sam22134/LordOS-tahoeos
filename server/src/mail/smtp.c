@@ -599,10 +599,16 @@ static void run_outbox(void) {
         const char *raw = json_str(d.root, "raw");
         const char *msgid = json_str(d.root, "msgid");
         const JVal *env = json_get(d.root, "env");
-        if (!acct_id || !*acct_id || !raw || !*raw || !env || env->type != J_OBJ || !msgid || !*msgid) {
+        const JVal *send_at = json_get(d.root, "sendAt");
+        /* A missing, mistyped, negative, infinite, or unrepresentable timestamp
+         * must never fall back to zero and turn a delayed message into an
+         * immediate delivery. Quarantine malformed persisted entries instead. */
+        if (!acct_id || !*acct_id || !raw || !*raw || !env || env->type != J_OBJ ||
+            !msgid || !*msgid || !send_at || send_at->type != J_NUM ||
+            !(send_at->num >= 0) || send_at->num > (double)INT64_MAX) {
             json_free(&d); free(t); outbox_quarantine(rel, k); continue;
         }
-        double at = json_num(d.root, "sendAt", 0) / 1000;
+        double at = send_at->num / 1000;
         if (at > (double)time(NULL)) { json_free(&d); free(t); continue; }
         Account *a = acct_get(acct_id);
         char err[300] = "";
