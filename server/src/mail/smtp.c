@@ -567,21 +567,14 @@ static void run_outbox(void) {
                 if (tries < 1) tries = 1;
                 unsigned delay = 1800;
                 if (r != -2) {
-                    delay = 30;
-                    for (int z = 1; z < tries && delay < 21600; z++) delay *= 2;
-                    if (delay > 21600) delay = 21600;
-                }
-                outbox_requeue(rel, d.root, env, raw, delay);
-                if (r != -2) {
                     JBuf ev; jb_init(&ev);
-                    jb_raw(&ev, "{\\"ev\\":\\"send-failed\\",\\"acct\\":"); jb_str(&ev, a->id);
-                    jb_raw(&ev, ",\\"subject\\":"); jb_str(&ev, json_str(env, "subject"));
-                    jb_raw(&ev, ",\\"error\\":"); jb_str(&ev, err);
-                    jb_printf(&ev, ",\\"retryIn\\":%u,\\"attempt\\":%d}", delay, tries);
+                    jb_raw(&ev, "{\"ev\":\"send-failed\",\"acct\":"); jb_str(&ev, a->id);
+                    jb_raw(&ev, ",\"subject\":"); jb_str(&ev, json_str(env, "subject"));
+                    jb_raw(&ev, ",\"error\":"); jb_str(&ev, err);
+                    jb_printf(&ev, ",\"retryIn\":%u,\"attempt\":%d}", delay, tries);
                     if (!ev.oom) send_event(&ev);
                     jb_free(&ev);
-                }
-            }
+                }            }
         }
         json_free(&d);
         free(t);
