@@ -506,6 +506,11 @@ static void sent_event(const char *acct, const char *msgid, const char *subject,
     send_event(&b);
 }
 
+/* IMAP UIDs are unsigned 32-bit integers, never arbitrary JSON doubles. */
+static int valid_uid(double uid) {
+    return isfinite(uid) && uid >= 1 && uid <= UINT32_MAX && floor(uid) == uid;
+}
+
 /* Envelope + raw message → SMTP, then the copy in Sent and the \Answered flag. */
 static int deliver(Account *a, const JVal *m, const char *raw, size_t rl, char *err, size_t ecap) {
     const char *rcpt[300];
@@ -543,7 +548,7 @@ static int deliver(Account *a, const JVal *m, const char *raw, size_t rl, char *
     if (!a->sent_saved && !json_bool(m, "noSent", 0)) imap_append_sent(a, raw, rl);
     /* the message we answered or forwarded */
     const JVal *orig = json_get(m, "original");
-    if (orig && json_str(orig, "folder") && json_num(orig, "uid", 0) >= 1) {
+    if (orig && json_str(orig, "folder") && valid_uid(json_num(orig, "uid", 0))) {
         JBuf fj;
         jb_init(&fj);
         jb_printf(&fj, "{\"add\":[\"%s\"]}", json_bool(orig, "forward", 0) ? "forwarded" : "answered");
@@ -559,7 +564,7 @@ static int deliver(Account *a, const JVal *m, const char *raw, size_t rl, char *
     }
     /* the draft it came from */
     double du = json_num(m, "draftUid", 0);
-    if (du >= 1 && json_str(m, "draftFolder")) {
+    if (valid_uid(du) && json_str(m, "draftFolder")) {
         Job *j = job_new(J_DELETE, 0, 6);
         if (j) {
             snprintf(j->folder, sizeof j->folder, "%s", json_str(m, "draftFolder"));
@@ -606,7 +611,7 @@ static void outbox_env_json(JBuf *b, const JVal *env) {
          * through its known scalar fields, avoiding unsafe raw JSON copying. */
         const char *acct = json_str(orig, "acct"), *folder = json_str(orig, "folder");
         double uid = json_num(orig, "uid", 0);
-        if (acct && folder && uid >= 1) {
+        if (acct && folder && valid_uid(uid)) {
             jb_raw(b, ",\"original\":{\"acct\":"); jb_str(b, acct);
             jb_raw(b, ",\"folder\":"); jb_str(b, folder);
             jb_printf(b, ",\"uid\":%.0f,\"forward\":%s}", uid,
