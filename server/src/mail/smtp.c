@@ -157,6 +157,9 @@ char *compose_message(Account *a, const JVal *m, int *fds, int nfds, size_t *ole
         }
         jb_printf(&b, "--%s--\r\n", ba);
     } else text_part(&b, "text/plain", text, NULL);
+    /* Bound generated content as well as attachments: quoted-printable can
+     * expand plain/HTML/calendar text substantially before the final check. */
+    if (b.oom || b.n > TOTAL_MAX) { jb_free(&b); snprintf(err, ecap, "the message is too big"); return NULL; }
     int i = 0;
     for (const JVal *x = atts && atts->type == J_ARR ? atts->kid : NULL; i < natt; i++, x = x ? x->next : NULL) {
         size_t n;
@@ -184,6 +187,7 @@ char *compose_message(Account *a, const JVal *m, int *fds, int nfds, size_t *ole
         }
         jb_raw(&b, e64);
         free(e64);
+        if (b.oom || b.n > TOTAL_MAX) { jb_free(&b); snprintf(err, ecap, "the message is too big"); return NULL; }
     }
     if (mixed) jb_printf(&b, "--%s--\r\n", bm);
     if (b.oom) { jb_free(&b); snprintf(err, ecap, "memory"); return NULL; }
