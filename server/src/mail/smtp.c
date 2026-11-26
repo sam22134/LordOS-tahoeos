@@ -261,6 +261,31 @@ static int smtp_has_cap(const char *caps, const char *name) {
     return 0;
 }
 
+/* SIZE is a capability followed by an optional decimal maximum. */
+static int smtp_size_limit(const char *caps, size_t *limit) {
+    if (limit) *limit = 0;
+    for (const char *p = caps; p && *p;) {
+        while (*p && isspace((unsigned char)*p)) p++;
+        const char *start = p;
+        while (*p && !isspace((unsigned char)*p)) p++;
+        size_t n = (size_t)(p - start);
+        if (n != 4 || strncasecmp(start, "SIZE", 4)) continue;
+        while (*p && isspace((unsigned char)*p)) p++;
+        if (!*p) return 1;
+        if (!isdigit((unsigned char)*p)) return 1;
+        size_t value = 0;
+        while (isdigit((unsigned char)*p)) {
+            unsigned digit = (unsigned)(*p++ - '0');
+            if (value > (SIZE_MAX - digit) / 10) return 1;
+            value = value * 10 + digit;
+        }
+        if (*p && !isspace((unsigned char)*p)) return 1;
+        if (limit) *limit = value;
+        return 1;
+    }
+    return 0;
+}
+
 static int smtp_cmd(Conn *c, char *text, size_t tcap, const char *fmt, const char *arg) {
     if (conn_printf(c, fmt, arg ? arg : "") || conn_write(c, "\r\n", 2)) return -1;
     return smtp_reply(c, text, tcap, NULL, 0);
@@ -269,16 +294,22 @@ static int smtp_cmd(Conn *c, char *text, size_t tcap, const char *fmt, const cha
 int smtp_send(Account *a, const char *from, const char **rcpt, int nrcpt, const char *msg, size_t len, char *err, size_t ecap) {
     pthread_mutex_lock(&G);
     char *pw = a->password ? strdup(a->password) : NULL;
+    char *user = a->user ? strdup(a->user) : NULL;
     Server s = a->smtp;
     char pin[96];
     snprintf(pin, sizeof pin, "%s", a->pin_smtp);
     pthread_mutex_unlock(&G);
-    if (!pw) { snprintf(err, ecap, "no-password"); return -2; }
-    if (s.sec == SEC_NONE || !s.host[0]) { explicit_bzero(pw, strlen(pw)); free(pw); snprintf(err, ecap, s.host[0] ? "insecure" : "no SMTP server"); return -1; }
+    if (!pw || !user) {
+        if (pw) { explicit_bzero(pw, strlen(pw)); free(pw); }
+        free(user);
+        snprintf(err, ecap, "missing credentials");
+        return -2;
+    }
+    if (s.sec == SEC_NONE || !s.host[0]) { explicit_bzero(pw, strlen(pw)); free(pw); free(user); snprintf(err, ecap, s.host[0] ? "insecure" : "no SMTP server"); return -1; }
     TlsInfo ti;
     char why[64], text[512], caps[4096];
     Conn *c = open_conn(a->id, 1, s.host, s.port, s.sec == SEC_SSL, pin, &ti, why, sizeof why);
-    if (!c) { explicit_bzero(pw, strlen(pw)); free(pw); snprintf(err, ecap, "%s", why); return -1; }
+    if (!c) { explicit_bzero(pw, strlen(pw)); free(pw); free(user); snprintf(err, ecap, "%s", why); return -1; }
     int r = -1;
     if (smtp_reply(c, text, sizeof text, NULL, 0) != 220) { snprintf(err, ecap, "greeting: %s", text); goto out; }
     if (conn_printf(c, "EHLO lordos\r\n") ||
@@ -307,13 +338,13 @@ int smtp_send(Account *a, const char *from, const char **rcpt, int nrcpt, const 
     }
     /* AUTH PLAIN (or LOGIN) */
     {
-        size_t ul = strlen(a->user), pl = strlen(pw);
+        size_t ul = strlen(user), pl = strlen(pw);
         int code;
         if (ul > SIZE_MAX - pl - 3) { snprintf(err, ecap, "auth data too large"); r = -2; goto out; }
         if (smtp_has_cap(caps, "PLAIN")) {
             unsigned char *raw = malloc(ul + pl + 2);
             if (!raw) goto out;
-            raw[0] = 0; memcpy(raw + 1, a->user, ul); raw[1 + ul] = 0; memcpy(raw + 2 + ul, pw, pl);
+            raw[0] = 0; memcpy(raw + 1, user, ul); raw[1 + ul] = 0; memcpy(raw + 2 + ul, pw, pl);
             size_t el;
             char *e = b64_encode(raw, ul + pl + 2, 0, &el);
             explicit_bzero(raw, ul + pl + 2);
@@ -326,7 +357,7 @@ int smtp_send(Account *a, const char *from, const char **rcpt, int nrcpt, const 
             size_t el;
             code = smtp_cmd(c, text, sizeof text, "AUTH LOGIN%s", "");
             if (code == 334) {
-                char *e = b64_encode((const unsigned char *)a->user, ul, 0, &el);
+                char *e = b64_encode((const unsigned char *)user, ul, 0, &el);
                 code = e ? smtp_cmd(c, text, sizeof text, "%s", e) : -1;
                 if (e) { explicit_bzero(e, el); free(e); }
             }
@@ -349,7 +380,14 @@ int smtp_send(Account *a, const char *from, const char **rcpt, int nrcpt, const 
     }
     {
         char line[600];
-        snprintf(line, sizeof line, "MAIL FROM:<%s>%s", from, strcasestr(caps, "SIZE") ? "" : "");
+        size_t max_size = 0;
+        int has_size = smtp_size_limit(caps, &max_size);
+        if (has_size && max_size && len > max_size) {
+            snprintf(err, ecap, "message exceeds server SIZE limit");
+            goto out;
+        }
+        int line_n = snprintf(line, sizeof line, has_size ? "MAIL FROM:<%s> SIZE=%zu" : "MAIL FROM:<%s>", from, len);
+        if (line_n < 0 || (size_t)line_n >= sizeof line) { snprintf(err, ecap, "sender address too long"); goto out; }
         if (smtp_cmd(c, text, sizeof text, "%s", line) != 250) { snprintf(err, ecap, "MAIL FROM: %s", text); goto out; }
         int okr = 0;
         for (int i = 0; i < nrcpt; i++) {
@@ -381,6 +419,7 @@ int smtp_send(Account *a, const char *from, const char **rcpt, int nrcpt, const 
     }
 out:
     if (pw) { explicit_bzero(pw, strlen(pw)); free(pw); }
+    if (user) { explicit_bzero(user, strlen(user)); free(user); }
     conn_printf(c, "QUIT\r\n");
     conn_close(c);
     return r;
