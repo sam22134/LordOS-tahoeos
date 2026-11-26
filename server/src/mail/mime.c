@@ -779,7 +779,7 @@ time_t mime_date(const char *v) {
     const char *s = v;
     int day = -1, month = -1, year = -1, hh = 0, mm = 0, ss = 0, have_time = 0;
     long zone = 0;
-    int bad_zone = 0;
+    int bad_zone = 0, bad_time = 0;
     /* tokens */
     while (*s) {
         while (*s == ' ' || *s == '\t' || *s == ',' || *s == '\r' || *s == '\n') s++;
@@ -792,12 +792,24 @@ time_t mime_date(const char *v) {
         if (n >= sizeof tok) continue;
         memcpy(tok, a, n);
         tok[n] = 0;
-        if (strchr(tok, ':') && !have_time) {
-            if (sscanf(tok, "%d:%d:%d", &hh, &mm, &ss) >= 2) have_time = 1;
+        if (strchr(tok, ':')) {
+            int th = 0, tm = 0, ts = 0, used = 0;
+            int fields = sscanf(tok, "%d:%d:%d%n", &th, &tm, &ts, &used);
+            if (fields == 3 && used == (int)n) {
+                if (have_time) bad_time = 1;
+                hh = th; mm = tm; ss = ts; have_time = 1;
+            } else {
+                used = 0;
+                fields = sscanf(tok, "%d:%d%n", &th, &tm, &used);
+                if (fields == 2 && used == (int)n) {
+                    if (have_time) bad_time = 1;
+                    hh = th; mm = tm; ss = 0; have_time = 1;
+                } else bad_time = 1;
+            }
             continue;
         }
-        if ((tok[0] == '+' || tok[0] == '-') && n == 5) {
-            if (!isdigit((unsigned char)tok[1]) || !isdigit((unsigned char)tok[2]) ||
+        if (tok[0] == '+' || tok[0] == '-') {
+            if (n != 5 || !isdigit((unsigned char)tok[1]) || !isdigit((unsigned char)tok[2]) ||
                 !isdigit((unsigned char)tok[3]) || !isdigit((unsigned char)tok[4])) {
                 bad_zone = 1;
             } else {
@@ -826,7 +838,7 @@ time_t mime_date(const char *v) {
         for (size_t k = 0; k < sizeof zones / sizeof zones[0]; k++) if (!strcmp(low, zones[k].z)) zone = zones[k].h * 3600;
     }
     if (day < 1 || month < 1 || month > 12 || year < 1970 || year > 9999 ||
-        hh < 0 || hh > 23 || mm < 0 || mm > 59 || ss < 0 || ss > 60 || bad_zone) return 0;
+        hh < 0 || hh > 23 || mm < 0 || mm > 59 || ss < 0 || ss > 60 || bad_zone || bad_time) return 0;
     static const unsigned char month_days[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
     unsigned max_day = month_days[month - 1];
     if (month == 2 && (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0))) max_day++;
