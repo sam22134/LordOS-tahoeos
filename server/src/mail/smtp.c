@@ -641,13 +641,13 @@ static int outbox_store(Account *a, const JVal *m, const char *raw, size_t rl, c
         if (fs_exists(rel)) continue;
         JBuf b;
         jb_init(&b);
-        jb_raw(&b, ",\"raw\":");
+        jb_raw(&b, "{\"acct\":"); jb_str(&b, a->id);
         jb_printf(&b, ",\"sendAt\":%.0f,\"retries\":0,\"msgid\":", at);
         jb_str(&b, msgid);
-        jb_raw(&b, ",\"raw\":");
+        jb_raw(&b, ",\"env\":"); outbox_env_json(&b, m);
         jb_raw(&b, ",\"raw\":");
         jb_strn(&b, raw, rl);
-        jb_raw(&b, ",\"raw\":");
+        jb_raw(&b, "}");
         int ok = !b.oom && fs_write(rel, b.p, b.n) == 0;
         jb_free(&b);
         return ok ? 0 : -1;
