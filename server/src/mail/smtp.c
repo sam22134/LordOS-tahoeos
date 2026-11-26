@@ -552,9 +552,15 @@ static void outbox_env_json(JBuf *b, const JVal *env) {
     if (json_bool(env, "noSent", 0)) jb_raw(b, ",\"noSent\":true");
     jb_raw(b, "}");
 }
+static int outbox_next_retry(const JVal *root) {
+    double retries = json_num(root, "retries", 0);
+    if (!(retries > 0)) return 1;
+    if (retries >= 2147483646.0) return 2147483647;
+    return (int)retries + 1;
+}
 static void outbox_requeue(const char *rel, const JVal *root, const JVal *env, const char *raw, unsigned delay) {
     JBuf b; jb_init(&b);
-    int tries = (int)json_num(root, "retries", 0) + 1;
+    int tries = outbox_next_retry(root);
     jb_raw(&b, "{\"acct\":"); jb_str(&b, json_str(root, "acct"));
     jb_printf(&b, ",\"sendAt\":%.0f,\"retries\":%d,\"msgid\":",
               ((double)time(NULL) + delay) * 1000, tries);
@@ -607,7 +613,7 @@ static void run_outbox(void) {
             if (!r) {
                 if (fs_unlink(rel) == 0) sent_event(a->id, msgid, json_str(env, "subject"), 1);
             } else {
-                int tries = (int)json_num(d.root, "retries", 0) + 1;
+                int tries = outbox_next_retry(d.root);
                 if (tries < 1) tries = 1;
                 unsigned delay = 1800;
                 if (r != -2) {
