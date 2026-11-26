@@ -296,7 +296,7 @@ static int smtp_cmd(Conn *c, char *text, size_t tcap, const char *fmt, const cha
 int smtp_send(Account *a, const char *from, const char **rcpt, int nrcpt, const char *msg, size_t len, char *err, size_t ecap) {
     pthread_mutex_lock(&G);
     char *pw = a->password ? strdup(a->password) : NULL;
-    char *user = a->user ? strdup(a->user) : NULL;
+    char *user = strndup(a->user, sizeof a->user);
     Server s = a->smtp;
     char pin[96];
     snprintf(pin, sizeof pin, "%s", a->pin_smtp);
