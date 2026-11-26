@@ -857,7 +857,7 @@ char *mime_encode_header(const char *u) {
         }
         size_t el;
         char *e = b64_encode((const unsigned char *)u + i, take, 0, &el);
-        if (!e) break;
+        if (!e) { b.oom = 1; break; }
         if (!first) bputs(&b, "\r\n ");
         bputs(&b, "=?UTF-8?B?");
         bput(&b, e, el);
