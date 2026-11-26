@@ -538,7 +538,7 @@ static void run_outbox(void) {
         if (rn < 0 || (size_t)rn >= sizeof rel) continue;
         size_t n = 0;
         char *t = fs_read(rel, &n, 64 << 20);
-        if (!t) continue; /* I/O errors and oversized entries must not delete mail. */
+        if (!t) continue;
         JDoc d;
         if (json_parse(t, n, &d, NULL, 0) || !d.root || d.root->type != J_OBJ) {
             free(t);
@@ -567,6 +567,12 @@ static void run_outbox(void) {
                 if (tries < 1) tries = 1;
                 unsigned delay = 1800;
                 if (r != -2) {
+                    delay = 30;
+                    for (int z = 1; z < tries && delay < 21600; z++) delay *= 2;
+                    if (delay > 21600) delay = 21600;
+                }
+                outbox_requeue(rel, d.root, env, raw, delay);
+                if (r != -2) {
                     JBuf ev; jb_init(&ev);
                     jb_raw(&ev, "{\"ev\":\"send-failed\",\"acct\":"); jb_str(&ev, a->id);
                     jb_raw(&ev, ",\"subject\":"); jb_str(&ev, json_str(env, "subject"));
@@ -574,7 +580,8 @@ static void run_outbox(void) {
                     jb_printf(&ev, ",\"retryIn\":%u,\"attempt\":%d}", delay, tries);
                     if (!ev.oom) send_event(&ev);
                     jb_free(&ev);
-                }            }
+                }
+            }
         }
         json_free(&d);
         free(t);
