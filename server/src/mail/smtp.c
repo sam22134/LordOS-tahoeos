@@ -599,7 +599,7 @@ static void run_outbox(void) {
         const char *raw = json_str(d.root, "raw");
         const char *msgid = json_str(d.root, "msgid");
         const JVal *env = json_get(d.root, "env");
-        if (!acct_id || !*acct_id || !raw || !env || env->type != J_OBJ || !msgid || !*msgid) {
+        if (!acct_id || !*acct_id || !raw || !*raw || !env || env->type != J_OBJ || !msgid || !*msgid) {
             json_free(&d); free(t); outbox_quarantine(rel, k); continue;
         }
         double at = json_num(d.root, "sendAt", 0) / 1000;
