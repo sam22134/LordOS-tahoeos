@@ -466,18 +466,18 @@ static int deliver(Account *a, const JVal *m, const char *raw, size_t rl, char *
 }
 
 static void outbox_env_json(JBuf *b, const JVal *env) {
-    jb_raw(b, "{\\"subject\\":");
+    jb_raw(b, "{\"subject\":");
     jb_str(b, json_str(env, "subject"));
     const char *lists[] = { "to", "cc", "bcc" };
     for (int l = 0; l < 3; l++) {
-        jb_printf(b, ",\\"%s\\":[", lists[l]);
+        jb_printf(b, ",\"%s\":[", lists[l]);
         const JVal *arr = json_get(env, lists[l]);
         int first = 1;
         for (const JVal *x = arr && arr->type == J_ARR ? arr->kid : NULL; x; x = x->next) {
             const char *email = json_str(x, "email");
             if (!valid_email(email)) continue;
             if (!first) jb_raw(b, ",");
-            jb_raw(b, "{\\"email\\":");
+            jb_raw(b, "{\"email\":");
             jb_str(b, email);
             jb_raw(b, "}");
             first = 0;
@@ -488,10 +488,10 @@ static void outbox_env_json(JBuf *b, const JVal *env) {
     const char *meta[] = { "draftFolder", "inReplyTo", "references" };
     for (size_t i = 0; i < sizeof meta / sizeof meta[0]; i++) {
         const char *v = json_str(env, meta[i]);
-        if (v && *v) { jb_printf(b, ",\\"%s\\":", meta[i]); jb_str(b, v); }
+        if (v && *v) { jb_printf(b, ",\"%s\":", meta[i]); jb_str(b, v); }
     }
     double du = json_num(env, "draftUid", 0);
-    if (du >= 1) jb_printf(b, ",\\"draftUid\\":%.0f", du);
+    if (du >= 1) jb_printf(b, ",\"draftUid\":%.0f", du);
     const JVal *orig = json_get(env, "original");
     if (orig) {
         /* Original message metadata is retained verbatim as a JSON subtree only
@@ -499,23 +499,23 @@ static void outbox_env_json(JBuf *b, const JVal *env) {
         const char *acct = json_str(orig, "acct"), *folder = json_str(orig, "folder");
         double uid = json_num(orig, "uid", 0);
         if (acct && folder && uid >= 1) {
-            jb_raw(b, ",\\"original\\":{\\"acct\\":"); jb_str(b, acct);
-            jb_raw(b, ",\\"folder\\":"); jb_str(b, folder);
-            jb_printf(b, ",\\"uid\\":%.0f,\\"forward\\":%s}", uid,
+            jb_raw(b, ",\"original\":{\"acct\":"); jb_str(b, acct);
+            jb_raw(b, ",\"folder\":"); jb_str(b, folder);
+            jb_printf(b, ",\"uid\":%.0f,\"forward\":%s}", uid,
                       json_bool(orig, "forward", 0) ? "true" : "false");
         }
     }
-    if (json_bool(env, "noSent", 0)) jb_raw(b, ",\\"noSent\\":true");
+    if (json_bool(env, "noSent", 0)) jb_raw(b, ",\"noSent\":true");
     jb_raw(b, "}");
 }
 static void outbox_requeue(const char *rel, const JVal *root, const JVal *env, const char *raw, unsigned delay) {
     JBuf b; jb_init(&b);
     int tries = (int)json_num(root, "retries", 0) + 1;
-    jb_raw(&b, "{\\"acct\\":"); jb_str(&b, json_str(root, "acct"));
-    jb_printf(&b, ",\\"sendAt\\":%.0f,\\"retries\\":%d,\\"msgid\\":",
+    jb_raw(&b, "{\"acct\":"); jb_str(&b, json_str(root, "acct"));
+    jb_printf(&b, ",\"sendAt\":%.0f,\"retries\":%d,\"msgid\":",
               ((double)time(NULL) + delay) * 1000, tries);
-    jb_str(&b, json_str(root, "msgid")); jb_raw(&b, ",\\"env\\":"); outbox_env_json(&b, env);
-    jb_raw(&b, ",\\"raw\\":"); jb_str(&b, raw ? raw : ""); jb_raw(&b, "}");
+    jb_str(&b, json_str(root, "msgid")); jb_raw(&b, ",\"env\":"); outbox_env_json(&b, env);
+    jb_raw(&b, ",\"raw\":"); jb_str(&b, raw ? raw : ""); jb_raw(&b, "}");
     if (!b.oom) fs_write(rel, b.p, b.n);
     jb_free(&b);
 }
