@@ -10,6 +10,7 @@ on:
       - "server/src/ui/tzif.*"
       - "server/src/sec/json.*"
       - "server/tests/mail_test.c"
+      - "server/tests/mailnet_test.c"
       - "server/Makefile"
       - "server/mk/mail.mk"
       - ".github/workflows/mail-tests.yml"
