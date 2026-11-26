@@ -44,7 +44,15 @@ static void hdr(JBuf *b, const char *name, const char *value) {
 
 static int valid_email(const char *e) {
     if (!e || !*e || strlen(e) > 254 || !strchr(e, '@')) return 0;
-    for (const char *c = e; *c; c++) if ((unsigned char)*c <= 0x20 || *c == '<' || *c == '>' || *c == ',' || *c == ';' || *c == '"' || *c == '\\' || *c == 0x7f) return 0;
+    const char *at = strchr(e, '@');
+    if (at == e || !at[1] || strchr(at + 1, '@')) return 0;
+    for (const char *c = e; *c; c++) {
+        unsigned char v = (unsigned char)*c;
+        if (v <= 0x20 || v == 0x7f || v == '<' || v == '>' || v == ',' ||
+            v == ';' || v == '"' || v == '\\' || v == ':' || v == '/' ||
+            v == '[' || v == ']') return 0;
+    }
+    if (at[1] == '.' || e[strlen(e)-1] == '.') return 0;
     return 1;
 }
 
@@ -297,8 +305,9 @@ int smtp_send(Account *a, const char *from, const char **rcpt, int nrcpt, const 
     {
         size_t ul = strlen(a->user), pl = strlen(pw);
         int code;
+        if (ul > SIZE_MAX - pl - 3) { snprintf(err, ecap, "auth data too large"); r = -2; goto out; }
         if (smtp_has_cap(caps, "PLAIN")) {
-            unsigned char *raw = malloc(ul + pl + 3);
+            unsigned char *raw = malloc(ul + pl + 2);
             if (!raw) goto out;
             raw[0] = 0; memcpy(raw + 1, a->user, ul); raw[1 + ul] = 0; memcpy(raw + 2 + ul, pw, pl);
             size_t el;
@@ -326,6 +335,14 @@ int smtp_send(Account *a, const char *from, const char **rcpt, int nrcpt, const 
         if (code != 235) { snprintf(err, ecap, "auth: %s", text); r = -2; goto out; }
     }
     if (!msg) { r = 0; goto out; }          /* a login test */
+    if (!from || !valid_email(from) || nrcpt <= 0 || nrcpt > 300) {
+        snprintf(err, ecap, "invalid envelope");
+        goto out;
+    }
+    for (int i = 0; i < nrcpt; i++) if (!valid_email(rcpt[i])) {
+        snprintf(err, ecap, "invalid recipient");
+        goto out;
+    }
     {
         char line[600];
         snprintf(line, sizeof line, "MAIL FROM:<%s>%s", from, strcasestr(caps, "SIZE") ? "" : "");
