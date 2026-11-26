@@ -221,7 +221,14 @@ char *compose_message(Account *a, const JVal *m, int *fds, int nfds, size_t *ole
         int type_ok = valid_content_type(type);
         jb_printf(&b, "--%s\r\nContent-Type: %s; name=\"", bm, type_ok ? type : "application/octet-stream");
         char *en = mime_encode_header(name);
-        if (en) { jb_raw(&b, en); free(en); }
+        if (!en) {
+            free(data);
+            jb_free(&b);
+            snprintf(err, ecap, "memory");
+            return NULL;
+        }
+        jb_raw(&b, en);
+        free(en);
         jb_raw(&b, "\"\r\nContent-Disposition: attachment; filename*=UTF-8''");
         pct(&b, name);
         jb_raw(&b, "\r\nContent-Transfer-Encoding: base64\r\n\r\n");
