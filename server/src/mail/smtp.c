@@ -127,19 +127,34 @@ static char *read_fd(int fd, size_t *n, size_t max) {
 static void pct(JBuf *b, const char *s) {
     for (; *s; s++) {
         unsigned char c = (unsigned char)*s;
-        /* RFC 2231 attr-char is ASCII-only. isalnum() is locale-sensitive
-         * and can leak non-ASCII UTF-8 bytes unescaped under some locales. */
+        /* RFC 2231 attr-char is ASCII-only; do not use locale-sensitive
+         * isalnum() for bytes from a UTF-8 filename. */
         int attr = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
-                   (c >= '0' && c <= '9') || strchr("!#static void pct(JBuf *b, const char *s) {
-    for (; *s; s++) {
-        unsigned char c = (unsigned char)*s;
-        if (isalnum(c) || strchr("!#$&+-.^_`|~", c)) { char t[2] = { (char)c, 0 }; jb_raw(b, t); }
-        else jb_printf(b, "%%%02X", c);
-    }
-}+-.^_`|~", c) != NULL;
+                   (c >= '0' && c <= '9') || strchr("!#$&+-.^_`|~", c) != NULL;
         if (attr) { char t[2] = { (char)c, 0 }; jb_raw(b, t); }
         else jb_printf(b, "%%%02X", c);
     }
+}
+
+/* Attachment Content-Type is client-supplied metadata. Accept only a simple
+ * type/subtype token so parameters and whitespace cannot corrupt the header. */
+static int valid_content_type(const char *s) {
+    if (!s || !*s || strlen(s) >= 100) return 0;
+    int slash = 0, token_len = 0;
+    for (; *s; s++) {
+        unsigned char c = (unsigned char)*s;
+        if (c == '/') {
+            if (slash || !token_len) return 0;
+            slash = 1;
+            token_len = 0;
+            continue;
+        }
+        int token = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+                    (c >= '0' && c <= '9') || strchr("!#$%&'*+-.^_`|~", c) != NULL;
+        if (!token) return 0;
+        token_len++;
+    }
+    return slash && token_len > 0;
 }
 
 char *compose_message(Account *a, const JVal *m, int *fds, int nfds, size_t *olen, char *msgid, size_t mcap, char *err, size_t ecap) {
@@ -201,7 +216,7 @@ char *compose_message(Account *a, const JVal *m, int *fds, int nfds, size_t *ole
         char name[256];
         fs_safe_name(x && json_str(x, "name") ? json_str(x, "name") : "attachment", name, sizeof name);
         const char *type = x && json_str(x, "type") ? json_str(x, "type") : "application/octet-stream";
-        int type_ok = strlen(type) < 100 && strchr(type, '/') && !strpbrk(type, "\r\n;\"");
+        int type_ok = valid_content_type(type);
         jb_printf(&b, "--%s\r\nContent-Type: %s; name=\"", bm, type_ok ? type : "application/octet-stream");
         char *en = mime_encode_header(name);
         if (en) { jb_raw(&b, en); free(en); }
