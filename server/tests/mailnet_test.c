@@ -39,7 +39,7 @@ static Conn *serve(const char *resp, size_t len, const char *tail, long reps) {
 
 static int http_case(const char *resp, size_t max, HttpResp *r) {
     Conn *c = serve(resp, strlen(resp), NULL, 0);
-    int rc = http_request(c, "GET", "test", "/", NULL, NULL, 0, max, 5000, r);
+    int rc = http_request(c, "GET", "test", 80, 0, "/", NULL, NULL, 0, max, 5000, r);
     conn_close(c);
     while (waitpid(-1, NULL, WNOHANG) > 0) {}
     return rc;
@@ -81,13 +81,13 @@ int main(void) {
     /* endless headers and an endless header line */
     {
         Conn *c = serve("HTTP/1.1 200 OK\r\n", 17, "X-A: b\r\n", 100000);
-        CHECK(http_request(c, "GET", "test", "/", NULL, NULL, 0, 1 << 20, 5000, &r) == -1);
+        CHECK(http_request(c, "GET", "test", 80, 0, "/", NULL, NULL, 0, 1 << 20, 5000, &r) == -1);
         conn_close(c);
         c = serve("HTTP/1.1 200 OK\r\nX-Long: ", 25, "aaaaaaaaaaaaaaaa", 100000);
-        CHECK(http_request(c, "GET", "test", "/", NULL, NULL, 0, 1 << 20, 5000, &r) == -1);
+        CHECK(http_request(c, "GET", "test", 80, 0, "/", NULL, NULL, 0, 1 << 20, 5000, &r) == -1);
         conn_close(c);
         c = serve("HTTP/1.1 200 OK\r\n\r\n", 19, "0123456789abcdef", 100000);    /* body until close, over the cap */
-        CHECK(http_request(c, "GET", "test", "/", NULL, NULL, 0, 4096, 5000, &r) == -2);
+        CHECK(http_request(c, "GET", "test", 80, 0, "/", NULL, NULL, 0, 4096, 5000, &r) == -2);
         conn_close(c);
     }
     /* IMAP literals */
