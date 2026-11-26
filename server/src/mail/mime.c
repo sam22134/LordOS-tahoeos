@@ -779,7 +779,7 @@ time_t mime_date(const char *v) {
     const char *s = v;
     int day = -1, month = -1, year = -1, hh = 0, mm = 0, ss = 0, have_time = 0;
     long zone = 0;
-    int bad_zone = 0, bad_time = 0;
+    int bad_zone = 0, bad_time = 0, have_zone = 0;
     /* tokens */
     while (*s) {
         while (*s == ' ' || *s == '\t' || *s == ',' || *s == '\r' || *s == '\n') s++;
@@ -809,6 +809,8 @@ time_t mime_date(const char *v) {
             continue;
         }
         if (tok[0] == '+' || tok[0] == '-') {
+            if (have_zone) bad_zone = 1;
+            have_zone = 1;
             if (n != 5 || !isdigit((unsigned char)tok[1]) || !isdigit((unsigned char)tok[2]) ||
                 !isdigit((unsigned char)tok[3]) || !isdigit((unsigned char)tok[4])) {
                 bad_zone = 1;
@@ -835,7 +837,7 @@ time_t mime_date(const char *v) {
         if (found) continue;
         static const struct { const char *z; int h; } zones[] = { { "ut", 0 }, { "utc", 0 }, { "gmt", 0 }, { "z", 0 }, { "est", -5 }, { "edt", -4 },
             { "cst", -6 }, { "cdt", -5 }, { "mst", -7 }, { "mdt", -6 }, { "pst", -8 }, { "pdt", -7 } };
-        for (size_t k = 0; k < sizeof zones / sizeof zones[0]; k++) if (!strcmp(low, zones[k].z)) zone = zones[k].h * 3600;
+        for (size_t k = 0; k < sizeof zones / sizeof zones[0]; k++) if (!strcmp(low, zones[k].z)) { if (have_zone) bad_zone = 1; have_zone = 1; zone = zones[k].h * 3600; }
     }
     if (day < 1 || month < 1 || month > 12 || year < 1970 || year > 9999 ||
         hh < 0 || hh > 23 || mm < 0 || mm > 59 || ss < 0 || ss > 60 || bad_zone || bad_time) return 0;
