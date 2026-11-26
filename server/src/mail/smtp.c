@@ -549,32 +549,19 @@ static void run_outbox(void) {
 }
 
 static int outbox_store(Account *a, const JVal *m, const char *raw, size_t rl, const char *msgid, double at) {
-    fs_mkdirs("outbox");
+    if (fs_mkdirs("outbox") != 0) return -1;
     for (int k = 0; k < 1000; k++) {
         char rel[64];
-        snprintf(rel, sizeof rel, "outbox/%d.json", k);
+        int rn = snprintf(rel, sizeof rel, "outbox/%d.json", k);
+        if (rn < 0 || (size_t)rn >= sizeof rel) return -1;
         if (fs_exists(rel)) continue;
         JBuf b;
         jb_init(&b);
-        jb_raw(&b, "{\"acct\":"); jb_str(&b, a->id);
-        jb_printf(&b, ",\"sendAt\":%.0f,\"msgid\":", at);
+        jb_raw(&b, "{\\"acct\\":"); jb_str(&b, a->id);
+        jb_printf(&b, ",\\"sendAt\\":%.0f,\\"retries\\":0,\\"msgid\\":", at);
         jb_str(&b, msgid);
-        jb_raw(&b, ",\"env\":{\"subject\":"); jb_str(&b, json_str(m, "subject"));
-        const char *lists[] = { "to", "cc", "bcc" };
-        for (int l = 0; l < 3; l++) {
-            jb_printf(&b, ",\"%s\":[", lists[l]);
-            const JVal *arr = json_get(m, lists[l]);
-            int f = 1;
-            for (const JVal *x = arr && arr->type == J_ARR ? arr->kid : NULL; x; x = x->next) {
-                const char *e = json_str(x, "email");
-                if (!valid_email(e)) continue;
-                if (!f) jb_raw(&b, ",");
-                jb_raw(&b, "{\"email\":"); jb_str(&b, e); jb_raw(&b, "}");
-                f = 0;
-            }
-            jb_raw(&b, "]");
-        }
-        jb_raw(&b, "},\"raw\":");
+        jb_raw(&b, ",\\"env\\":"); outbox_env_json(&b, m);
+        jb_raw(&b, ",\\"raw\\":");
         jb_strn(&b, raw, rl);
         jb_raw(&b, "}");
         int ok = !b.oom && fs_write(rel, b.p, b.n) == 0;
