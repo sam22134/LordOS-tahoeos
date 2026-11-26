@@ -816,7 +816,12 @@ time_t mime_date(const char *v) {
             { "cst", -6 }, { "cdt", -5 }, { "mst", -7 }, { "mdt", -6 }, { "pst", -8 }, { "pdt", -7 } };
         for (size_t k = 0; k < sizeof zones / sizeof zones[0]; k++) if (!strcmp(low, zones[k].z)) zone = zones[k].h * 3600;
     }
-    if (day < 1 || month < 1 || year < 1970 || year > 9999 || hh > 23 || mm > 59 || ss > 60) return 0;
+    if (day < 1 || month < 1 || month > 12 || year < 1970 || year > 9999 ||
+        hh < 0 || hh > 23 || mm < 0 || mm > 59 || ss < 0 || ss > 60) return 0;
+    static const unsigned char month_days[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+    unsigned max_day = month_days[month - 1];
+    if (month == 2 && (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0))) max_day++;
+    if ((unsigned)day > max_day) return 0;
     long long days = days_from_civil(year, (unsigned)month, (unsigned)day);
     long long t = days * 86400 + hh * 3600 + mm * 60 + ss - zone;
     return t > 0 ? (time_t)t : 0;
