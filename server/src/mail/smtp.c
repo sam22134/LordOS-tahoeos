@@ -461,44 +461,55 @@ static int deliver(Account *a, const JVal *m, const char *raw, size_t rl, char *
     return 0;
 }
 
+static void outbox_env_json(JBuf *b, const JVal *env) {
+    jb_raw(b,"{\\"subject\\":"); jb_str(b,json_str(env,"subject"));
+    const char *lists[]={"to","cc","bcc"};
+    for(int l=0;l<3;l++) {
+        jb_printf(b,",\\"%s\\":[",lists[l]);
+        const JVal *arr=json_get(env,lists[l]); int first=1;
+        for(const JVal *x=arr&&arr->type==J_ARR?arr->kid:NULL;x;x=x->next) {
+            const char *email=json_str(x,"email"); if(!valid_email(email)) continue;
+            if(!first) jb_raw(b,","); jb_raw(b,"{\\"email\\":"); jb_str(b,email); jb_raw(b,"}"); first=0;
+        }
+        jb_raw(b,"]");
+    }
+    jb_raw(b,"}");
+}
+static void outbox_requeue(const char *rel,const JVal *root,const JVal *env,const char *raw,unsigned delay) {
+    JBuf b; jb_init(&b);
+    int tries=(int)json_num(root,"retries",0)+1;
+    jb_raw(&b,"{\\"acct\\":"); jb_str(&b,json_str(root,"acct"));
+    jb_printf(&b,",\\"sendAt\\":%.0f,\\"retries\\":%d,\\"msgid\\":",((double)time(NULL)+delay)*1000,tries);
+    jb_str(&b,json_str(root,"msgid")); jb_raw(&b,",\\"env\\":"); outbox_env_json(&b,env);
+    jb_raw(&b,",\\"raw\\":"); jb_str(&b,raw?raw:""); jb_raw(&b,"}");
+    if(!b.oom) fs_write(rel,b.p,b.n); jb_free(&b);
+}
 static void run_outbox(void) {
-    int dfd = openat(cache_fd, "outbox", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
-    if (dfd < 0) return;
-    close(dfd);
-    /* outbox/<n>.json holds {"acct","sendAt","env":{…},"raw":"…"} */
-    for (int k = 0; k < 1000; k++) {
-        char rel[64];
-        snprintf(rel, sizeof rel, "outbox/%d.json", k);
-        size_t n;
-        char *t = fs_read(rel, &n, 64 << 20);
-        if (!t) continue;
-        JDoc d;
-        if (json_parse(t, n, &d, NULL, 0)) { free(t); fs_unlink(rel); continue; }
-        double at = json_num(d.root, "sendAt", 0) / 1000;
-        if (at > (double)time(NULL)) { json_free(&d); free(t); continue; }
-        Account *a = acct_get(json_str(d.root, "acct"));
-        const char *raw = json_str(d.root, "raw");
-        const JVal *env = json_get(d.root, "env");
-        char err[300] = "";
-        if (a && raw && env) {
-            int r = deliver(a, env, raw, strlen(raw), err, sizeof err);
-            if (!r) { fs_unlink(rel); sent_event(a->id, json_str(d.root, "msgid"), json_str(env, "subject"), 1); }
-            else if (r == -2) { /* no password yet: keep it */ }
+    int dfd=openat(cache_fd,"outbox",O_RDONLY|O_DIRECTORY|O_CLOEXEC); if(dfd<0)return; close(dfd);
+    for(int k=0;k<1000;k++) {
+        char rel[64]; snprintf(rel,sizeof rel,"outbox/%d.json",k);
+        size_t n; char *t=fs_read(rel,&n,64<<20); if(!t)continue;
+        JDoc d; if(json_parse(t,n,&d,NULL,0)){free(t);fs_unlink(rel);continue;}
+        double at=json_num(d.root,"sendAt",0)/1000;
+        if(at>(double)time(NULL)){json_free(&d);free(t);continue;}
+        Account *a=acct_get(json_str(d.root,"acct")); const char *raw=json_str(d.root,"raw"); const JVal *env=json_get(d.root,"env"); char err[300]="";
+        if(a&&raw&&env) {
+            int r=deliver(a,env,raw,strlen(raw),err,sizeof err);
+            if(!r){fs_unlink(rel);sent_event(a->id,json_str(d.root,"msgid"),json_str(env,"subject"),1);}
             else {
-                JBuf b;
-                jb_init(&b);
-                jb_raw(&b, "{\"ev\":\"send-failed\",\"acct\":"); jb_str(&b, a->id);
-                jb_raw(&b, ",\"subject\":"); jb_str(&b, json_str(env, "subject"));
-                jb_raw(&b, ",\"error\":"); jb_str(&b, err);
-                jb_raw(&b, "}");
-                send_event(&b);
-                /* Keep the scheduled message on transport failure. A temporary
-                 * server/network error must not silently destroy the user's mail.
-                 * Retry on the next outbox pass; AUTH (-2) already retains it. */
+                int tries=(int)json_num(d.root,"retries",0)+1; if(tries<1)tries=1;
+                unsigned delay=1800;
+                if(r!=-2){delay=30;for(int z=1;z<tries&&delay<21600;z++)delay*=2;if(delay>21600)delay=21600;}
+                outbox_requeue(rel,d.root,env,raw,delay);
+                if(r!=-2) {
+                    JBuf ev; jb_init(&ev); jb_raw(&ev,"{\\"ev\\":\\"send-failed\\",\\"acct\\":");jb_str(&ev,a->id);
+                    jb_raw(&ev,",\\"subject\\":");jb_str(&ev,json_str(env,"subject"));jb_raw(&ev,",\\"error\\":");jb_str(&ev,err);
+                    jb_printf(&ev,",\\"retryIn\\":%u,\\"attempt\\":%d}",delay,tries);send_event(&ev);
+                }
             }
-        } else fs_unlink(rel);
-        json_free(&d);
-        free(t);
+        } else if(!a) outbox_requeue(rel,d.root,env,raw,1800);
+        else fs_unlink(rel);
+        json_free(&d);free(t);
     }
 }
 
