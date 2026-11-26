@@ -262,8 +262,9 @@ static int smtp_has_cap(const char *caps, const char *name) {
 }
 
 /* SIZE is a capability followed by an optional decimal maximum. */
-static int smtp_size_limit(const char *caps, size_t *limit) {
+static int smtp_size_limit(const char *caps, size_t *limit, int *has_limit) {
     if (limit) *limit = 0;
+    if (has_limit) *has_limit = 0;
     for (const char *p = caps; p && *p;) {
         while (*p && isspace((unsigned char)*p)) p++;
         const char *start = p;
@@ -281,6 +282,7 @@ static int smtp_size_limit(const char *caps, size_t *limit) {
         }
         if (*p && !isspace((unsigned char)*p)) return 1;
         if (limit) *limit = value;
+        if (has_limit) *has_limit = 1;
         return 1;
     }
     return 0;
@@ -381,12 +383,15 @@ int smtp_send(Account *a, const char *from, const char **rcpt, int nrcpt, const 
     {
         char line[600];
         size_t max_size = 0;
-        int has_size = smtp_size_limit(caps, &max_size);
-        if (has_size && max_size && len > max_size) {
+        int has_max_size = 0;
+        int has_size = smtp_size_limit(caps, &max_size, &has_max_size);
+        if (has_size && has_max_size && len > max_size) {
             snprintf(err, ecap, "message exceeds server SIZE limit");
             goto out;
         }
-        int line_n = snprintf(line, sizeof line, has_size ? "MAIL FROM:<%s> SIZE=%zu" : "MAIL FROM:<%s>", from, len);
+        int line_n = has_size
+            ? snprintf(line, sizeof line, "MAIL FROM:<%s> SIZE=%zu", from, len)
+            : snprintf(line, sizeof line, "MAIL FROM:<%s>", from);
         if (line_n < 0 || (size_t)line_n >= sizeof line) { snprintf(err, ecap, "sender address too long"); goto out; }
         if (smtp_cmd(c, text, sizeof text, "%s", line) != 250) { snprintf(err, ecap, "MAIL FROM: %s", text); goto out; }
         int okr = 0;
