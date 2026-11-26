@@ -475,7 +475,9 @@ static void run_outbox(void) {
                 jb_raw(&b, ",\"error\":"); jb_str(&b, err);
                 jb_raw(&b, "}");
                 send_event(&b);
-                fs_unlink(rel);
+                /* Keep the scheduled message on transport failure. A temporary
+                 * server/network error must not silently destroy the user's mail.
+                 * Retry on the next outbox pass; AUTH (-2) already retains it. */
             }
         } else fs_unlink(rel);
         json_free(&d);
