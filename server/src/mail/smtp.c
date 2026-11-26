@@ -519,32 +519,72 @@ static void outbox_requeue(const char *rel, const JVal *root, const JVal *env, c
     if (!b.oom) fs_write(rel, b.p, b.n);
     jb_free(&b);
 }
+static void outbox_quarantine(const char *rel, int slot) {
+    if (fs_mkdirs("outbox/quarantine") != 0) return;
+    char dst[128];
+    int n = snprintf(dst, sizeof dst, "outbox/quarantine/%d-%ld.json", slot, (long)time(NULL));
+    if (n < 0 || (size_t)n >= sizeof dst || fs_exists(dst)) return;
+    /* A failed quarantine leaves the original entry untouched for recovery. */
+    (void)renameat(cache_fd, rel, cache_fd, dst);
+}
+
 static void run_outbox(void) {
-    int dfd=openat(cache_fd,"outbox",O_RDONLY|O_DIRECTORY|O_CLOEXEC); if(dfd<0)return; close(dfd);
-    for(int k=0;k<1000;k++) {
-        char rel[64]; snprintf(rel,sizeof rel,"outbox/%d.json",k);
-        size_t n; char *t=fs_read(rel,&n,64<<20); if(!t)continue;
-        JDoc d; if(json_parse(t,n,&d,NULL,0)){free(t);fs_unlink(rel);continue;}
-        double at=json_num(d.root,"sendAt",0)/1000;
-        if(at>(double)time(NULL)){json_free(&d);free(t);continue;}
-        Account *a=acct_get(json_str(d.root,"acct")); const char *raw=json_str(d.root,"raw"); const JVal *env=json_get(d.root,"env"); char err[300]="";
-        if(a&&raw&&env) {
-            int r=deliver(a,env,raw,strlen(raw),err,sizeof err);
-            if(!r){fs_unlink(rel);sent_event(a->id,json_str(d.root,"msgid"),json_str(env,"subject"),1);}
-            else {
-                int tries=(int)json_num(d.root,"retries",0)+1; if(tries<1)tries=1;
-                unsigned delay=1800;
-                if(r!=-2){delay=30;for(int z=1;z<tries&&delay<21600;z++)delay*=2;if(delay>21600)delay=21600;}
-                outbox_requeue(rel,d.root,env,raw,delay);
-                if(r!=-2) {
-                    JBuf ev; jb_init(&ev); jb_raw(&ev,"{\\"ev\\":\\"send-failed\\",\\"acct\\":");jb_str(&ev,a->id);
-                    jb_raw(&ev,",\\"subject\\":");jb_str(&ev,json_str(env,"subject"));jb_raw(&ev,",\\"error\\":");jb_str(&ev,err);
-                    jb_printf(&ev,",\\"retryIn\\":%u,\\"attempt\\":%d}",delay,tries);send_event(&ev);
+    int dfd = openat(cache_fd, "outbox", O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+    if (dfd < 0) return;
+    close(dfd);
+    for (int k = 0; k < 1000; k++) {
+        char rel[64];
+        int rn = snprintf(rel, sizeof rel, "outbox/%d.json", k);
+        if (rn < 0 || (size_t)rn >= sizeof rel) continue;
+        size_t n = 0;
+        char *t = fs_read(rel, &n, 64 << 20);
+        if (!t) continue; /* I/O errors and oversized entries must not delete mail. */
+        JDoc d;
+        if (json_parse(t, n, &d, NULL, 0) || !d.root || d.root->type != J_OBJ) {
+            free(t);
+            outbox_quarantine(rel, k);
+            continue;
+        }
+        const char *acct_id = json_str(d.root, "acct");
+        const char *raw = json_str(d.root, "raw");
+        const char *msgid = json_str(d.root, "msgid");
+        const JVal *env = json_get(d.root, "env");
+        if (!acct_id || !*acct_id || !raw || !env || env->type != J_OBJ || !msgid || !*msgid) {
+            json_free(&d); free(t); outbox_quarantine(rel, k); continue;
+        }
+        double at = json_num(d.root, "sendAt", 0) / 1000;
+        if (at > (double)time(NULL)) { json_free(&d); free(t); continue; }
+        Account *a = acct_get(acct_id);
+        char err[300] = "";
+        if (!a) {
+            outbox_requeue(rel, d.root, env, raw, 1800);
+        } else {
+            int r = deliver(a, env, raw, strlen(raw), err, sizeof err);
+            if (!r) {
+                if (fs_unlink(rel) == 0) sent_event(a->id, msgid, json_str(env, "subject"), 1);
+            } else {
+                int tries = (int)json_num(d.root, "retries", 0) + 1;
+                if (tries < 1) tries = 1;
+                unsigned delay = 1800;
+                if (r != -2) {
+                    delay = 30;
+                    for (int z = 1; z < tries && delay < 21600; z++) delay *= 2;
+                    if (delay > 21600) delay = 21600;
+                }
+                outbox_requeue(rel, d.root, env, raw, delay);
+                if (r != -2) {
+                    JBuf ev; jb_init(&ev);
+                    jb_raw(&ev, "{\\"ev\\":\\"send-failed\\",\\"acct\\":"); jb_str(&ev, a->id);
+                    jb_raw(&ev, ",\\"subject\\":"); jb_str(&ev, json_str(env, "subject"));
+                    jb_raw(&ev, ",\\"error\\":"); jb_str(&ev, err);
+                    jb_printf(&ev, ",\\"retryIn\\":%u,\\"attempt\\":%d}", delay, tries);
+                    if (!ev.oom) send_event(&ev);
+                    jb_free(&ev);
                 }
             }
-        } else if(!a && env && raw) outbox_requeue(rel,d.root,env,raw,1800);
-        else fs_unlink(rel);
-        json_free(&d);free(t);
+        }
+        json_free(&d);
+        free(t);
     }
 }
 
