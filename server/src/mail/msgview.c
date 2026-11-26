@@ -439,7 +439,7 @@ int https_get(const char *url, char **body, size_t *blen, size_t max, char *err,
         TlsInfo ti;
         if (tls && conn_tls(c, NULL, &ti)) { snprintf(err, ecap, "%s", ti.code ? "cert" : "tls"); conn_close(c); return -1; }
         HttpResp r;
-        int rc = http_request(c, "GET", host, path, "Accept: image/png,image/jpeg,image/gif,image/bmp\r\nConnection: close\r\n", NULL, 0, max, IMG_DEADLINE_MS, &r);
+        int rc = http_request(c, "GET", host, port, tls, path, "Accept: image/png,image/jpeg,image/gif,image/bmp\r\nConnection: close\r\n", NULL, 0, max, IMG_DEADLINE_MS, &r);
         conn_close(c);
         if (rc) { snprintf(err, ecap, rc == -2 ? "too-big" : "http"); return -1; }
         if (r.status >= 300 && r.status < 400 && r.location[0]) {
