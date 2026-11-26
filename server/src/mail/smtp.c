@@ -219,17 +219,10 @@ char *compose_message(Account *a, const JVal *m, int *fds, int nfds, size_t *ole
         fs_safe_name(x && json_str(x, "name") ? json_str(x, "name") : "attachment", name, sizeof name);
         const char *type = x && json_str(x, "type") ? json_str(x, "type") : "application/octet-stream";
         int type_ok = valid_content_type(type);
-        jb_printf(&b, "--%s\r\nContent-Type: %s; name=\"", bm, type_ok ? type : "application/octet-stream");
-        char *en = mime_encode_header(name);
-        if (!en) {
-            free(data);
-            jb_free(&b);
-            snprintf(err, ecap, "memory");
-            return NULL;
-        }
-        jb_raw(&b, en);
-        free(en);
-        jb_raw(&b, "\"\r\nContent-Disposition: attachment; filename*=UTF-8''");
+        jb_printf(&b, "--%s\r\nContent-Type: %s\r\n", bm, type_ok ? type : "application/octet-stream");
+        /* RFC 2047 encoded-words are not valid MIME parameter values.
+         * The UTF-8 filename is carried by the RFC 2231 filename* parameter below. */
+        jb_raw(&b, "Content-Disposition: attachment; filename*=UTF-8''");
         pct(&b, name);
         jb_raw(&b, "\r\nContent-Transfer-Encoding: base64\r\n\r\n");
         size_t el;
