@@ -571,11 +571,18 @@ static void outbox_requeue(const char *rel, const JVal *root, const JVal *env, c
 }
 static void outbox_quarantine(const char *rel, int slot) {
     if (fs_mkdirs("outbox/quarantine") != 0) return;
-    char dst[128];
-    int n = snprintf(dst, sizeof dst, "outbox/quarantine/%d-%ld.json", slot, (long)time(NULL));
-    if (n < 0 || (size_t)n >= sizeof dst || fs_exists(dst)) return;
-    /* A failed quarantine leaves the original entry untouched for recovery. */
-    (void)renameat(cache_fd, rel, cache_fd, dst);
+    /* Several malformed entries can be quarantined in the same second. Do not
+     * let the first one make later entries stick in the active queue forever. */
+    for (unsigned attempt = 0; attempt < 1000; attempt++) {
+        char dst[128];
+        int n = snprintf(dst, sizeof dst, "outbox/quarantine/%d-%ld-%u.json",
+                         slot, (long)time(NULL), attempt);
+        if (n < 0 || (size_t)n >= sizeof dst) return;
+        if (fs_exists(dst)) continue;
+        /* Keep the source intact if the move fails; the next scan can retry. */
+        if (renameat(cache_fd, rel, cache_fd, dst) == 0) return;
+        return;
+    }
 }
 
 static void run_outbox(void) {
