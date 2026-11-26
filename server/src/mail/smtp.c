@@ -127,7 +127,17 @@ static char *read_fd(int fd, size_t *n, size_t max) {
 static void pct(JBuf *b, const char *s) {
     for (; *s; s++) {
         unsigned char c = (unsigned char)*s;
+        /* RFC 2231 attr-char is ASCII-only. isalnum() is locale-sensitive
+         * and can leak non-ASCII UTF-8 bytes unescaped under some locales. */
+        int attr = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+                   (c >= '0' && c <= '9') || strchr("!#static void pct(JBuf *b, const char *s) {
+    for (; *s; s++) {
+        unsigned char c = (unsigned char)*s;
         if (isalnum(c) || strchr("!#$&+-.^_`|~", c)) { char t[2] = { (char)c, 0 }; jb_raw(b, t); }
+        else jb_printf(b, "%%%02X", c);
+    }
+}+-.^_`|~", c) != NULL;
+        if (attr) { char t[2] = { (char)c, 0 }; jb_raw(b, t); }
         else jb_printf(b, "%%%02X", c);
     }
 }
