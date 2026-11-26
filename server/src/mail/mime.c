@@ -874,7 +874,9 @@ char *mime_format_addr(const char *name, const char *email) {
     if (name && *name) {
         if (needs_encoding(name)) {
             char *e = mime_encode_header(name);
-            if (e) { bputs(&b, e); free(e); }
+            if (!e) { b.oom = 1; return bdone(&b, NULL); }
+            bputs(&b, e);
+            free(e);
         } else if (strpbrk(name, "()<>[]:;@\\,.\"")) {
             bputc(&b, '"');
             for (const char *c = name; *c; c++) { if (*c == '"' || *c == '\\') bputc(&b, '\\'); bputc(&b, *c); }
