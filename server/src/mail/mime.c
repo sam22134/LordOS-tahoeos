@@ -779,12 +779,12 @@ time_t mime_date(const char *v) {
     const char *s = v;
     int day = -1, month = -1, year = -1, hh = 0, mm = 0, ss = 0, have_time = 0;
     long zone = 0;
-    int bad_zone = 0, bad_time = 0, have_zone = 0;
+    int bad_zone = 0, bad_time = 0, have_zone = 0, bad_comment = 0;
     /* tokens */
     while (*s) {
         while (*s == ' ' || *s == '\t' || *s == ',' || *s == '\r' || *s == '\n') s++;
         if (!*s) break;
-        if (*s == '(') { int d = 0; while (*s) { if (*s == '(') d++; else if (*s == ')' && !--d) { s++; break; } s++; } continue; }
+        if (*s == '(') { int d = 0, closed = 0; while (*s) { if (*s == '(') d++; else if (*s == ')' && !--d) { s++; closed = 1; break; } s++; } if (!closed) bad_comment = 1; continue; }
         const char *a = s;
         while (*s && *s != ' ' && *s != '\t' && *s != ',' && *s != '(') s++;
         size_t n = (size_t)(s - a);
@@ -840,7 +840,7 @@ time_t mime_date(const char *v) {
         for (size_t k = 0; k < sizeof zones / sizeof zones[0]; k++) if (!strcmp(low, zones[k].z)) { if (have_zone) bad_zone = 1; have_zone = 1; zone = zones[k].h * 3600; }
     }
     if (day < 1 || month < 1 || month > 12 || year < 1970 || year > 9999 ||
-        hh < 0 || hh > 23 || mm < 0 || mm > 59 || ss < 0 || ss > 60 || bad_zone || bad_time) return 0;
+        hh < 0 || hh > 23 || mm < 0 || mm > 59 || ss < 0 || ss > 60 || bad_zone || bad_time || bad_comment || !have_time) return 0;
     static const unsigned char month_days[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
     unsigned max_day = month_days[month - 1];
     if (month == 2 && (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0))) max_day++;
