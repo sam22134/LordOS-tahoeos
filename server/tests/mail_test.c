@@ -229,6 +229,9 @@ static void test_mime(void) {
     CHECK(mime_date("Mon, 17 Oct 2026 17:05:00 +0000") > 0);
     CHECK(mime_date("Monday, 17 Oct 2026 17:05:00 +0000") == 0);
     CHECK(mime_date("17 October 2026 17:05:00 +0000") == 0);
+    CHECK(mime_date("17 Oct 2026 +17:05:00 +0000") == 0);
+    CHECK(mime_date("17 Oct 2026 17:+05 +0000") == 0);
+    CHECK(mime_date("17 Oct 2026 17:05:00 +0000 abcdefghijklmnopqrstuvwxyz123456") == 0);
 
     MimeMsg *m = malloc(sizeof *m);
     mime_parse(MSG1, strlen(MSG1), m);
