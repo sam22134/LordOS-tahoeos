@@ -343,6 +343,31 @@ static int smtp_cmd(Conn *c, char *text, size_t tcap, const char *fmt, const cha
     return smtp_reply(c, text, tcap, NULL, 0);
 }
 
+/* Validate and bound the exact DATA representation before allocating it.
+ * Dot-stuffing and CRLF normalization can make the wire payload larger than
+ * the composed RFC 5322 message, so checking only the input length is unsafe. */
+static int smtp_data_size(const char *msg, size_t len, size_t *wire_len) {
+    if (!msg || !len || len > TOTAL_MAX || memchr(msg, 0, len)) return -1;
+    size_t n = len;
+    int bol = 1;
+    for (size_t i = 0; i < len; i++) {
+        unsigned char ch = (unsigned char)msg[i];
+        size_t extra = (bol && ch == '.') ? 1 : 0;
+        if (ch == '\\n' && (i == 0 || msg[i - 1] != '\\r')) extra++;
+        if (extra > TOTAL_MAX - n) return -1;
+        n += extra;
+        bol = ch == '\\n';
+    }
+    if (!bol) {
+        if (n > TOTAL_MAX - 2) return -1;
+        n += 2;
+    }
+    if (n > TOTAL_MAX - 3) return -1; /* SMTP terminator */
+    n += 3;
+    if (wire_len) *wire_len = n;
+    return 0;
+}
+
 int smtp_send(Account *a, const char *from, const char **rcpt, int nrcpt, const char *msg, size_t len, char *err, size_t ecap) {
     pthread_mutex_lock(&G);
     char *pw = a->password ? strdup(a->password) : NULL;
@@ -426,6 +451,11 @@ int smtp_send(Account *a, const char *from, const char **rcpt, int nrcpt, const 
         snprintf(err, ecap, "invalid envelope");
         goto out;
     }
+    size_t wire_len = 0;
+    if (smtp_data_size(msg, len, &wire_len)) {
+        snprintf(err, ecap, "message is empty, malformed, or too big");
+        goto out;
+    }
     for (int i = 0; i < nrcpt; i++) if (!valid_email(rcpt[i])) {
         snprintf(err, ecap, "invalid recipient");
         goto out;
@@ -467,7 +497,7 @@ int smtp_send(Account *a, const char *from, const char **rcpt, int nrcpt, const 
         }
         if (!bol) jb_raw(&d, "\r\n");
         jb_raw(&d, ".\r\n");
-        int w = d.oom ? -1 : conn_write(c, d.p, d.n);
+        int w = d.oom || d.n + 0 != wire_len ? -1 : conn_write(c, d.p, d.n);
         jb_free(&d);
         if (w || smtp_reply(c, text, sizeof text, NULL, 0) != 250) { snprintf(err, ecap, "send: %s", text); goto out; }
         r = 0;
