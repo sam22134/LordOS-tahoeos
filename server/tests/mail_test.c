@@ -180,6 +180,13 @@ static const char *MSG1 =
     "epilogue\r\n";
 
 static void test_mime(void) {
+    CHECK(mime_addrs("a@example.com", NULL, 1) == 0);
+    CHECK(mime_addrs("a@example.com", (MimeAddr[1]){{0}}, 0) == 0);
+    CHECK(mime_decode_body(NULL, NULL) == NULL);
+    CHECK(mime_part_text(NULL, NULL) == NULL);
+    char guard[8] = "keep";
+    CHECK(mime_param("text/plain; charset=utf-8", NULL, guard, sizeof guard) == 0);
+    CHECKS(guard, "keep");
     const char *h, *b;
     size_t hl, bl;
     mime_split(MSG1, strlen(MSG1), &h, &hl, &b, &bl);
