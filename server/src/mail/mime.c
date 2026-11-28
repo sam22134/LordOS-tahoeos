@@ -667,10 +667,11 @@ char *mime_decode_body(const MimePart *p, size_t *olen) {
     if (!p || (!p->body && p->blen) || p->blen > (size_t)-4) return NULL;
     char *out = malloc(p->blen + 4);
     if (!out) return NULL;
+    const char *body = p->body ? p->body : "";
     size_t n;
-    if (!strcmp(p->encoding, "base64")) n = b64_decode(p->body, p->blen, (unsigned char *)out);
-    else if (!strcmp(p->encoding, "quoted-printable")) n = qp_decode(p->body, p->blen, out, 0);
-    else { memcpy(out, p->body, p->blen); n = p->blen; }
+    if (!strcmp(p->encoding, "base64")) n = b64_decode(body, p->blen, (unsigned char *)out);
+    else if (!strcmp(p->encoding, "quoted-printable")) n = qp_decode(body, p->blen, out, 0);
+    else { if (p->blen) memcpy(out, body, p->blen); n = p->blen; }
     out[n] = 0;
     if (olen) *olen = n;
     return out;
