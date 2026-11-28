@@ -511,13 +511,23 @@ int mime_param(const char *value, const char *name, char *out, size_t cap) {
             free(val);
         } else if (kl > nl && !strncasecmp(ka, name, nl) && ka[nl] == '*') {
             const char *r = ka + nl + 1;
-            int idx = 0, ext = 0;
+            int idx = 0, ext = 0, valid = 1;
             if (r == ke) { ext = 1; idx = 0; }
             else {
-                while (r < ke && *r >= '0' && *r <= '9') { idx = idx * 10 + (*r - '0'); r++; if (idx > 1000) break; }
-                if (r < ke && *r == '*') ext = 1;
+                const char *digits = r;
+                while (r < ke && *r >= '0' && *r <= '9') {
+                    int digit = *r - '0';
+                    if (idx > 3 || (idx == 3 && digit > 1)) { valid = 0; break; }
+                    idx = idx * 10 + digit;
+                    r++;
+                }
+                if (r == digits || r > ke || idx >= 32) valid = 0;
+                if (valid && r < ke && *r == '*') { ext = 1; r++; }
+                if (r != ke) valid = 0;
             }
-            if (nseg < 32 && idx < 32) { seg[nseg].idx = idx; seg[nseg].ext = ext; seg[nseg].val = val; nseg++; }
+            for (int j = 0; valid && j < nseg; j++)
+                if (seg[j].idx == idx) valid = 0;
+            if (valid && nseg < 32) { seg[nseg].idx = idx; seg[nseg].ext = ext; seg[nseg].val = val; nseg++; }
             else free(val);
         } else free(val);
     }
