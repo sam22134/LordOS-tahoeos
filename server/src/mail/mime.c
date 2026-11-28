@@ -825,6 +825,9 @@ time_t mime_date(const char *v) {
             continue;
         }
         if (isdigit((unsigned char)tok[0])) {
+            int numeric = 1;
+            for (size_t k = 0; k < n; k++) if (!isdigit((unsigned char)tok[k])) numeric = 0;
+            if (!numeric) { bad_time = 1; continue; }
             long x = atol(tok);
             if (day < 0 && x >= 1 && x <= 31 && n <= 2) day = (int)x;
             else if (year < 0) year = (int)(n <= 2 ? (x < 50 ? 2000 + x : 1900 + x) : x);
