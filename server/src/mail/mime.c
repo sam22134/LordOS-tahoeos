@@ -43,10 +43,15 @@ static void utf8_fit(char *s, size_t cap) {
 
 typedef struct { char *p; size_t n, cap; int oom; } Buf;
 static void bput(Buf *b, const void *d, size_t n) {
-    if (b->oom) return;
-    if (b->n + n + 1 > b->cap) {
+    if (b->oom || !n) return;
+    if (b->n == SIZE_MAX || n > SIZE_MAX - b->n - 1) { b->oom = 1; return; }
+    size_t need = b->n + n + 1;
+    if (need > b->cap) {
         size_t nc = b->cap ? b->cap : 256;
-        while (nc < b->n + n + 1) nc *= 2;
+        while (nc < need) {
+            if (nc > SIZE_MAX / 2) { nc = need; break; }
+            nc *= 2;
+        }
         char *np = realloc(b->p, nc);
         if (!np) { b->oom = 1; return; }
         b->p = np; b->cap = nc;
@@ -829,18 +834,38 @@ time_t mime_date(const char *v) {
             for (size_t k = 0; k < n; k++) if (!isdigit((unsigned char)tok[k])) numeric = 0;
             if (!numeric) { bad_time = 1; continue; }
             long x = atol(tok);
-            if (day < 0 && x >= 1 && x <= 31 && n <= 2) day = (int)x;
-            else if (year < 0) year = (int)(n <= 2 ? (x < 50 ? 2000 + x : 1900 + x) : x);
+            if (month < 0) {
+                if (day >= 0 || x < 1 || x > 31 || n > 2) bad_time = 1;
+                else day = (int)x;
+            } else if (year < 0) {
+                if (n != 2 && n != 4) bad_time = 1;
+                else year = (int)(n == 2 ? (x < 50 ? 2000 + x : 1900 + x) : x);
+            } else bad_time = 1;
             continue;
         }
         char low[32];
         for (size_t k = 0; k <= n; k++) low[k] = (char)lc((unsigned char)tok[k]);
         int found = 0;
-        for (int k = 0; k < 12; k++) if (!strncmp(low, mon[k], 3)) { month = k + 1; found = 1; break; }
+        for (int k = 0; k < 12; k++) if (!strncmp(low, mon[k], 3)) {
+            if (month >= 0) bad_time = 1;
+            month = k + 1;
+            found = 1;
+            break;
+        }
+        if (found) continue;
+        static const char *weekdays[] = { "sun", "mon", "tue", "wed", "thu", "fri", "sat" };
+        for (size_t k = 0; k < sizeof weekdays / sizeof weekdays[0]; k++)
+            if (!strcmp(low, weekdays[k])) { found = 1; break; }
         if (found) continue;
         static const struct { const char *z; int h; } zones[] = { { "ut", 0 }, { "utc", 0 }, { "gmt", 0 }, { "z", 0 }, { "est", -5 }, { "edt", -4 },
             { "cst", -6 }, { "cdt", -5 }, { "mst", -7 }, { "mdt", -6 }, { "pst", -8 }, { "pdt", -7 } };
-        for (size_t k = 0; k < sizeof zones / sizeof zones[0]; k++) if (!strcmp(low, zones[k].z)) { if (have_zone) bad_zone = 1; have_zone = 1; zone = zones[k].h * 3600; }
+        for (size_t k = 0; k < sizeof zones / sizeof zones[0]; k++) if (!strcmp(low, zones[k].z)) {
+            if (have_zone) bad_zone = 1;
+            have_zone = 1;
+            zone = zones[k].h * 3600;
+            found = 1;
+        }
+        if (!found) bad_time = 1;
     }
     if (day < 1 || month < 1 || month > 12 || year < 1970 || year > 9999 ||
         hh < 0 || hh > 23 || mm < 0 || mm > 59 || ss < 0 || ss > 60 || bad_zone || bad_time || bad_comment || !have_time) return 0;
