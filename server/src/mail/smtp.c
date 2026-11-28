@@ -497,7 +497,7 @@ int smtp_send(Account *a, const char *from, const char **rcpt, int nrcpt, const 
         }
         if (!bol) jb_raw(&d, "\r\n");
         jb_raw(&d, ".\r\n");
-        int w = d.oom || d.n + 0 != wire_len ? -1 : conn_write(c, d.p, d.n);
+        int w = d.oom || d.n != wire_len ? -1 : conn_write(c, d.p, d.n);
         jb_free(&d);
         if (w || smtp_reply(c, text, sizeof text, NULL, 0) != 250) { snprintf(err, ecap, "send: %s", text); goto out; }
         r = 0;
