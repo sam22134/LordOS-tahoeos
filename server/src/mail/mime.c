@@ -846,7 +846,7 @@ time_t mime_date(const char *v) {
         char low[32];
         for (size_t k = 0; k <= n; k++) low[k] = (char)lc((unsigned char)tok[k]);
         int found = 0;
-        for (int k = 0; k < 12; k++) if (!strncmp(low, mon[k], 3)) {
+        for (int k = 0; k < 12; k++) if (!strcmp(low, mon[k])) {
             if (month >= 0) bad_time = 1;
             month = k + 1;
             found = 1;
