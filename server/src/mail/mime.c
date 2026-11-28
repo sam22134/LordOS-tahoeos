@@ -794,10 +794,14 @@ time_t mime_date(const char *v) {
         while (*s && *s != ' ' && *s != '\t' && *s != ',' && *s != '(') s++;
         size_t n = (size_t)(s - a);
         char tok[32];
-        if (n >= sizeof tok) continue;
+        if (n >= sizeof tok) { bad_time = 1; continue; }
         memcpy(tok, a, n);
         tok[n] = 0;
         if (strchr(tok, ':')) {
+            int time_chars_valid = 1;
+            for (size_t k = 0; k < n; k++)
+                if (!isdigit((unsigned char)tok[k]) && tok[k] != ':') time_chars_valid = 0;
+            if (!time_chars_valid) { bad_time = 1; continue; }
             int th = 0, tm = 0, ts = 0, used = 0;
             int fields = sscanf(tok, "%d:%d:%d%n", &th, &tm, &ts, &used);
             if (fields == 3 && used == (int)n) {
