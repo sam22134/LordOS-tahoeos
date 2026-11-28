@@ -369,12 +369,14 @@ static int smtp_data_size(const char *msg, size_t len, size_t *wire_len) {
 }
 
 int smtp_send(Account *a, const char *from, const char **rcpt, int nrcpt, const char *msg, size_t len, char *err, size_t ecap) {
+    if (!a || !err || !ecap) return -1;
     pthread_mutex_lock(&G);
     char *pw = a->password ? strdup(a->password) : NULL;
     char *user = strndup(a->user, sizeof a->user);
     Server s = a->smtp;
-    char pin[96];
+    char pin[96], account_id[128];
     snprintf(pin, sizeof pin, "%s", a->pin_smtp);
+    snprintf(account_id, sizeof account_id, "%s", a->id);
     pthread_mutex_unlock(&G);
     if (!pw || !user) {
         if (pw) { explicit_bzero(pw, strlen(pw)); free(pw); }
@@ -385,7 +387,7 @@ int smtp_send(Account *a, const char *from, const char **rcpt, int nrcpt, const 
     if (s.sec == SEC_NONE || !s.host[0]) { explicit_bzero(pw, strlen(pw)); free(pw); free(user); snprintf(err, ecap, s.host[0] ? "insecure" : "no SMTP server"); return -1; }
     TlsInfo ti;
     char why[64], text[512], caps[4096];
-    Conn *c = open_conn(a->id, 1, s.host, s.port, s.sec == SEC_SSL, pin, &ti, why, sizeof why);
+    Conn *c = open_conn(account_id, 1, s.host, s.port, s.sec == SEC_SSL, pin, &ti, why, sizeof why);
     if (!c) { explicit_bzero(pw, strlen(pw)); free(pw); free(user); snprintf(err, ecap, "%s", why); return -1; }
     int r = -1;
     if (smtp_reply(c, text, sizeof text, NULL, 0) != 220) { snprintf(err, ecap, "greeting: %s", text); goto out; }
@@ -399,7 +401,7 @@ int smtp_send(Account *a, const char *from, const char **rcpt, int nrcpt, const 
             if (ti.code) {
                 JBuf b;
                 jb_init(&b);
-                jb_raw(&b, "{\"ev\":\"cert\",\"acct\":"); jb_str(&b, a->id);
+                jb_raw(&b, "{\"ev\":\"cert\",\"acct\":"); jb_str(&b, account_id);
                 jb_raw(&b, ",\"host\":"); jb_str(&b, s.host);
                 jb_printf(&b, ",\"port\":%d,\"smtp\":true,\"reason\":", s.port); jb_str(&b, ti.reason);
                 jb_raw(&b, ",\"subject\":"); jb_str(&b, ti.subject);
@@ -447,7 +449,7 @@ int smtp_send(Account *a, const char *from, const char **rcpt, int nrcpt, const 
         if (code != 235) { snprintf(err, ecap, "auth: %s", text); r = -2; goto out; }
     }
     if (!msg) { r = 0; goto out; }          /* a login test */
-    if (!from || !valid_email(from) || nrcpt <= 0 || nrcpt > 300) {
+    if (!from || !valid_email(from) || !rcpt || nrcpt <= 0 || nrcpt > 300) {
         snprintf(err, ecap, "invalid envelope");
         goto out;
     }
