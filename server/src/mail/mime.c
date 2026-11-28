@@ -391,7 +391,7 @@ static void raw_header_utf8(Buf *b, const char *s, size_t n) {
 }
 
 void mime_decode_words(const char *in, char *out, size_t cap) {
-    if (!cap) return;
+    if (!out || !cap) return;
     Buf b = { 0 };
     size_t n = in ? strlen(in) : 0;
     size_t i = 0, lit = 0;
@@ -468,7 +468,7 @@ static void pct_decode(Buf *b, const char *s, size_t n) {
 }
 
 int mime_param(const char *value, const char *name, char *out, size_t cap) {
-    if (!cap) return 0;
+    if (!out || !cap || !name || !*name) return 0;
     out[0] = 0;
     if (!value) return 0;
     size_t nl = strlen(name);
@@ -657,12 +657,14 @@ static void parse_part(MimeMsg *m, const char *data, size_t len, int parent, int
 }
 
 void mime_parse(const char *msg, size_t len, MimeMsg *out) {
+    if (!out) return;
     out->nparts = 0;
     out->truncated = 0;
     parse_part(out, msg ? msg : "", msg ? len : 0, -1, 0);
 }
 
 char *mime_decode_body(const MimePart *p, size_t *olen) {
+    if (!p || (!p->body && p->blen) || p->blen > (size_t)-4) return NULL;
     char *out = malloc(p->blen + 4);
     if (!out) return NULL;
     size_t n;
@@ -675,6 +677,7 @@ char *mime_decode_body(const MimePart *p, size_t *olen) {
 }
 
 char *mime_part_text(const MimePart *p, size_t *olen) {
+    if (!p) return NULL;
     size_t n;
     char *raw = mime_decode_body(p, &n);
     if (!raw) return NULL;
@@ -688,7 +691,7 @@ char *mime_part_text(const MimePart *p, size_t *olen) {
 static int addrs_raw(const char *value, MimeAddr *out, int max);
 
 int mime_addrs(const char *value, MimeAddr *out, int max) {
-    if (!value) return 0;
+    if (!value || !out || max <= 0) return 0;
     int n = addrs_raw(value, out, max);
     /* broken mailers encode the whole "Name <addr>" as one encoded word: decode, then parse */
     if (!n && strstr(value, "=?")) {
